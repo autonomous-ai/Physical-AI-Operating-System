@@ -1,7 +1,7 @@
 //! What the kernel has said since boot about the lamp's storage. Only what
-//! hurts fails: an I/O error on the card, an ext4 error, the filesystem
+//! hurts the card (a line naming `mmcblk`) fails: an I/O error, an ext4 error, its filesystem
 //! remounted read-only, or a task the kernel saw blocked for minutes. The
-//! SD/MMC hosts' periodic re-tune (#784: every 3,670 s on each of the two
+//! SD/MMC hosts' periodic re-tune (#784: about hourly, 3,670 s on lamp-52e6, on each of the two
 //! sunxi hosts, often with "wait dma hold bit clear timeout") is counted
 //! and passes; the parts ride it out since #791 and #911.
 //! Read from `/dev/kmsg`, which every record since boot is in until the
@@ -23,6 +23,12 @@ pub const DMA_TIMEOUT: &str = "dma hold bit clear timeout";
 /// hourly round: lamp-52e6 on 17 Oct re-tuned each host every 3,669.8 to
 /// 3,670.0 s, lamp-4ace every 61 minutes (#784).
 pub const RETUNE_OFTEN_S: f64 = 3_000.0;
+
+/// The SD card's block devices (`mmcblk1`, `mmcblk1p1`; `mmcblk0` on a
+/// board that numbers it so). A fault line counts only when it names one:
+/// a USB stick's `sda1`, or a USB audio task hung after a hub drop, is
+/// not the card.
+pub const CARD: &str = "mmcblk";
 
 /// ext4 reporting a fault it found (`__ext4_error`).
 pub const EXT4_ERROR: &str = "EXT4-fs error";
@@ -50,8 +56,10 @@ pub struct Storage {
     pub ext4_errors: usize,
     /// The filesystem remounted read-only.
     pub read_only: bool,
-    /// Tasks the kernel saw blocked.
+    /// Tasks the kernel saw blocked on the card (`jbd2/mmcblk1p1-8`).
     pub blocked: usize,
+    /// Tasks the kernel saw blocked that do not name the card; they pass.
+    pub blocked_other: usize,
     /// Records of this boot the ring no longer held: the first one kept was
     /// not the boot's first (sequence 0), or some were overwritten while
     /// they were read.
@@ -99,7 +107,11 @@ impl Storage {
             }
         } else if message.contains(DMA_TIMEOUT) {
             self.dma_timeouts += 1;
-        } else if message.contains("I/O error") && message.contains("mmcblk") {
+        } else if !message.contains(CARD) {
+            if message.contains(BLOCKED) {
+                self.blocked_other += 1;
+            }
+        } else if message.contains("I/O error") {
             self.io_errors += 1;
         } else if message.contains(EXT4_ERROR) {
             self.ext4_errors += 1;
@@ -113,23 +125,31 @@ impl Storage {
     /// What hurt, worst first, if anything did.
     fn fault(&self) -> Option<String> {
         if self.read_only {
-            Some("the filesystem was remounted read-only".into())
+            Some("the card's filesystem was remounted read-only".into())
         } else if self.io_errors > 0 {
             Some(format!(
-                "{} I/O errors on the card since boot",
-                self.io_errors
+                "{} on the card since boot",
+                times(self.io_errors, "I/O error", "I/O errors")
             ))
         } else if self.ext4_errors > 0 {
-            Some(format!("{} ext4 errors since boot", self.ext4_errors))
+            Some(format!(
+                "{} on the card since boot",
+                times(self.ext4_errors, "ext4 error", "ext4 errors")
+            ))
         } else if self.blocked > 0 {
             Some(format!(
-                "the kernel saw {} tasks blocked for minutes since boot",
-                self.blocked
+                "the kernel saw {} on the card for minutes since boot",
+                times(self.blocked, "task blocked", "tasks blocked")
             ))
         } else {
             None
         }
     }
+}
+
+/// `1 I/O error`, `2 I/O errors`.
+fn times(n: usize, one: &str, many: &str) -> String {
+    format!("{n} {}", if n == 1 { one } else { many })
 }
 
 /// The storage is healthy if the kernel reported no fault that hurts
@@ -158,22 +178,25 @@ pub fn storage(heard: &Result<Storage, String>) -> PartResult {
         .filter(|gap| *gap < RETUNE_OFTEN_S);
     let result = if let Some(fault) = storage.fault() {
         PartResult::new(part, Verdict::Fail, &fault)
-    } else if let Some(gap) = often {
-        PartResult::new(
-            part,
-            Verdict::Pass,
-            &format!("the SD/MMC host re-tuned more often than hourly, {gap:.0} s apart (#784)"),
-        )
     } else if storage.lost {
         PartResult::new(
             part,
             Verdict::NotChecked,
             &format!(
-                "no fault in the kernel's log, but it no longer holds all of this boot (first record kept: {})",
+                "no fault in the kernel's log, but it no longer holds all of this boot (first record kept: {}){}",
                 storage
                     .first_sequence
-                    .map_or("unknown".into(), |first| first.to_string())
+                    .map_or("unknown".into(), |first| first.to_string()),
+                often.map_or(String::new(), |gap| format!(
+                    "; the SD/MMC host re-tuned more often than hourly, {gap:.0} s apart"
+                ))
             ),
+        )
+    } else if let Some(gap) = often {
+        PartResult::new(
+            part,
+            Verdict::Pass,
+            &format!("the SD/MMC host re-tuned more often than hourly, {gap:.0} s apart (#784)"),
         )
     } else {
         PartResult::new(part, Verdict::Pass, "")
@@ -184,6 +207,7 @@ pub fn storage(heard: &Result<Storage, String>) -> PartResult {
         .with("io_errors", storage.io_errors)
         .with("ext4_errors", storage.ext4_errors)
         .with("blocked", storage.blocked)
+        .with("blocked_other", storage.blocked_other)
         .with("records", storage.records);
     let result = match often {
         Some(gap) => result.with("shortest_retune_gap_s", format!("{gap:.0}")),
@@ -416,15 +440,15 @@ mod tests {
         for (line, says) in [
             (
                 "3,9,1,-;blk_update_request: I/O error, dev mmcblk1, sector 2048 op 0x1:(WRITE) flags 0x800 phys_seg 1 prio class 0",
-                "I/O errors",
+                "1 I/O error on the card",
             ),
             (
                 "3,9,1,-;Buffer I/O error on dev mmcblk1p1, logical block 0, lost sync page write",
-                "I/O errors",
+                "1 I/O error on the card",
             ),
             (
                 "2,9,1,-;EXT4-fs error (device mmcblk1p1): ext4_journal_check_start:83: comm systemd-journal: Detected aborted journal",
-                "ext4 errors",
+                "1 ext4 error on the card",
             ),
             (
                 "2,9,1,-;EXT4-fs (mmcblk1p1): Remounting filesystem read-only",
@@ -432,7 +456,7 @@ mod tests {
             ),
             (
                 "3,9,1,-;INFO: task jbd2/mmcblk1p1-8:187 blocked for more than 120 seconds.",
-                "blocked",
+                "1 task blocked on the card",
             ),
         ] {
             let mut records = vec!["6,0,0,-;Booting".to_owned(), line.to_owned()];
@@ -441,6 +465,47 @@ mod tests {
             assert_eq!(result.verdict, Verdict::Fail, "{line}");
             assert!(result.reason.contains(says), "{line}: {}", result.reason);
         }
+    }
+
+    /// A fault line that names another device than the card (a USB
+    /// stick's `sda1`, an audio task hung after a hub drop) passes.
+    #[test]
+    fn faults_off_the_card_pass() {
+        let heard = counted(&[
+            "6,0,0,-;Booting",
+            "2,9,1,-;EXT4-fs error (device sda1): ext4_find_entry:1455: inode #2: comm ls: reading directory lblock 0",
+            "2,10,2,-;EXT4-fs (sda1): Remounting filesystem read-only",
+            "3,11,3,-;blk_update_request: I/O error, dev sda, sector 2048 op 0x0:(READ) flags 0x0 phys_seg 1 prio class 0",
+            "3,12,4,-;INFO: task lamp-voice:812 blocked for more than 120 seconds.",
+        ]);
+        assert_eq!(heard.blocked_other, 1);
+        let result = storage(&Ok(heard));
+        assert_eq!(result.verdict, Verdict::Pass, "{result:?}");
+        assert!(
+            result
+                .values
+                .iter()
+                .any(|v| v.key == "blocked_other" && v.value == "1")
+        );
+    }
+
+    #[test]
+    fn many_faults_are_counted_in_the_plural() {
+        let line = "3,9,1,-;blk_update_request: I/O error, dev mmcblk1, sector 2048 op 0x1:(WRITE) flags 0x800 phys_seg 1 prio class 0";
+        let result = storage(&Ok(counted(&["6,0,0,-;Booting", line, line])));
+        assert_eq!(result.reason, "2 I/O errors on the card since boot");
+    }
+
+    /// A ring that lost the boot's start is not checked even when what it
+    /// kept re-tunes often; the gap stays in the reason.
+    #[test]
+    fn a_lost_log_with_frequent_retunes_is_not_checked_and_keeps_the_gap() {
+        let mut records = vec!["6,4100,119018110579,-;x".to_owned()];
+        records.extend(round(124_816_284_246, 4101));
+        records.extend(round(124_816_284_246 + 1_200_000_000, 4107));
+        let result = storage(&Ok(heard_all(&records)));
+        assert_eq!(result.verdict, Verdict::NotChecked, "{result:?}");
+        assert!(result.reason.contains("1200 s apart"), "{}", result.reason);
     }
 
     #[test]

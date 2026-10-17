@@ -286,7 +286,12 @@ impl RoomTold {
     /// lamp-4ace (17 October), with the umbrella line held, the asker's own
     /// "Yes, and we should leave a bit early.", to the other person, would
     /// otherwise have been answered as the conversation still going on.
+    /// A sound let through is no one's voice, and no talk: it ends nothing
+    /// (the reviewer on #1415).
     pub fn another_voice_held(&mut self, request: u64) {
+        if self.sound == Some(request) {
+            return;
+        }
         if self.talk_only {
             self.talk_counted = self.talk_counted.max(request);
             self.talk_since_spoke = self.talk_since_spoke.max(TALK_ENDS_CONVERSATION);
@@ -805,6 +810,17 @@ mod tests {
         assert!(!room.talked_past_the_lamp());
         let (ended, room) = after(false);
         assert!(!ended && !room.talked_past_the_lamp());
+        // A sound let through, a thump or a chair heard for 1.5 s, is no
+        // voice: held, it ends nothing.
+        let mut room = RoomTold::new();
+        room.count_only_talk(true);
+        said(&mut room, 1, 0);
+        room.spoke(1, 4 * S);
+        said(&mut room, 2, 8);
+        room.ended_as_sound(2, 10 * S);
+        room.another_voice_held(2);
+        room.unanswered(2, 11 * S);
+        assert!(!room.talked_past_the_lamp());
     }
 
     /// The sixth on #1029: lines answered by a call and no words are

@@ -1111,6 +1111,31 @@ ordered by the event, not by time. The old test passed with the same sleep
 (4.1 s): it was in the group for its length, not for a bound a loaded
 runner misses. It left the group, in all three filtersets, on 2026-10-17.
 
+## The self-test's ring check on a clock its tests step (#1128)
+
+`lamp-selftest`'s ring tests were the slowest on pull requests: in run
+38997949448, `a_ring_that_draws_nothing_is_not_checked_not_failed` took
+10.0 s, `a_colour_never_drawn_fails_naming_it` 3.8 s and
+`every_colour_drawn_passes_and_the_persons_light_is_never_written` 3.1 s.
+`ask_colours` waits on the host clock up to `DRAWN_WITHIN` (1 s) for each of
+the ten colours to be drawn, then holds each one drawn for `HOLD` (300 ms).
+
+The check now reads a small clock (`now` and `pause`); the lamp's is the
+host's, as before (`ask_colours` and `Ring`'s `Check::run`). Those three
+tests give it a stepped clock that stands still until the check pauses, and
+then moves on only once the stand-in ring owner has drawn or refused every
+colour asked so far (the last `light/test` it handled, against the bus's
+latest). The 1 s for a refused colour and each hold take no real time, and a
+colour is never missed for want of the owner's thread. The two tests where a
+person asks for a light after a real time stay on the host clock. Every
+assertion is unchanged.
+
+The seven ring tests take 0.93 s together, one at a time, on the Intel Mac.
+With a 1.2 s stall in the stand-in owner before each draw, the host-clock
+version fails three tests and this one only the hold test, which is on the
+host clock by design. With 400 ms, both pass. 30 copies at once, three
+rounds: 90 of 90.
+
 ## The kept-note read gets the test's own bound (#1269)
 
 `remember::tests::someone_known_keeps_to_their_own_and_is_answered_from_theirs_then_the_room`

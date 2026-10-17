@@ -1131,7 +1131,7 @@ mod summary_tests {
             Some("done"),
             400.0,
             now - 10 * second,
-            [0, 0, 0, 0],
+            [0, 1, 0, 0],
         )
         .into_bytes();
         ring.push(0xff);
@@ -1152,5 +1152,26 @@ mod summary_tests {
         assert!(text.contains("60.0 ms work (loop) 0m05s ago"), "{text}");
         assert!(text.contains("it woke late"), "{text}");
         assert!(!text.contains("not Linux"), "{text}");
+    }
+
+    /// A pass with no counter moved is its own work on Linux, where they are
+    /// counted, and only off Linux a pass with none.
+    #[test]
+    fn a_pass_with_no_counter_moved_is_no_counters_only_off_linux() {
+        let dir = std::env::temp_dir().join(format!("stalls-summary-c-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let now = 3_600_000_000u64;
+        let ring = line("ring", "work", Some("done"), 400.0, now - 1_000_000, [0; 4]);
+        std::fs::write(dir.join("stalls-ring.log"), ring).unwrap();
+        let text = summary(&dir, now, 60_000_000).unwrap();
+        let cpu = text.contains("it ran that long on the CPU (its own work)");
+        let none = text.contains("no counters (not Linux)");
+        assert_eq!(
+            (cpu, none),
+            (cfg!(target_os = "linux"), !cfg!(target_os = "linux")),
+            "{text}"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

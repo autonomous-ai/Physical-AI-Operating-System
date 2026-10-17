@@ -887,10 +887,14 @@ fn a_speaker_held_up_ends_the_capture_worker_unless_recovery_is_bounded() {
     );
     // Not before the 40 ms queued that the speaker's last packet reported
     // have run out (on cb94 it was 19 ms); the worker ends a block or two
-    // after the block it found that on.
+    // after the block it found that on. And within the 10 quiet blocks the
+    // bounded half below goes through (the reviewer on #1298).
     let quiet_for = rig.pushed_at.len() - 100;
     eprintln!("off: ended after {quiet_for} quiet blocks");
-    assert!(quiet_for >= 4, "ended after {quiet_for} quiet blocks");
+    assert!(
+        (4..=10).contains(&quiet_for),
+        "ended after {quiet_for} quiet blocks"
+    );
     let ended = rig.worker.take().unwrap().join().unwrap();
     assert!(
         ended.as_ref().unwrap_err().contains("ReferenceLate"),

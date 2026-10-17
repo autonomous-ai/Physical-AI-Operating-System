@@ -24,18 +24,45 @@ pub const CARD: &str = "device_micro2";
 /// Where the kernel lists its sound cards.
 pub const SOUND: &str = "/sys/class/sound";
 
-/// The voice microphone on USB: whether its card is there now, its port,
-/// and how often the kernel saw it go since boot.
+/// The voice microphone on USB: whether its card is there now, whether
+/// this lamp has a Jieli at all, its port, and how often the kernel saw it
+/// go.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Usb {
     /// Its sound card is there now.
     pub present: bool,
+    /// A Jieli is this lamp's voice microphone: its card is there, or the
+    /// kernel found one this boot. On an image whose mic is another
+    /// (ReSpeaker, XVF3800), `device_micro2` is only an ALSA alias and no
+    /// card has that name (the reviewer on #1304), so its absence says
+    /// nothing there.
+    pub jieli: bool,
     /// Its USB port (`3-1.1.1`), from its card now or from the kernel's
     /// record of a Jieli device being found there.
     pub port: Option<String>,
-    /// `USB disconnect` records for that port since boot; `None` if the
-    /// kernel's log could not be read.
+    /// `USB disconnect` records for that port in the kernel's log; `None`
+    /// if the log could not be read or no port is known.
     pub drops: Option<usize>,
+    /// The log reaches back to boot: its first record is the boot's first,
+    /// and none was overwritten while it was read. Otherwise the drops are
+    /// "at least".
+    pub since_boot: bool,
+}
+
+impl Usb {
+    /// The drops, as said: "2 times since boot", or "at least 2 times" when
+    /// the kernel's log no longer reaches back to boot.
+    fn drops_said(&self) -> Option<String> {
+        let drops = self.drops?;
+        let times = if drops == 1 { "time" } else { "times" };
+        Some(if self.since_boot {
+            format!("{drops} {times} since boot")
+        } else {
+            format!(
+                "at least {drops} {times} since boot (the kernel's log no longer reaches back to boot)"
+            )
+        })
+    }
 }
 
 /// The USB port a sound card's device path sits on: the last path
@@ -53,11 +80,21 @@ pub fn port_of(device: &str) -> Option<String> {
 pub struct UsbRecords {
     pub jieli_ports: Vec<String>,
     pub disconnects: Vec<String>,
+    /// Records read, and the first one's sequence (the boot's first is 0).
+    pub records: usize,
+    pub first_sequence: Option<u64>,
 }
 
 impl UsbRecords {
     pub fn count(&mut self, record: &str) {
-        let text = record.split_once(';').map_or(record, |(_, text)| text);
+        if record.starts_with(' ') {
+            return;
+        }
+        let (prefix, text) = record.split_once(';').unwrap_or(("", record));
+        if self.records == 0 {
+            self.first_sequence = prefix.split(',').nth(1).and_then(|s| s.parse().ok());
+        }
+        self.records += 1;
         let Some(rest) = text.strip_prefix("usb ") else {
             return;
         };
@@ -94,19 +131,21 @@ pub fn usb(sound: &std::path::Path, kmsg: &str) -> Usb {
     });
     let present = card_port.is_some();
     let mut records = UsbRecords::default();
-    let read = kernel::each_record(kmsg, |line| records.count(line)).is_ok();
+    let overwritten = kernel::each_record(kmsg, |line| records.count(line));
+    let read = overwritten.is_ok();
     let port = card_port
         .flatten()
         .or_else(|| records.jieli_ports.last().cloned());
     let drops = match (&port, read) {
         (Some(port), true) => Some(records.drops(port)),
-        (None, true) => Some(0),
-        (_, false) => None,
+        _ => None,
     };
     Usb {
         present,
+        jieli: present || !records.jieli_ports.is_empty(),
         port,
         drops,
+        since_boot: overwritten == Ok(false) && records.first_sequence == Some(0),
     }
 }
 
@@ -157,18 +196,28 @@ pub fn voice_mic(declared: bool, heard: &Result<Heard, String>, usb: Option<&Usb
         if let Some(port) = &usb.port {
             result = result.with("usb_port", port);
         }
+        if !usb.jieli {
+            // No Jieli on this lamp, or none the log still holds: nothing
+            // to say of its USB.
+            return result.with(
+                "on_usb",
+                "unknown: no Jieli card here, and none in the kernel's log",
+            );
+        }
         result = result.with("on_usb", usb.present);
         result = match usb.drops {
-            Some(drops) => result.with("usb_drops", drops),
-            None => result.with("usb_drops", "unknown: the kernel's log could not be read"),
+            Some(drops) if usb.since_boot => result.with("usb_drops", drops),
+            Some(drops) => result.with("usb_drops", format!("at least {drops}")),
+            None => result.with(
+                "usb_drops",
+                "unknown: the kernel's log could not be read (it needs CAP_SYSLOG), or the port is not known",
+            ),
         };
-        if let Some(drops @ 1..) = usb.drops
+        if usb.drops.is_some_and(|drops| drops > 0)
             && result.verdict != Verdict::Fail
+            && let Some(said) = usb.drops_said()
         {
-            let off = format!(
-                "off USB {drops} time{} since boot",
-                if drops == 1 { "" } else { "s" }
-            );
+            let off = format!("off USB {said}");
             result.reason = if result.reason.is_empty() {
                 off
             } else {
@@ -192,14 +241,12 @@ fn judged(declared: bool, heard: &Result<Heard, String>, usb: Option<&Usb>) -> P
         Ok(heard) => heard,
     };
     if heard.blocks == 0 {
-        if let Some(usb) = usb.filter(|usb| !usb.present) {
-            let drops = match usb.drops {
-                Some(drops) => format!(
-                    ", off USB {drops} time{} since boot",
-                    if drops == 1 { "" } else { "s" }
-                ),
-                None => String::new(),
-            };
+        // Gone only where a Jieli is the voice mic: on another image
+        // `device_micro2` is no card at all.
+        if let Some(usb) = usb.filter(|usb| usb.jieli && !usb.present) {
+            let drops = usb
+                .drops_said()
+                .map_or(String::new(), |said| format!(", off USB {said}"));
             return PartResult::new(
                 part,
                 Verdict::Fail,
@@ -440,8 +487,10 @@ mod tests {
             there,
             Usb {
                 present: true,
+                jieli: true,
                 port: Some("3-1.1.1".into()),
                 drops: Some(1),
+                since_boot: true,
             }
         );
         std::fs::remove_dir_all(sound.join("card4")).unwrap();
@@ -450,8 +499,38 @@ mod tests {
             (gone.present, gone.port.as_deref(), gone.drops),
             (false, Some("3-1.1.1"), Some(1))
         );
+        assert!(gone.jieli && gone.since_boot);
         let unread = usb(&sound, "/nonexistent/kmsg");
-        assert_eq!((unread.present, unread.drops), (false, None));
+        assert_eq!(
+            (unread.present, unread.jieli, unread.drops),
+            (false, false, None)
+        );
+        // A ring that no longer starts at the boot's first record: the
+        // drops are "at least".
+        let wrapped = root.join("wrapped");
+        std::fs::write(
+            &wrapped,
+            "6,5000,9,-;usb 3-1.1.1: Manufacturer: Jieli Technology\n6,5001,10,-;usb 3-1.1.1: USB disconnect, device number 9\n",
+        )
+        .unwrap();
+        let late = usb(&sound, wrapped.to_str().unwrap());
+        assert_eq!(
+            (late.jieli, late.drops, late.since_boot),
+            (true, Some(1), false)
+        );
+        // An image whose voice mic is no Jieli: no card by that name, and
+        // none in the kernel's log.
+        let other = root.join("other");
+        std::fs::write(
+            &other,
+            "6,0,0,-;Booting\n6,1,1,-;usb 3-1.1.1: Manufacturer: Seeed\n",
+        )
+        .unwrap();
+        let none = usb(&sound, other.to_str().unwrap());
+        assert_eq!(
+            (none.present, none.jieli, none.port, none.drops),
+            (false, false, None, None)
+        );
         let _ = std::fs::remove_dir_all(&root);
     }
 
@@ -461,8 +540,10 @@ mod tests {
     fn a_microphone_off_usb_fails_and_its_drops_are_said() {
         let gone = Usb {
             present: false,
+            jieli: true,
             port: Some("3-1.1.1".into()),
             drops: Some(2),
+            since_boot: true,
         };
         let off = voice_mic(true, &Ok(Heard::default()), Some(&gone));
         assert_eq!(off.verdict, Verdict::Fail);
@@ -509,10 +590,53 @@ mod tests {
             &Ok(Heard::default()),
             Some(&Usb {
                 present: true,
+                jieli: true,
                 port: None,
-                drops: Some(0),
+                drops: None,
+                since_boot: true,
             }),
         );
         assert_eq!(quiet.verdict, Verdict::NotChecked);
+    }
+
+    /// The reviewer's P3s on #1304. Another image's voice mic, muted: no
+    /// `device_micro2` card and no Jieli in the log is no fail, and nothing
+    /// is said of USB. A log that no longer reaches back to boot says "at
+    /// least". With no port known, the drops are unknown, never 0.
+    #[test]
+    fn only_a_jieli_lamp_fails_off_usb_and_drops_are_said_as_far_as_the_log_reaches() {
+        let value = |result: &PartResult, key: &str| {
+            result
+                .values
+                .iter()
+                .find(|v| v.key == key)
+                .map(|v| v.value.clone())
+        };
+        let other = voice_mic(true, &Ok(Heard::default()), Some(&Usb::default()));
+        assert_eq!(other.verdict, Verdict::NotChecked, "{other:?}");
+        assert!(value(&other, "usb_drops").is_none());
+        assert!(value(&other, "on_usb").unwrap().starts_with("unknown"));
+        let wrapped = Usb {
+            present: false,
+            jieli: true,
+            port: Some("3-1.1.1".into()),
+            drops: Some(2),
+            since_boot: false,
+        };
+        let off = voice_mic(true, &Ok(Heard::default()), Some(&wrapped));
+        assert_eq!(off.verdict, Verdict::Fail);
+        assert_eq!(
+            off.reason,
+            "not on USB now: no sound card device_micro2, off USB at least 2 times since boot (the kernel's log no longer reaches back to boot)"
+        );
+        assert_eq!(value(&off, "usb_drops").as_deref(), Some("at least 2"));
+        let portless = Usb {
+            port: None,
+            drops: None,
+            ..wrapped
+        };
+        let off = voice_mic(true, &Ok(Heard::default()), Some(&portless));
+        assert_eq!(off.reason, "not on USB now: no sound card device_micro2");
+        assert!(value(&off, "usb_drops").unwrap().starts_with("unknown"));
     }
 }

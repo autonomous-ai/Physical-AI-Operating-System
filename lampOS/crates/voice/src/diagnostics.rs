@@ -114,6 +114,22 @@ pub struct CaptureMeta {
     pub vad_score: f32,
 }
 
+/// A reference step taken while its capture block is still held back
+/// (`CaptureHold`): the reference took its render block and gave it to the
+/// canceller, and the block is cancelled and recorded some steps later with
+/// a later step's cursor. Without these the replay cannot take the held
+/// steps as the lamp did (#828). No PCM.
+#[derive(Clone, Copy, Debug, Default, Serialize)]
+pub struct ReferenceStepMeta {
+    pub epoch: u64,
+    pub dsp_epoch: u64,
+    pub privacy_generation: u64,
+    /// The block read at this step, which waits in the hold.
+    pub frame_sequence: u64,
+    pub at_us: u64,
+    pub reference: ReferenceMeta,
+}
+
 /// Actual ALSA acceptance; accepted PCM may subsequently be discarded unplayed.
 #[derive(Clone, Copy, Debug, Default, Serialize)]
 pub struct RenderMeta {
@@ -188,6 +204,7 @@ pub struct EndMeta {
 #[derive(Clone, Copy)]
 enum Record {
     Capture(CaptureMeta, [i16; 160], [i16; 160]),
+    ReferenceStep(ReferenceStepMeta),
     Render(RenderMeta, u16, [i16; 240]),
     Silence(RenderMeta, SilenceKind, u16),
     Reset(ResetMeta),
@@ -198,6 +215,7 @@ impl Record {
     fn at_us(&self) -> u64 {
         match self {
             Self::Capture(m, ..) => m.processing_completed_at_us,
+            Self::ReferenceStep(m) => m.at_us,
             Self::Render(m, ..) | Self::Silence(m, ..) => m.queue_observed_at_us,
             Self::Reset(m) => m.at_us,
             Self::Privacy(m) => m.at_us,
@@ -421,6 +439,12 @@ impl Recorder {
             return self.invalid();
         }
         self.submit(Record::Capture(meta, *pre_aec, *post_aec))
+    }
+    pub fn try_reference_step(&mut self, meta: ReferenceStepMeta) -> SubmitResult {
+        if self.config.stream != StreamKind::Capture || meta.epoch == 0 || meta.dsp_epoch == 0 {
+            return self.invalid();
+        }
+        self.submit(Record::ReferenceStep(meta))
     }
     pub fn try_render(&mut self, meta: RenderMeta, accepted: &[i16]) -> SubmitResult {
         if !self.render_valid(meta, accepted.len()) {
@@ -832,6 +856,24 @@ impl Validation {
                     return Err(DURATION_LIMIT);
                 }
             }
+            Record::ReferenceStep(meta) => {
+                // The block it waits for is not recorded yet: the next block
+                // recorded is still the one expected, or a later one held.
+                if self
+                    .privacy
+                    .is_none_or(|p| !p.open || p.generation != meta.privacy_generation)
+                    || self.capture.is_some_and(|(epoch, dsp, privacy, next)| {
+                        (epoch, dsp, privacy)
+                            != (meta.epoch, meta.dsp_epoch, meta.privacy_generation)
+                            || meta.frame_sequence < next
+                    })
+                    || self
+                        .capture_playback_epoch
+                        .is_some_and(|epoch| epoch != meta.reference.playback_epoch)
+                {
+                    return Err(BOUNDARY_ERROR);
+                }
+            }
             Record::Render(meta, frames, ..) | Record::Silence(meta, _, frames) => {
                 if self
                     .privacy
@@ -1027,6 +1069,7 @@ impl Hooks {
 fn write_record(storage: &mut Storage, envelope: &Envelope) -> io::Result<()> {
     let (kind, meta, frames, zero_kind) = match envelope.record {
         Record::Capture(meta, ..) => ("capture", serde_json::to_value(meta), 160, None),
+        Record::ReferenceStep(meta) => ("reference_step", serde_json::to_value(meta), 0, None),
         Record::Render(meta, frames, ..) => (
             "render_accepted",
             serde_json::to_value(meta),
@@ -1612,6 +1655,57 @@ mod tests {
                 StreamKind::Capture
             ),
             Err(DURATION_LIMIT)
+        );
+    }
+
+    /// #828: with a capture hold, the reference steps before the first
+    /// block is handed on. Those steps are kept before it, each naming the
+    /// block that waits; one naming a block already recorded is refused.
+    #[test]
+    fn held_reference_steps_come_before_the_block_they_wait_for() {
+        let held = |frame_sequence| {
+            Record::ReferenceStep(ReferenceStepMeta {
+                epoch: 1,
+                dsp_epoch: 1,
+                privacy_generation: 1,
+                frame_sequence,
+                at_us: 3,
+                ..ReferenceStepMeta::default()
+            })
+        };
+        let start = Record::Reset(ResetMeta {
+            at_us: 1,
+            reason: ResetReason::Start,
+            capture_epoch: 1,
+            dsp_epoch: 1,
+            playback_epoch: 0,
+            privacy_generation: 1,
+            discarded: None,
+        });
+        let mut state = Validation::default();
+        let mut records = vec![open(1), start];
+        records.extend((1..=4).map(held));
+        records.push(capture(3, 1));
+        records.push(held(5));
+        records.push(capture(3, 2));
+        for (index, record) in records.into_iter().enumerate() {
+            let envelope = Envelope {
+                sequence: index as u64 + 1,
+                record,
+            };
+            assert_eq!(
+                state.accept(&envelope, 1, StreamKind::Capture),
+                Ok(()),
+                "{index}"
+            );
+        }
+        let late = Envelope {
+            sequence: 10,
+            record: held(2),
+        };
+        assert_eq!(
+            state.accept(&late, 1, StreamKind::Capture),
+            Err(BOUNDARY_ERROR)
         );
     }
 

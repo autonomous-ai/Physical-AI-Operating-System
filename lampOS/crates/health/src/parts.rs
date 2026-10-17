@@ -244,6 +244,15 @@ pub struct SelfTests {
     /// The parts whose last checked verdict was a fail, and why, in the
     /// order they first failed.
     failed: Vec<(String, String)>,
+    /// The newest run's line for the lamp's USB hub dropping (its
+    /// `voice_mic` part's `usb_hub_said`), until a run says it never did:
+    /// a warning, since the lamp works once the hub is back, but the voice,
+    /// the body and the camera all went with it (the first builder on
+    /// #705, 17 Oct 17:31).
+    hub: Option<String>,
+    /// The same line with short names (`usb_hub_said_short`), to stand
+    /// before failed parts.
+    hub_short: Option<String>,
 }
 
 impl SelfTests {
@@ -264,6 +273,16 @@ impl SelfTests {
                 }
                 Verdict::NotChecked => {}
             }
+            if part.part == "voice_mic" {
+                let value = |key: &str| {
+                    part.values
+                        .iter()
+                        .find(|value| value.key == key)
+                        .map(|value| value.value.clone())
+                };
+                self.hub = value("usb_hub_said");
+                self.hub_short = value("usb_hub_said_short");
+            }
         }
         let unchecked = test
             .parts
@@ -274,17 +293,23 @@ impl SelfTests {
     }
 
     /// The item, once a run has come: `error` naming each part still
-    /// failed and why; else `ok`, saying how many parts the newest run
-    /// could not check. Its age is since the newest run began
+    /// failed and why, after the hub's line when the lamp's USB hub
+    /// dropped (with short names, when the whole line would not fit); else `warn` with the hub's line; else `ok`, saying how many
+    /// parts the newest run could not check. Its age is since the newest run began
     /// (`now_unix_s`, the wall clock's seconds); it is never stale.
     pub fn item(&self, now_unix_s: f64) -> Option<HealthItem> {
         let (started, unchecked) = self.newest?;
         let (level, message) = if self.failed.is_empty() {
-            let message = match unchecked {
-                0 => "passed".to_owned(),
-                n => format!("passed; {n} not checked"),
-            };
-            (Level::Ok, message)
+            match &self.hub {
+                Some(hub) => (Level::Warn, hub.clone()),
+                None => {
+                    let message = match unchecked {
+                        0 => "passed".to_owned(),
+                        n => format!("passed; {n} not checked"),
+                    };
+                    (Level::Ok, message)
+                }
+            }
         } else {
             let failed: Vec<String> = self
                 .failed
@@ -292,10 +317,25 @@ impl SelfTests {
                 .map(|(part, reason)| format!("{} ({reason})", part_known_as(part)))
                 .collect();
             let parts = if failed.len() == 1 { "part" } else { "parts" };
-            (
-                Level::Error,
-                format!("{} {parts} failing: {}", failed.len(), failed.join(", ")),
-            )
+            let mut message = format!("{} {parts} failing: {}", failed.len(), failed.join(", "));
+            // The hub first, so the line's cap never cuts it. When the
+            // whole of it and the failed parts don't fit, its short names,
+            // so the part's name still fits and at worst the end of its
+            // reason is cut. A run from before the short line gives the
+            // hub's drops alone.
+            if let Some(hub) = &self.hub {
+                let whole = format!("{hub}; {message}");
+                message = if whole.len() <= MOST_MESSAGE_BYTES {
+                    whole
+                } else {
+                    let short = self.hub_short.as_deref().unwrap_or_else(|| {
+                        hub.split_once("; ")
+                            .map_or(hub.as_str(), |(drops, _)| drops)
+                    });
+                    format!("{short}; {message}")
+                };
+            }
+            (Level::Error, message)
         };
         let age_s = (now_unix_s - started).max(0.0);
         Some(HealthItem {
@@ -530,6 +570,102 @@ mod tests {
     /// #812: the item names each part that failed and why, says how many
     /// the newest run could not check when none failed, and is as old as
     /// the newest run; there is none before a run came.
+    /// The first builder on #705, 17 Oct 17:31: the self-test's line for the
+    /// lamp's USB hub dropping is a warning on its own, beside a failed
+    /// part's error, and gone once a run says nothing of it.
+    #[test]
+    fn a_hub_that_dropped_is_a_warning_until_a_run_says_it_did_not() {
+        // lamp-4ace's four ports, as the self-test says them.
+        let said = "the lamp's USB hub dropped 2 times since boot; the voice mic, the body's servo port, \
+                    the speaker with the room mic and the camera went with it";
+        let short = "the lamp's USB hub dropped 2 times since boot, with the voice mic, servo port, \
+                     speaker and camera";
+        let with_hub = |verdict: Verdict| {
+            let mut test = run(&[("voice_mic", verdict, "")], 1_000.0);
+            test.parts[0] = test.parts[0]
+                .clone()
+                .with("usb_hub_said", said)
+                .with("usb_hub_said_short", short);
+            test
+        };
+        let mut tests = SelfTests::default();
+        tests.take(&with_hub(Verdict::Pass));
+        let item = tests.item(1_001.0).unwrap();
+        assert_eq!((item.level, item.message.as_str()), (Level::Warn, said));
+        tests.take(&run(&[("storage", Verdict::Fail, "9 re-tunes")], 1_002.0));
+        let item = tests.item(1_003.0).unwrap();
+        assert_eq!(item.level, Level::Error);
+        // Beside a failed part, the hub's short line: what went with it
+        // and the part both said.
+        assert_eq!(
+            item.message,
+            format!("{short}; 1 part failing: the SD card (9 re-tunes)")
+        );
+        // A short hub line fits whole beside a failed part.
+        let mut tests = SelfTests::default();
+        let mut test = run(&[("storage", Verdict::Fail, "9 re-tunes")], 1_000.0);
+        test.parts.push(
+            run(&[("voice_mic", Verdict::Pass, "")], 1_000.0).parts[0]
+                .clone()
+                .with(
+                    "usb_hub_said",
+                    "the lamp's USB hub dropped 1 time since boot; the camera went with it",
+                ),
+        );
+        tests.take(&test);
+        assert_eq!(
+            tests.item(1_001.0).unwrap().message,
+            "the lamp's USB hub dropped 1 time since boot; the camera went with it; \
+             1 part failing: the SD card (9 re-tunes)"
+        );
+        // Whatever fails, the hub's drops come first and whole, and once:
+        // the log wrapped, and the mic gone with a long reason.
+        let wrapped = said.replace("dropped 2", "dropped at least 2");
+        assert!(wrapped.len() <= MOST_MESSAGE_BYTES);
+        let mut tests = SelfTests::default();
+        let mut test = run(
+            &[(
+                "voice_mic",
+                Verdict::Fail,
+                "not on USB now: no sound card Device, the voice mic alone dropped 1 time since boot",
+            )],
+            1_008.0,
+        );
+        let wrapped_short = short.replace("dropped 2", "dropped at least 2");
+        let failed = test.parts[0].clone();
+        test.parts[0] = failed
+            .clone()
+            .with("usb_hub_said", &wrapped)
+            .with("usb_hub_said_short", &wrapped_short);
+        tests.take(&test);
+        let item = tests.item(1_009.0).unwrap();
+        assert_eq!(item.level, Level::Error);
+        assert!(
+            item.message.starts_with(&format!(
+                "{wrapped_short}; 1 part failing: the voice microphone ("
+            )),
+            "{}",
+            item.message
+        );
+        assert_eq!(item.message.matches("USB hub").count(), 1);
+        // A run from before the short line: the hub's drops alone.
+        let mut tests = SelfTests::default();
+        test.parts[0] = failed.with("usb_hub_said", &wrapped);
+        tests.take(&test);
+        assert!(tests.item(1_009.0).unwrap().message.starts_with(
+            "the lamp's USB hub dropped at least 2 times since boot; 1 part failing: "
+        ));
+        // A run whose mic says no hub drop clears it; one without the mic
+        // keeps it.
+        let mut tests = SelfTests::default();
+        tests.take(&with_hub(Verdict::Pass));
+        tests.take(&run(&[("ring", Verdict::Pass, "")], 1_004.0));
+        assert_eq!(tests.item(1_005.0).unwrap().level, Level::Warn);
+        tests.take(&run(&[("voice_mic", Verdict::Pass, "")], 1_006.0));
+        let item = tests.item(1_007.0).unwrap();
+        assert_eq!((item.level, item.message.as_str()), (Level::Ok, "passed"));
+    }
+
     #[test]
     fn the_selftests_item_names_what_failed_and_is_as_old_as_its_run() {
         let mut tests = SelfTests::default();

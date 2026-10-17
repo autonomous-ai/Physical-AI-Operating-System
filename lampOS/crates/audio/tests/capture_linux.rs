@@ -26,6 +26,29 @@ fn permitted(id: u8) -> (Microphone, Controller) {
     (microphone, controller)
 }
 
+/// A failed open names its call as ALSA does, `OPEN_CALL`, which is what the
+/// capture worker's start waits look for (#1178): checked against ALSA
+/// itself here, on an alias that names no device, so no microphone is
+/// touched. The scripted device's own name for it once hid that the busy
+/// wait never matched on a lamp.
+#[test]
+fn a_failed_open_names_alsas_own_call() {
+    let boot = BootId::new([52; 16]).unwrap();
+    let mut microphone =
+        Microphone::new("lamp_test_no_device_exists", boot, CaptureConfig::default()).unwrap();
+    let mut controller = Controller::new(boot, now());
+    controller
+        .set_microphone_permission(now(), Permission::Allowed)
+        .unwrap();
+    microphone
+        .install(controller.snapshot(now()).unwrap())
+        .unwrap();
+    let error = microphone.prepare().unwrap_err();
+    let fault = error.device_error.expect("a device error");
+    assert_eq!(fault.call, lamp_audio::device::OPEN_CALL, "{error}");
+    assert!(!microphone.is_open());
+}
+
 #[test]
 fn construction_and_authority_installation_never_open_a_device() {
     let boot = BootId::new([51; 16]).unwrap();

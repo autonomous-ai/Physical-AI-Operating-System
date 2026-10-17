@@ -316,6 +316,7 @@ pub fn part_known_as(part: &str) -> &str {
         "speaker" => "the speaker",
         "camera" => "the camera",
         "touch" => "the touch pads",
+        "touch_by_hand" => "the touch pads, touched by hand",
         "button" => "the button",
         "ring" => "the light ring",
         "head_move" => "the head's small move",

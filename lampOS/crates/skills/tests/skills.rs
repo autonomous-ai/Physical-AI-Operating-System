@@ -1569,10 +1569,11 @@ say = "Tutor: a hint or a question, never the answer."
 fn a_reading_pose_is_held_on_the_mood_socket_for_its_for_and_then_let_go() {
     let reading = AT_ONCE.replace(
         "body = { look_at = \"face\" }",
-        "body = { mood = \"reading\", for = \"3s\" }",
+        "body = { mood = \"reading\", for = \"1500ms\" }",
     );
     // On the lamp's own clock, as a lamp runs it: the pose said again on
-    // the host's seconds.
+    // the host's seconds. 1.5 s, the shortest `for` that is still said
+    // again: one second on, and half a second short of the next.
     let seen = the_program_timed(
         &reading,
         true,
@@ -1584,10 +1585,10 @@ fn a_reading_pose_is_held_on_the_mood_socket_for_its_for_and_then_let_go() {
         true,
     );
     // Told at once when the say begins, then every second while it lasts:
-    // three in all for 3 s, and then nothing, so the body comes back.
+    // two in all for 1.5 s, and then nothing, so the body comes back.
     assert_eq!(
         seen.moods,
-        vec![r#"{"level":0,"mood":"reading"}"#; 3],
+        vec![r#"{"level":0,"mood":"reading"}"#; 2],
         "{:?}",
         seen.events
     );
@@ -2337,9 +2338,9 @@ fn asking_the_policy_a_skill_acts_only_on_a_say_now_that_names_its_ask() {
     assert_eq!(said.try_iter().count(), 0);
 }
 
-/// On the lamp's own clock, without `--clock-control`: a Policy that takes
-/// 2.8 s is given up at its 2.5 s, not before, and its late `say_now` is
-/// passed over.
+/// On the lamp's own clock, without `--clock-control`: a Policy that
+/// answers only once it has been given up is given up at its 2.5 s, not
+/// before, and its late `say_now` is passed over.
 #[test]
 fn asking_the_policy_on_the_hosts_clock_gives_up_after_its_wait() {
     // Short: a socket's whole path has to fit in 103 bytes.
@@ -2352,6 +2353,9 @@ fn asking_the_policy_on_the_hosts_clock_gives_up_after_its_wait() {
     let mut events = bus.subscribe(SkillEvent::TOPIC, "test").unwrap();
     let mut asks = bus.subscribe("skills/ask", "policy").unwrap();
     let policy = bus.clone();
+    // The give-up seen: the Policy's late answer is sent then, not on a
+    // wait of its own.
+    let (given_up, late) = mpsc::channel::<()>();
     std::thread::spawn(move || {
         let mut decisions = policy
             .publisher_declared(
@@ -2366,7 +2370,9 @@ fn asking_the_policy_on_the_hosts_clock_gives_up_after_its_wait() {
             }
         };
         let ask: serde_json::Value = serde_json::from_slice(&message.payload).unwrap();
-        std::thread::sleep(Duration::from_millis(2_800));
+        if late.recv().is_err() {
+            return;
+        }
         decisions
             .publish_json(
                 1,
@@ -2387,8 +2393,9 @@ fn asking_the_policy_on_the_hosts_clock_gives_up_after_its_wait() {
     assert_eq!(answer.allowed, Some(false), "{answer:?}");
     assert!(answer.why.contains("did not answer"), "{answer:?}");
     assert!(waited >= Duration::from_millis(2_500), "{waited:?}");
-    // The late say_now is passed over.
-    std::thread::sleep(Duration::from_millis(600));
+    // The late say_now, sent now, is passed over.
+    given_up.send(()).unwrap();
+    std::thread::sleep(Duration::from_millis(300));
     assert_eq!(said.try_iter().count(), 0);
 }
 

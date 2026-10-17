@@ -17,7 +17,7 @@ design files are theirs to change.
 
 | # | Part | Design (`components.md`, `wiring.md`) | lamp-4ace | Hardware team's answer |
 |---|---|---|---|---|
-| 1 | Primary button | header pin 35, chip 0 line 99, pull-up, low when pressed | The owner: there is no button on this lamp. Line 99 reads high (released); it was not pressed with a hand | No user button in this lamp. (The team's parts list for the design still gives a primary button on pin 35: the design has one, this unit does not.) |
+| 1 | Primary button | header pin 35, chip 0 line 99, pull-up, low when pressed | The owner (14 Oct): there is no button on this lamp. On 17 October, 17:43–18:11, the hardware team pressed buttons at the lamp and Controls counted 7 events; the latest was a 142 ms tap on `primary` (source `button`), read as stop (item 12) | No user button in this lamp (14 Oct). Where the button that was pressed on 17 October sits on this unit is still to be said |
 | 2 | Reset button | header pin 37, chip 0 line 100 | Not read by lampOS; not checked | In the design: pin 37, held 5 s. Not said whether lamp-4ace has one; still to check by hand |
 | 3 | Mic privacy slide switch | header pin 11, chip 1 line 9, low = muted | Reads high (unmuted); the owner did not mention one | On header pin 11, as designed |
 | 4 | Head pads (TTP223) | two of lines 37, 96, 97, 98; pull-up, rest high, a touch is the falling edge | Lines **37 and 96** answer a touch; read with pull-down they rest **low and go high** on a touch | Two pads per lamp, on two of header pins 27, 29, 31, 33, found at start; the older list of four pads was wrong. Not answered: active-high or low on this unit (it is high, as measured) |
@@ -112,7 +112,8 @@ a row for it and the pins are measured again.
    ("word 0 fails its CRC", "command 0xd014: Invalid argument (os error
    22)"), on I2C bus 0 with the MPR121 (how many reads still succeed was
    not counted). Its wiring and pull-ups, please, or whether this unit's
-   sensor is faulty.
+   sensor is faulty. **Answered on 17 October by swapping the sensor (item
+   12): neither. It is the bus speed, lampOS's to fix.**
 10. **The board runs hot.** From 16 October 16:03 to 17 October 14:21, one
     reading a minute, `cpul_thermal_zone` and `cpub_thermal_zone` read within
     1 °C of each other. Their hourly means were 74 to 81 °C at night (19:00 to
@@ -130,7 +131,8 @@ a row for it and the pins are measured again.
     lamp-4ace zone0 is `cpul_thermal_zone` (read 17 October 14:2x), and it read
     83 to 86 °C that morning, so lamp-4ace ran about 20 °C hotter the same
     morning (assuming cb94's zone0 is the same zone). Is its fan running, is
-    the heatsink in contact, and what should this load read?
+    the heatsink in contact, and what should this load read? **Answered on 17
+   October (item 12): a second fan, about 20 °C cooler under load.**
 11. **The SD card's host timed out once since boot** ("re-tuned and timed out",
     the self-test's `storage` item on 17 October at 13:51). Such stalls reach
     the audio: on lamp-4ace the voice's exits lined up with the SD/MMC hosts'
@@ -138,6 +140,38 @@ a row for it and the pins are measured again.
     in the same second as the voice's capture worker ending (04:53:53 UTC,
     #1178). Which SD cards are fitted, and is another card or slot setting
     worth trying?
+
+## Done at the lamp by the hardware team (2026-10-17, 17:12–18:15)
+
+12. **What was changed and what the lamp showed** (read from lamp-4ace while
+    it was done; the base was open and the lamp was restarted at 17:18 and
+    17:43):
+    - **A second cooling fan was added** (about 17:15). Idle, at the same load
+      (about 1.2), the CPU zone read 62 °C over 11 minutes after it, against
+      79 °C over last night's 619 minutes before it. Under the same
+      test (the hourly battery, load about 1.7), the CPU zone averaged 67.1 °C,
+      at most 69, against 86.9 °C, at most 89, on the old fans that afternoon:
+      about 20 °C cooler, and under the first trip at 70. Item 10 is answered.
+    - **The inner USB hub (`3-1.1`) dropped twice at 17:12:29 and 17:12:36**
+      while the base was open, and the voice microphone, the body's servo port,
+      the speaker and the camera with it, and once more at 18:15:33 under hands.
+      That was the work, not a fault: none has dropped by itself since.
+    - **The elbow servo was tested and its cable readjusted.** The camera's
+      cable was unplugged and replugged between 17:39 and 17:40; the camera
+      is on USB again (`01da:5875`).
+    - **A button press is read:** see row 1.
+    - **The air sensor was swapped for another SEN63C, which failed the same
+      way, and that settled item 9: not the sensor, not the wiring.** Read raw
+      (`0xD014`, product name), the sensor answers "SEN63C" correctly, with
+      `0xff` filler bytes wedged between the real ones (`53 ff 45 83 ff 4e 36
+      ff 06 …`). Stripped of them, every CRC matches. The board runs I2C bus 0
+      (`twi@2510000`) at 400 kHz (`clock-frequency` 400000), and SEN6x sensors
+      take standard mode (100 kHz) and stretch the clock. The fix is lampOS's,
+      not the hardware team's: the bus set to 100 kHz at run time
+      (`/sys/class/i2c-adapter/i2c-0/device/freq`, as V1's HAL did), an
+      overlay in the next image, and a reader that skips the filler. With the
+      sensor measuring, `lamp-air` read the air from 18:36 (CO2 about 470 ppm),
+      and the self-test passes its air item.
 
 ## Parts the design does not list
 

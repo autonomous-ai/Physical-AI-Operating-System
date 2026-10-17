@@ -133,7 +133,15 @@ on; the runner had 0.9.148) the group starts first and was done by about test
 
 Since 2026-10-17 the `pr` profile's filter is `all()`, and the group's
 override has `priority = 100`. The config requires nextest 0.9.91 or later
-(`nextest-version`), so an older install stops and says so. The workflow's table (DevOps' file) still says
+(`nextest-version`), so an older install stops and says so.
+
+Seven green runs show the bounds held, not by how much. So the group's
+override also has `success-output = "final"`: every run ends with the
+group's own output, passing or not. `capture_hold_worker`'s two hold tests
+print the medians they bound ("read … us after the block was there, handed
+on … us after the read"): under 10 ms, and 35 to 60 ms with a hold of four
+blocks or under 10 ms without. A drift toward a bound then shows in the log
+before it fails a run (the reviewer's P3 on #1299). The workflow's table (DevOps' file) still says
 pull requests skip the group until DevOps changes it.
 
 ## Slow-transport wait entry point (#823)

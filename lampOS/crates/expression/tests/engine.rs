@@ -909,20 +909,34 @@ fn a_stale_voice_cannot_revive_queued_audio_by_renewing_the_same_turn() {
     );
 }
 
+/// A lamp restarts its voice at every update and after a fault: lamp-4ace
+/// passed 32 sessions in a day (17 Oct), and the fence that then refused every
+/// new session left Expression stopped until it was restarted. The newest
+/// retired sessions stay refused; the oldest are forgotten.
 #[test]
-fn many_voice_restarts_hit_a_bounded_fail_closed_session_fence() {
+fn many_voice_restarts_keep_expression_running_and_a_recent_session_retired() {
     let mut engine = engine();
-    for index in 1..=lamp_expression::MAX_VOICE_SESSIONS as u64 {
+    let sessions = lamp_expression::MAX_VOICE_SESSIONS as u64 + 8;
+    for index in 1..=sessions {
         let mut next = voice(index, 1, Voice::Listening, VoiceEvent::State);
         next.session_id = format!("voice-{index}");
         send(&mut engine, Input::Voice(next));
     }
-    let mut another = voice(40, 1, Voice::Listening, VoiceEvent::State);
-    another.session_id = "one-too-many".into();
-    assert!(engine.ingest(40, Input::Voice(another)).is_err());
-    let out = engine.tick(40);
-    assert!(out.body.is_none() && out.light.is_none());
-    assert!(out.state.warnings.iter().any(|v| v.contains("32 times")));
+    let out = engine.tick(sessions + 1);
+    assert!(engine.fault().is_none(), "{:?}", engine.fault());
+    assert!(
+        !out.state
+            .warnings
+            .iter()
+            .any(|v| v.contains("session fence"))
+    );
+    let mut stale = voice(sessions + 2, 1, Voice::Listening, VoiceEvent::State);
+    stale.session_id = format!("voice-{}", sessions - 1);
+    assert!(engine.ingest(sessions + 2, Input::Voice(stale)).is_err());
+    let mut next = voice(sessions + 3, 1, Voice::Listening, VoiceEvent::State);
+    next.session_id = "voice-after-many".into();
+    send(&mut engine, Input::Voice(next));
+    assert!(engine.fault().is_none());
 }
 
 #[test]

@@ -12,6 +12,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, VecDeque};
 
 pub const MAX_PLAYOUT_FRAMES: usize = 128;
+/// How many retired Voice sessions are remembered, so that a stale heartbeat
+/// from one cannot revive it. The oldest is forgotten when another retires:
+/// session ids are never reused, and a Voice that many restarts old no
+/// longer publishes, so forgetting it revives nothing.
 pub const MAX_VOICE_SESSIONS: usize = 32;
 const STREAMS: usize = 21;
 const CONTEXT_BYTES: usize = 16 * 1024;
@@ -321,7 +325,7 @@ pub struct Engine {
     voice_since: u64,
     retired_turn: bool,
     cancelled: bool,
-    retired_sessions: Vec<String>,
+    retired_sessions: VecDeque<String>,
     activity: Option<PersonActivity>,
     has_speech: bool,
     pause_since: Option<u64>,
@@ -388,7 +392,7 @@ impl Engine {
             voice_since: 0,
             retired_turn: false,
             cancelled: false,
-            retired_sessions: Vec::new(),
+            retired_sessions: VecDeque::new(),
             activity: None,
             has_speech: false,
             pause_since: None,
@@ -966,14 +970,6 @@ impl Engine {
         if self.retired_sessions.contains(&voice.session_id) {
             return Err(Error("voice session is retired".into()));
         }
-        if new_session && self.retired_sessions.len() >= MAX_VOICE_SESSIONS {
-            self.fault = Some(
-                "voice restarted over 32 times; restart expression to renew its session fence",
-            );
-            self.clear_transients();
-            self.fence_sleep_name(now_us);
-            return Err(Error(self.fault.unwrap().into()));
-        }
         if let Some(old) = &self.voice {
             if !new_session
                 && (voice.turn < old.turn
@@ -1026,8 +1022,15 @@ impl Engine {
         }
         if new_turn {
             if new_session {
+                // Bounded: a lamp restarts its voice at every update and
+                // after a fault, so a fence that filled up and then refused
+                // every new session stopped Expression within weeks (lamp-4ace
+                // passed 32 in a day, 17 Oct). The oldest is forgotten instead.
+                if self.retired_sessions.len() >= MAX_VOICE_SESSIONS {
+                    self.retired_sessions.pop_front();
+                }
                 self.retired_sessions
-                    .push(self.voice.as_ref().unwrap().session_id.clone());
+                    .push_back(self.voice.as_ref().unwrap().session_id.clone());
                 self.marks[1] = None;
                 self.marks[2] = None;
                 self.marks[13] = None;

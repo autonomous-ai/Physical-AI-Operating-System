@@ -2179,20 +2179,28 @@ mod tests {
     /// reply to it, and its answer makes each next line, 17 s on, part of a
     /// conversation going on: all five are answered. Without it, all five
     /// are held. A first line within the news's own 45 s is answered either
-    /// way, as a conversation going on.
+    /// way, as a conversation going on. And with the switch, talk between
+    /// two people is still held: a line calling someone else by name, 17 s
+    /// on inside the conversation, and one 60 s after it, the conversation
+    /// over (the first builder's control, #705 19:55).
     #[test]
     fn with_the_switch_a_busy_room_after_the_lamps_news_does_not_go_deaf() {
         const S: u64 = 1_000_000;
+        // Five follow-ups 17 s apart, then two lines between people: one to
+        // someone called by a made-up name, then one after a minute's quiet.
         let lines = [
-            "Can you check it once more?",
-            "And the other one?",
-            "How long did it take?",
-            "Was anything left over?",
-            "Okay, what comes next?",
+            (17, "Can you check it once more?"),
+            (17, "And the other one?"),
+            (17, "How long did it take?"),
+            (17, "Was anything left over?"),
+            (17, "Okay, what comes next?"),
+            (17, "Zemba, are you coming to the meeting at two?"),
+            (60, "Did you get my message about the budget?"),
         ];
-        // Each line `first` seconds after the news and 17 s after the one
-        // before, with the conversation as the worker keeps it: the lamp's
-        // answer goes into the thread 2 s after each line it plays.
+        // The first line `first` seconds after the news and each next one
+        // its own gap after the one before, with the conversation as the
+        // worker keeps it: the lamp's answer goes into the thread 2 s after
+        // each line it plays.
         let run = |spoken_to: bool, first: u64| {
             let start = std::time::Instant::now();
             let at = |us: u64| start + std::time::Duration::from_micros(us);
@@ -2213,8 +2221,9 @@ mod tests {
             );
             own_request().store(0, Ordering::Release);
             let mut verdicts = Vec::new();
-            for (request, line) in (1..).zip(lines) {
-                let began = (100 + first + 17 * (request - 1)) * S;
+            let mut began = (100 + first - 17) * S;
+            for (request, (gap, line)) in (1..).zip(lines) {
+                began += gap * S;
                 attention.began_at(request, 4, began);
                 attention.heard(line);
                 thread.person(line, true, at(began));
@@ -2233,14 +2242,20 @@ mod tests {
         let held = Verdict::Hold(
             "a busy room, and nothing shows it was called or that anyone is turned to the lamp",
         );
-        // Tonight's gap.
+        // Tonight's gap: the five answered, the two lines between people
+        // held.
         let mut answered = vec![Verdict::Play(AFTER_NEWS)];
         answered.extend([going_on; 4]);
+        answered.extend([held; 2]);
         assert_eq!(run(true, 100), answered);
-        assert_eq!(run(false, 100), [held; 5]);
-        // Within the news's own 45 s: a conversation going on, either way.
+        assert_eq!(run(false, 100), [held; 7]);
+        // Within the news's own 45 s: the five answered either way; without
+        // the switch, the line to someone else is answered too, inside the
+        // conversation.
         assert_eq!(run(true, 17), answered);
-        assert_eq!(run(false, 17), [going_on; 5]);
+        let mut unswitched = vec![going_on; 6];
+        unswitched.push(held);
+        assert_eq!(run(false, 17), unswitched);
     }
 
     /// #918, the reviewer at 05:11: the lamp's own turn opens the reply

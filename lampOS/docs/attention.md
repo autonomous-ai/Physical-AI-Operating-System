@@ -1227,7 +1227,9 @@ the next a conversation going on, and the name counts with no face. Test:
 `with_the_switch_a_busy_room_after_the_lamps_news_does_not_go_deaf` (five
 lines 17 s apart after the news, all answered with the switch, all held
 without it when the first comes 100 s after; within the news's own 45 s,
-answered either way). `day-and-night`
+answered either way; and with the switch, talk between two people is still
+held: a line calling someone else by name inside the conversation, and one
+a minute after it). `day-and-night`
 is the switch with the day's own bars as well (below; the worker's
 `--spoken-to-by-day`, right after `--spoken-to`).
 

@@ -612,6 +612,16 @@ pub(crate) struct Life {
     /// while that word was fresh.
     voice_said: Option<(u64, bool)>,
     voice_slept: bool,
+    /// Muted for privacy (#711, First on #711, 17 Oct 10:18): whether the
+    /// voice last said its own mute, not its sleep, and whether the privacy
+    /// switch was last said closed. Each holds until a word replaces it,
+    /// however late, so a sender that stops never reads as open (the
+    /// reviewer on #1282). And when a tap came while the voice's own mute
+    /// held: the tap that clears it (`LAMP_RESTORED_MUTE`) gets its look up
+    /// once the voice says it is open (the seventh on #1282).
+    voice_muted: bool,
+    privacy_muted: bool,
+    tapped_muted_us: Option<u64>,
     /// The body seen moving (its own shift at rest, #933, a gesture, or
     /// this layer's look up at a tap falling back): the goals it last said
     /// for its joints and when, since when they have gone fast, and when it
@@ -624,6 +634,10 @@ pub(crate) struct Life {
 /// How long the voice's word on its mute counts: it says it every second
 /// and keeps it three (#711).
 pub const VOICE_MUTE_KEPT_US: u64 = 3_000_000;
+/// A tap whose mute the voice says open within this is the tap that cleared
+/// it (the restart guard's mute, `LAMP_RESTORED_MUTE`): it says so when it
+/// changes, a bus hop and a pass after the tap (the seventh on #1282).
+pub const TAP_OPENS_US: u64 = 1_500_000;
 
 /// A shift the body makes by itself at rest and a drift are one layer: no
 /// drift begins this soon after the body was seen moving (the body keeps
@@ -683,6 +697,9 @@ impl Life {
             face_y: None,
             voice_said: None,
             voice_slept: false,
+            voice_muted: false,
+            privacy_muted: false,
+            tapped_muted_us: None,
             body_goals: None,
             body_fast_since: None,
             body_moved_us: None,
@@ -865,6 +882,16 @@ impl Life {
             return;
         }
         match event.gesture {
+            // Muted for privacy, a tap gets no look up: looking up says
+            // "I'm listening", which a muted lamp must not seem to do
+            // (First on #711, 17 Oct 10:18). Nor does it wake it. A tap may
+            // be what clears the voice's own mute: then it gets its answer
+            // when the voice says it is open ([`Life::voice_mute`]).
+            TouchGesture::Tap if self.muted() => {
+                if !self.privacy_muted {
+                    self.tapped_muted_us = Some(stamp_us);
+                }
+            }
             // Asleep, a tap wakes it; awake, it looks up at it.
             TouchGesture::Tap if self.asleep() => self.called = true,
             TouchGesture::Tap => self.looking_until_us = Some(stamp_us + LOOK_UP_FOR_US),
@@ -885,6 +912,41 @@ impl Life {
     /// sleeps, and nothing but the voice opening again wakes it.
     pub(crate) fn voice_mute(&mut self, stamp_us: u64, mute: &VoiceMute) {
         self.voice_said = Some((stamp_us, mute.asleep()));
+        let muted = mute.muted && !mute.asleep();
+        // Opened just after a tap: that tap cleared the mute (the restart
+        // guard's, `LAMP_RESTORED_MUTE`), and it is answered now, as any tap
+        // on an open lamp is.
+        let tapped = self.tapped_muted_us.take();
+        if self.voice_muted
+            && !muted
+            && !self.privacy_muted
+            && tapped.is_some_and(|at| stamp_us.saturating_sub(at) < TAP_OPENS_US)
+        {
+            if self.asleep() {
+                self.called = true;
+            } else {
+                self.looking_until_us = Some(stamp_us + LOOK_UP_FOR_US);
+            }
+        }
+        self.voice_muted = muted;
+    }
+
+    /// Whether the privacy switch was closed at the last request from the
+    /// head (`voice/privacy`, read then).
+    pub(crate) fn set_privacy_muted(&mut self, muted: bool) {
+        self.privacy_muted = muted;
+    }
+
+    /// Muted for privacy: the switch last said closed, or the voice's own
+    /// mute last said (not its sleep, which a tap wakes).
+    fn muted(&self) -> bool {
+        self.privacy_muted || self.voice_muted
+    }
+
+    /// Whether it is looking up at a tap: while so, the runtime reads the
+    /// privacy switch at each step, so a switch closed mid-look ends it.
+    pub(crate) fn looking_up(&self) -> bool {
+        self.looking_until_us.is_some() || self.look_up > 0.0
     }
 
     /// The head's state at `stamp_us`: the hand leaned into is there only
@@ -1137,6 +1199,7 @@ impl Life {
         let looking = self.looking_until_us.is_some_and(|until| now_us < until)
             && self.phase == Phase::Awake
             && context.free
+            && !self.muted()
             && !matches!(context.voice, Some(Voice::Thinking | Voice::Speaking));
         if !looking {
             self.looking_until_us = None;

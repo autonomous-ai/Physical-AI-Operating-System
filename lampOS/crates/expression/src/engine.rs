@@ -621,6 +621,19 @@ impl Engine {
         self.offline = offline;
     }
 
+    /// Whether the privacy switch is closed, as `voice/privacy` says at a
+    /// request from the head (#711): a tap then gets no look up.
+    pub fn set_privacy_muted(&mut self, muted: bool) {
+        if let Some(life) = &mut self.life {
+            life.set_privacy_muted(muted);
+        }
+    }
+
+    /// Whether it is looking up at a tap on the head (#711).
+    pub fn looking_up(&self) -> bool {
+        self.life.as_ref().is_some_and(|life| life.looking_up())
+    }
+
     /// Forget the time of day given so far: the clock is not set (#830).
     /// Without it the alive layer knows no night.
     pub fn forget_daytime(&mut self) {

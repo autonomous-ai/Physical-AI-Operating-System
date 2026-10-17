@@ -142,8 +142,10 @@ twice):
 With the hum, it is one gesture with the voice's "hm?" ([attention.md](attention.md#a-tap-on-its-head-is-a-call-711))
 and Expression's look-up ([alive.md](alive.md)), all from the one tap event
 (First, #711, 05:05). A tap with no hum gets no face, but Expression still
-looks up, even while muted, since a plain mute leaves it awake. Whether the
-look-up should follow the hum too is the open question on #705.
+looks up, unless the lamp is muted for privacy: then it doesn't look up
+either (First on #711, 17 Oct 10:18; [alive.md](alive.md)). The privacy
+switch counts there only on the Controls privacy route, which alone says it
+to Expression.
 
 ### The eye (task 34, #712)
 

@@ -250,10 +250,28 @@ not arbitrary external I²C tools: First must stop the prior reader first.
 
 Initialization checks existing overcurrent before reset, verifies reset
 CONFIG2, writes in Stop, starts with ECR last, waits a profile-derived settle
-interval, then verifies readback. The observed lamp-4ace profile gives an
+interval, then reads one sample, unpublished: status, part 0 of the static
+configuration and ECR (the whole of it was verified in Stop just before,
+and parts 1 to 4 follow over the next four reads). The observed lamp-4ace profile gives an
 authored conservative wait of 1,044,480 µs, not a measured calibration time.
-Each sample makes four combined transfers (94 register bytes), checking
-status before/after static configuration readback and ECR. OVCF, OOR on any
+Each sample makes four combined transfers (26 register bytes), checking
+status before/after a static configuration readback and ECR. The readback
+is one fifth of the static configuration (17 of its 85 bytes) in turn, so
+all of it every five samples (`CONFIG_PARTS`; 25 ms at `every_ms` 5, at
+most 250 ms at 50); ECR, which a reset clears, is still checked every
+sample. So a reset or brown-out is caught on the sample it happens (ECR
+reads 0, and only 0x8c..0x8f passes), while any other register that
+changes is caught within five samples: up to four masks read with it are
+served before that, 20 ms at `every_ms` 5 (shorter than a tap can be
+recognized: 10 ms of contact debounce and 30 ms of release grace, and
+the fault resets the base) and 200 ms at 50. Read whole every sample the
+check was about 1,000 bit-clocks, ~9.7 ms at the 100 kHz the air sensor
+needs on the same bus (#1368), past the 5 ms pace; a sample is now ~3.5 ms
+of wire time there and ~0.9 ms at 400 kHz, worked out from 354 bit-clocks,
+not measured: the four ioctls, the driver's time between bytes and the
+air sensor's turns on bus 0 come on top (the first builder, #705 17 Oct
+19:04). On lamp-4ace at 100 kHz the median and largest gap between strip
+sample stamps should stay near 5 ms; not yet shown. OVCF, OOR on any
 working electrode, ACFF/ARFF, proximity/reserved status, stop/reset or
 static-register drift are terminal unknown input. OOR confined to explicitly
 excluded electrodes does not invalidate the working set. ECR enables a

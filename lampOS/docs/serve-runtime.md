@@ -293,6 +293,19 @@ the ring worker's SPI write does while the SD/MMC host re-tunes (#911).
 Workers are started with a cleared environment, so the coordinator passes
 `LAMP_STALLS` and `LAMP_STALLS_DIR` on to each.
 
+## A quieter pace while nothing happens: `LAMP_QUIET_PACE=on`
+
+The coordinator's loop passes every 2 ms whatever is happening. On lamp-4ace
+on 2026-10-17 the quiet voice took half a core, and the chip ran past the
+90 °C where it slows itself (#705, 08:37). With `LAMP_QUIET_PACE=on` (off
+unless set, `crates/voice/src/quiet_pace.rs`) the coordinator passes every
+5 ms instead while nothing is going on: no reply, nothing queued for the
+provider, no admitted speech, nothing draining, the room not busy, and no
+block the detector called speech in the last 2 s. The first pass after any
+of those ends is at 2 ms again. What it costs is up to 3 ms more before a
+pass sees the first block of speech; authority is still renewed every 20 ms,
+far inside every lease. The workers' own loops keep their pace for now.
+
 ## Stop and current limits
 
 After entering the coordinator loop, SIGTERM/SIGINT records a service-stop request,

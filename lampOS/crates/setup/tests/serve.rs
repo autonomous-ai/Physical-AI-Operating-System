@@ -6,7 +6,7 @@ use lamp_setup::{
     http::{Shared, router},
     scan,
     serve::{
-        Accepted, Config, Files, Phase, Save, SetupRequest, Status, check, run, start,
+        Accepted, Backend, Config, Files, Phase, Save, SetupRequest, Status, check, run, start,
         start_unless_stopped, zone_env, zone_known,
     },
     wifi::Host,
@@ -63,6 +63,7 @@ impl Root {
             localtime: self.0.join("etc/localtime"),
             timezone_file: self.0.join("etc/timezone"),
             zone_env: self.0.join("etc/zone.env"),
+            backend: self.0.join("etc/backend.json"),
             web_start: vec![],
             web_stop: vec![],
             free_port: vec![],
@@ -99,6 +100,8 @@ fn a_request_is_checked_before_anything_is_touched() {
             credential: Some("AIza-key_1".into()),
             name: Some("Lan".into()),
             timezone: Some("Asia/Ho_Chi_Minh".into()),
+            // A port alone is no link.
+            backend: None,
         }
     );
     // The key is the user's (the owner, #806, 16:13). Without one, a lamp
@@ -249,6 +252,15 @@ impl Save for Saved {
     }
     fn timezone(&mut self, zone: &str) -> io::Result<()> {
         self.record("timezone", zone)
+    }
+    fn backend(&mut self, link: &Backend) -> io::Result<()> {
+        self.record(
+            "backend",
+            &format!(
+                "{}:{} {} {}",
+                link.mqtt_endpoint, link.mqtt_port, link.fa_channel, link.fd_channel
+            ),
+        )
     }
     fn marker(&mut self) -> io::Result<()> {
         self.record("marker", "")
@@ -427,7 +439,8 @@ fn the_own_page_and_the_product_plan_agree_on_what_setup_saves() {
 }
 
 /// Thirteen on #1016: a key a setup left half-written is removed at start,
-/// in both its places, with the name's and the marker's temporary files.
+/// in both its places, with the name's, the marker's and the backend link's
+/// temporary files (the link holds the broker's password, #1396).
 #[test]
 fn a_leftover_temporary_key_is_removed() {
     let root = Root::new();
@@ -439,7 +452,8 @@ fn a_leftover_temporary_key_is_removed() {
             tmp(&config.name),
             tmp(&config.marker),
             tmp(&config.credential),
-            tmp(&config.policy_key)
+            tmp(&config.policy_key),
+            tmp(&config.backend),
         ]
     );
 }
@@ -947,4 +961,141 @@ fn a_stop_around_the_hotspot_is_a_stop_and_a_failure_without_one_stays_a_failure
     );
     assert_eq!(outcome.unwrap().unwrap().mac, "lamp-4ace");
     assert_eq!(asked, 1, "a good start is not asked about a stop again");
+}
+
+/// The Autonomous app's setup body for a lamp, field for field
+/// (`ecm-sds-mobile` v3, `AutonomousOsSetupConfig.buildSetupPayload`; #1396),
+/// with made-up values.
+fn app_body() -> Value {
+    json!({"ssid": "Home", "password": "password1",
+           "telegram_bot_token": "none", "telegram_user_id": "none",
+           "device_id": "dev-42", "llm_base_url": "https://gateway.example/v1",
+           "llm_api_key": "AIza-key_1", "llm_model": "auto",
+           "mqtt_endpoint": "broker.example", "mqtt_port": 1883,
+           "mqtt_username": "lamp-dev-42", "mqtt_password": "s3cret pass",
+           "fa_channel": "fa/dev-42", "fd_channel": "fd/dev-42",
+           "name": "Lan", "timezone": "Asia/Ho_Chi_Minh"})
+}
+
+fn app_link() -> Backend {
+    Backend {
+        device_id: "dev-42".into(),
+        llm_base_url: "https://gateway.example/v1".into(),
+        mqtt_endpoint: "broker.example".into(),
+        mqtt_port: 1883,
+        mqtt_username: "lamp-dev-42".into(),
+        mqtt_password: "s3cret pass".into(),
+        fa_channel: "fa/dev-42".into(),
+        fd_channel: "fd/dev-42".into(),
+    }
+}
+
+#[test]
+fn the_apps_setup_keeps_the_backends_link_and_never_shows_its_password() {
+    let root = Root::new();
+    let request = request(app_body());
+    let accepted = check(&request, &root.config(false)).unwrap();
+    assert_eq!(accepted.backend, Some(app_link()));
+    for shown in [format!("{request:?}"), format!("{accepted:?}")] {
+        assert!(!shown.contains("s3cret"), "{shown}");
+        assert!(!shown.contains("AIza-key_1"), "{shown}");
+        assert!(shown.contains("broker.example"), "{shown}");
+    }
+    // A port as digits, as a link would carry it, is the same port.
+    let mut digits = app_body();
+    digits["mqtt_port"] = json!("1883");
+    assert_eq!(
+        check(&self::request(digits), &root.config(false))
+            .unwrap()
+            .backend,
+        Some(app_link())
+    );
+}
+
+#[test]
+fn a_broken_or_partial_link_is_none_and_never_fails_setup() {
+    let root = Root::new();
+    let config = root.config(false);
+    for (field, value) in [
+        ("mqtt_port", json!("abc")),
+        ("mqtt_port", json!(0)),
+        ("mqtt_port", json!(70000)),
+        ("fd_channel", json!("")),
+        ("mqtt_endpoint", json!("")),
+        ("mqtt_endpoint", json!("broker example")),
+        ("mqtt_username", json!("x".repeat(513))),
+        ("mqtt_password", json!("line\nbreak")),
+    ] {
+        let mut body = app_body();
+        body[field] = value;
+        let accepted = check(&request(body), &config).unwrap();
+        assert_eq!(accepted.backend, None, "{field}");
+        assert_eq!(accepted.ssid, "Home", "{field}: setup goes on");
+    }
+}
+
+#[test]
+fn the_link_is_saved_after_the_zone_and_before_the_key_and_the_marker() {
+    let status = Arc::new(Mutex::new(Status::new("lamp-4ace".into())));
+    let mut saved = Saved::default();
+    let accepted = check(&request(app_body()), &Root::new().config(false)).unwrap();
+    run(
+        &status,
+        &accepted,
+        "VN",
+        &mut Lamp::new(true),
+        &mut saved,
+        || Some("192.168.1.23".into()),
+    );
+    assert_eq!(
+        saved.calls,
+        [
+            "name=Lan",
+            "timezone=Asia/Ho_Chi_Minh",
+            "backend=broker.example:1883 fa/dev-42 fd/dev-42",
+            "credential=AIza-key_1",
+            "marker="
+        ]
+    );
+    assert!(status.lock().unwrap().set_up_completed);
+}
+
+#[test]
+fn the_link_is_written_root_only_and_whole() {
+    use std::os::unix::fs::PermissionsExt;
+    let root = Root::new();
+    let config = root.config(false);
+    Files(&config).backend(&app_link()).unwrap();
+    let mode = fs::metadata(&config.backend).unwrap().permissions().mode() & 0o777;
+    assert_eq!(mode, 0o600);
+    let written: Value = serde_json::from_slice(&fs::read(&config.backend).unwrap()).unwrap();
+    assert_eq!(written["mqtt_endpoint"], "broker.example");
+    assert_eq!(written["mqtt_port"], 1883);
+    assert_eq!(written["mqtt_password"], "s3cret pass");
+    assert_eq!(written["fd_channel"], "fd/dev-42");
+    assert!(
+        lamp_setup::serve::leftover_temporaries(&config)
+            .contains(&config.backend.with_extension("lamp-setup-tmp")),
+        "a crashed write's temporary file holds the password: removed at start"
+    );
+}
+
+#[test]
+fn the_products_reset_wipes_the_link_where_the_product_writes_it() {
+    let own: Config =
+        serde_json::from_str(include_str!("../fixtures/serve-own-page.json")).unwrap();
+    assert_eq!(
+        own.backend,
+        std::path::Path::new("/etc/lampOS/setup/backend.json")
+    );
+    let plan: Value =
+        serde_json::from_str(include_str!("../fixtures/reset-plan-product.json")).unwrap();
+    assert!(
+        plan["wipe"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|path| path == "/etc/lampOS/setup/backend.json"),
+        "the 5 s reset removes the backend's credentials with the person's data"
+    );
 }

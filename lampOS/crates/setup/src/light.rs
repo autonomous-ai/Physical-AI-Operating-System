@@ -345,6 +345,9 @@ impl<S: Save> Save for ReleasingSave<'_, S> {
     fn timezone(&mut self, zone: &str) -> io::Result<()> {
         self.save.timezone(zone)
     }
+    fn backend(&mut self, link: &crate::serve::Backend) -> io::Result<()> {
+        self.save.backend(link)
+    }
     fn marker(&mut self) -> io::Result<()> {
         if let Some(light) = self.light {
             light.release();

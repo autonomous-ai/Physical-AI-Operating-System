@@ -46,6 +46,9 @@ fn default_timezone_file() -> PathBuf {
 fn default_zone_env() -> PathBuf {
     "/etc/lampOS/zone.env".into()
 }
+fn default_backend() -> PathBuf {
+    "/etc/lampOS/setup/backend.json".into()
+}
 
 /// The server's written configuration.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -87,6 +90,13 @@ pub struct Config {
     /// the person's (#820). Expression and memory follow `/etc/localtime`.
     #[serde(default = "default_zone_env")]
     pub zone_env: PathBuf,
+    /// The backend's link from the setup request (#1396): the MQTT broker, its
+    /// credentials, the two channels, the device's id and the backend's base.
+    /// The Autonomous app posts them as it does to V1; kept root's, 0600, for
+    /// `lamp-cloud` to bring the lamp online in the app later. Nothing reads
+    /// it yet; the reset's plan removes it.
+    #[serde(default = "default_backend")]
+    pub backend: PathBuf,
     /// Run once the hotspot is up and once serving ends: V1's nginx, which
     /// serves V1's page and passes `/api/` here, is on only during setup.
     #[serde(default)]
@@ -118,6 +128,7 @@ impl Config {
             &self.localtime,
             &self.timezone_file,
             &self.zone_env,
+            &self.backend,
         ] {
             if !path.is_absolute() {
                 return Err(format!("{} is not absolute", path.display()));
@@ -179,9 +190,11 @@ impl Status {
     }
 }
 
-/// V1's `SetupRequest`. V1's page also sends channel, voice and MQTT fields;
-/// they are accepted and ignored. `llm_api_key` is the user's voice key, as
-/// in V1 (#806); `name` and `timezone` are V2's own.
+/// V1's `SetupRequest`. V1's page and the Autonomous app also send channel,
+/// voice and other fields; those are accepted and ignored. The backend's link
+/// (the MQTT four, `fa_channel`, `fd_channel`, `device_id`, `llm_base_url`)
+/// is kept (#1396). `llm_api_key` is the user's voice key, as in V1 (#806);
+/// `name` and `timezone` are V2's own.
 #[derive(Clone, Default, Deserialize)]
 pub struct SetupRequest {
     #[serde(default)]
@@ -198,6 +211,86 @@ pub struct SetupRequest {
     pub name: String,
     #[serde(default)]
     pub timezone: String,
+    #[serde(default)]
+    pub mqtt_endpoint: String,
+    /// A number from the app, a string from a link: either is taken.
+    #[serde(default, deserialize_with = "port")]
+    pub mqtt_port: Option<u16>,
+    #[serde(default)]
+    pub mqtt_username: String,
+    #[serde(default)]
+    pub mqtt_password: String,
+    #[serde(default)]
+    pub fa_channel: String,
+    #[serde(default)]
+    pub fd_channel: String,
+}
+
+/// A port given as a number or as digits; anything else, or 0, is none.
+fn port<'de, D: serde::Deserializer<'de>>(given: D) -> Result<Option<u16>, D::Error> {
+    Ok(match Value::deserialize(given)? {
+        Value::Number(number) => number.as_u64().and_then(|port| u16::try_from(port).ok()),
+        Value::String(digits) => digits.trim().parse().ok(),
+        _ => None,
+    }
+    .filter(|port| *port != 0))
+}
+
+/// The backend's link as setup received it (#1396), written for `lamp-cloud`.
+#[derive(Clone, PartialEq, Eq, Serialize)]
+pub struct Backend {
+    pub device_id: String,
+    pub llm_base_url: String,
+    pub mqtt_endpoint: String,
+    pub mqtt_port: u16,
+    pub mqtt_username: String,
+    pub mqtt_password: String,
+    pub fa_channel: String,
+    pub fd_channel: String,
+}
+
+impl fmt::Debug for Backend {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Backend")
+            .field("device_id", &self.device_id)
+            .field("llm_base_url", &self.llm_base_url)
+            .field("mqtt_endpoint", &self.mqtt_endpoint)
+            .field("mqtt_port", &self.mqtt_port)
+            .field("mqtt_username", &self.mqtt_username)
+            .field("mqtt_password", &HIDDEN)
+            .field("fa_channel", &self.fa_channel)
+            .field("fd_channel", &self.fd_channel)
+            .finish()
+    }
+}
+
+/// The link, when the request carries a whole one: an endpoint, a port and
+/// both channels, every field at most 512 bytes with no control or space
+/// character (the password may hold spaces). A missing or broken link is none,
+/// and never fails setup: the lamp joins the Wi-Fi and talks without it, and
+/// only its place in the app waits for a later setup.
+fn backend_link(request: &SetupRequest) -> Option<Backend> {
+    let plain = |field: &str| {
+        let field = field.trim();
+        (field.len() <= 512 && field.bytes().all(|b| b.is_ascii_graphic()))
+            .then(|| field.to_owned())
+    };
+    let secret = &request.mqtt_password;
+    if secret.len() > 512 || secret.chars().any(char::is_control) {
+        return None;
+    }
+    let link = Backend {
+        device_id: plain(&request.device_id)?,
+        llm_base_url: plain(&request.llm_base_url)?,
+        mqtt_endpoint: plain(&request.mqtt_endpoint)?,
+        mqtt_port: request.mqtt_port?,
+        mqtt_username: plain(&request.mqtt_username)?,
+        mqtt_password: secret.clone(),
+        fa_channel: plain(&request.fa_channel)?,
+        fd_channel: plain(&request.fd_channel)?,
+    };
+    (!link.mqtt_endpoint.is_empty() && !link.fa_channel.is_empty() && !link.fd_channel.is_empty())
+        .then_some(link)
 }
 
 /// A request that passed every check, ready to act on.
@@ -210,6 +303,8 @@ pub struct Accepted {
     pub credential: Option<String>,
     pub name: Option<String>,
     pub timezone: Option<String>,
+    /// The backend's link, when the request carried a whole one.
+    pub backend: Option<Backend>,
 }
 
 /// Shown in place of a secret, so a debug line never logs the Wi-Fi password
@@ -226,6 +321,12 @@ impl fmt::Debug for SetupRequest {
             .field("device_id", &self.device_id)
             .field("name", &self.name)
             .field("timezone", &self.timezone)
+            .field("mqtt_endpoint", &self.mqtt_endpoint)
+            .field("mqtt_port", &self.mqtt_port)
+            .field("mqtt_username", &self.mqtt_username)
+            .field("mqtt_password", &HIDDEN)
+            .field("fa_channel", &self.fa_channel)
+            .field("fd_channel", &self.fd_channel)
             .finish()
     }
 }
@@ -238,6 +339,7 @@ impl fmt::Debug for Accepted {
             .field("credential", &self.credential.as_ref().map(|_| HIDDEN))
             .field("name", &self.name)
             .field("timezone", &self.timezone)
+            .field("backend", &self.backend)
             .finish()
     }
 }
@@ -281,6 +383,7 @@ pub fn check(request: &SetupRequest, config: &Config) -> Result<Accepted, String
         credential: (!credential.is_empty()).then(|| credential.to_owned()),
         name: (!name.is_empty()).then(|| name.to_owned()),
         timezone: zone_known(timezone, &config.zoneinfo).then(|| timezone.to_owned()),
+        backend: backend_link(request),
     })
 }
 
@@ -317,6 +420,8 @@ pub trait Save {
     fn credential(&mut self, key: &str) -> io::Result<()>;
     fn name(&mut self, name: &str) -> io::Result<()>;
     fn timezone(&mut self, zone: &str) -> io::Result<()>;
+    /// The backend's link, root's and private (#1396).
+    fn backend(&mut self, link: &Backend) -> io::Result<()>;
     fn marker(&mut self) -> io::Result<()>;
 }
 
@@ -329,6 +434,7 @@ pub fn leftover_temporaries(config: &Config) -> Vec<PathBuf> {
         &config.marker,
         &config.credential,
         &config.policy_key,
+        &config.backend,
     ]
     .into_iter()
     .map(|path| path.with_extension("lamp-setup-tmp"))
@@ -451,6 +557,11 @@ impl Save for Files<'_> {
         }
         Ok(())
     }
+    fn backend(&mut self, link: &Backend) -> io::Result<()> {
+        let mut bytes = serde_json::to_vec_pretty(link).map_err(io::Error::other)?;
+        bytes.push(b'\n');
+        write_private(&self.0.backend, &bytes)
+    }
     fn marker(&mut self) -> io::Result<()> {
         write_private(&self.0.marker, b"")
     }
@@ -561,6 +672,10 @@ pub fn run(
             }
             .and_then(|()| match &accepted.timezone {
                 Some(zone) => save.timezone(zone),
+                None => Ok(()),
+            })
+            .and_then(|()| match &accepted.backend {
+                Some(link) => save.backend(link),
                 None => Ok(()),
             })
             .and_then(|()| match &accepted.credential {

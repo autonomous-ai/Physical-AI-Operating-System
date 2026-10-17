@@ -331,10 +331,12 @@ pub(crate) mod tests {
         slide: Option<Arc<AtomicBool>>,
     ) -> (Worker, thread::JoinHandle<Peer>) {
         let (mut worker, mut peer, input) = Worker::cooperative_fixture(directory, "privacy");
-        // `Worker::shutdown`'s Stop ends the child at once, and its exit is
-        // waited for there, not on this peer's thread, which a busy host may
-        // not run within the 300 ms a stopped worker has (#1232). A cleanup
-        // of its own still has the peer end it on Stop, as before.
+        // A Stop ends the child at once, and its exit is waited for on the
+        // stopping thread, not on this peer's, which a busy host may not run
+        // within the 300 ms a stopped worker has (#1232): `Worker::shutdown`
+        // runs this hook after its Stop, and so does a cleanup of its own
+        // through `Worker::run_on_stop` (`service_privacy_controls`, #1249).
+        // The peer still ends it on Stop for a caller that runs neither.
         let input = Arc::new(std::sync::Mutex::new(Some(input)));
         let pid = worker.fixture_pid();
         let ended = Arc::clone(&input);

@@ -164,10 +164,20 @@ impl Worker {
         self.child.id()
     }
 
-    /// What ends this fixture's child once `shutdown` has sent Stop.
+    /// What ends this fixture's child once Stop has been sent to it.
     #[cfg(test)]
     pub(crate) fn on_stop(&mut self, end: impl FnOnce() -> io::Result<()> + Send + 'static) {
         self.on_stop = Some(Box::new(end));
+    }
+
+    /// Runs the fixture's `on_stop`, once, right after a Stop was sent: by
+    /// `shutdown`, or by a cleanup of its own (#1249). A fixture that failed
+    /// to end its child is caught after, as any child is.
+    #[cfg(test)]
+    pub(crate) fn run_on_stop(&mut self) {
+        if let Some(on_stop) = self.on_stop.take() {
+            let _ = on_stop();
+        }
     }
 
     #[cfg(test)]
@@ -375,11 +385,8 @@ impl Worker {
             }
         }
         let stop_error = self.channels.control.send(Control::Stop).err();
-        // A fixture that failed to end its child is caught below, as any child.
         #[cfg(test)]
-        if let Some(on_stop) = self.on_stop.take() {
-            let _ = on_stop();
-        }
+        self.run_on_stop();
         let deadline = Instant::now() + Duration::from_millis(300);
         loop {
             match self.child.try_wait() {

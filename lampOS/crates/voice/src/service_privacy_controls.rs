@@ -386,14 +386,24 @@ fn cleanup(privacy: &mut Worker, mut indicator: Option<&mut Worker>) -> io::Resu
     // A worker that already ended on its own (an unreadable switch, #795)
     // cannot take a Stop: its exit status, read below, is the verification.
     let mut error = match privacy.channels.control.send(Control::Stop) {
-        Ok(()) => None,
+        Ok(()) => {
+            #[cfg(test)]
+            privacy.run_on_stop();
+            None
+        }
         Err(_) if matches!(privacy.try_exit(), Ok(Some(_))) => None,
         Err(failure) => Some(failure),
     };
-    if let Some(child) = &mut indicator
-        && let Err(failure) = child.channels.control.send(Control::Stop)
-    {
-        error.get_or_insert(failure);
+    if let Some(child) = &mut indicator {
+        match child.channels.control.send(Control::Stop) {
+            Ok(()) => {
+                #[cfg(test)]
+                child.run_on_stop();
+            }
+            Err(failure) => {
+                error.get_or_insert(failure);
+            }
+        }
     }
     let mut privacy_exited = false;
     let mut indicator_exited = indicator.is_none();
@@ -669,32 +679,42 @@ mod tests {
         Worker,
         std::thread::JoinHandle<crate::transport::WorkerChannels>,
     ) {
-        let (worker, mut peer, input) = Worker::cooperative_fixture(directory, role);
-        let task = std::thread::spawn(move || {
+        let (mut worker, mut peer, input) = Worker::cooperative_fixture(directory, role);
+        // The cleanup's Stop is taken on its own thread, right after it is
+        // sent: the receipts go and the child's input closes there, so a
+        // busy host cannot hold them past the cleanup's 300 ms (#1249). This
+        // thread only hands the peer back once that has run.
+        let (ended, end) = std::sync::mpsc::channel();
+        worker.on_stop(move || {
             let deadline = Instant::now() + Duration::from_secs(2);
             loop {
-                if matches!(
-                    peer.control.receive::<Control>().unwrap(),
-                    Some(Control::Stop)
-                ) {
-                    for _ in 0..receipts {
-                        let now = monotonic_us();
-                        peer.control
-                            .send(WorkerEvent::Ring {
-                                report: RingFeedback::Blanked {
-                                    reason: RingBlankReason::Shutdown,
-                                    write_started_at_us: now,
-                                    write_finished_at_us: now,
-                                },
-                            })
-                            .unwrap();
-                    }
-                    drop(input);
-                    return peer;
+                match peer.control.receive::<Control>() {
+                    Ok(Some(Control::Stop)) => break,
+                    Ok(_) => {}
+                    Err(error) => return Err(error),
                 }
-                assert!(Instant::now() < deadline, "cleanup never requested Stop");
+                if Instant::now() >= deadline {
+                    return Err(io::Error::other("cleanup never requested Stop"));
+                }
                 std::thread::sleep(Duration::from_millis(1));
             }
+            for _ in 0..receipts {
+                let now = monotonic_us();
+                peer.control.send(WorkerEvent::Ring {
+                    report: RingFeedback::Blanked {
+                        reason: RingBlankReason::Shutdown,
+                        write_started_at_us: now,
+                        write_finished_at_us: now,
+                    },
+                })?;
+            }
+            drop(input);
+            let _ = ended.send(peer);
+            Ok(())
+        });
+        let task = std::thread::spawn(move || {
+            end.recv_timeout(Duration::from_secs(5))
+                .expect("cleanup never requested Stop")
         });
         (worker, task)
     }

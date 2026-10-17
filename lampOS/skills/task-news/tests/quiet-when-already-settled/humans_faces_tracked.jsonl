@@ -1,0 +1,2 @@
+{"topic":"humans/faces/tracked","declaration":{"type":"lamp_msgs/Faces","version":1,"kind":"latest"}}
+{"header":{"topic":"humans/faces/tracked","kind":"latest","enc":"json","type":"lamp_msgs/Faces","source":"lamp_bus_cli","boot":"b6cde816023e2411","seq":1,"at_us":0,"at_unix_ms":1792136843645},"payload_b64":"eyJmYWNlcyI6W3siY29uZmlkZW5jZSI6MC45LCJpZCI6ImExIiwieG1heCI6MC43NSwieG1pbiI6MC4yNSwieW1heCI6MC41LCJ5bWluIjowLjI1fV19"}

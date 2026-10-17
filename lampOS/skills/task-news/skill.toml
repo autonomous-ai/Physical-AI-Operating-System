@@ -1,0 +1,57 @@
+# Task news: when work the lamp handed to Claude Code or Codex comes back,
+# done or failed, the lamp tells the person once, briefly, the way someone
+# at the next desk would (#1021, from #939). Written to lamp-skills' schema
+# (docs/skills.md, "The schema, as lamp-skills reads it").
+#
+# OFF ON A LAMP until it has done 5 of 5 on lamp-4ace with the voice's own
+# task news (crates/voice/src/task_news.rs) switched off for the trial:
+# with both on, a done would be told twice.
+needs = ["eyes", "voice", "body", "light"]
+
+# tasks/status keeps, for two minutes, each task whose agent settled, in
+# its `settled` list (#1048): `idle` (finished, with an answer) or `failed`,
+# among others. Each is watched on its own, by its number, and counts when
+# it comes into the list so (or turns so in it). What is already there at
+# the program's start, or at a reload, is not news.
+[[trigger]]
+name = "done"
+topic = "tasks/status"
+each = "settled"
+key = "task"
+field = "state"
+equals = "idle"           # the agent finished, with an answer (lamp_msgs::TaskSettled)
+when = "appears"
+
+[[trigger]]
+name = "failed"
+topic = "tasks/status"
+each = "settled"
+key = "task"
+field = "state"
+equals = "failed"
+when = "appears"
+
+[ask]                     # the Policy's moment question (#958), before anything is done
+policy = "news"
+
+# The words are the voice's: it keeps the news of work handed over (who did
+# it, what came back, what failed and whether to try again) and tells each
+# piece once (#1033, say = { from = "tasks" }). The skill says when, and
+# moves and lights with the words, which come at the say's begun.
+
+# Done: look at the person if a face is in view (the runtime leaves the look
+# out with none), a small glad sway, and the news.
+[[do]]
+on = "done"
+body = { look_at = "face", gesture = "happy" }
+say = { from = "tasks" }
+
+# Failed: sad's droop and the lamp's own light a step dimmer, given back when
+# the droop and the words have both ended, and the news. No red ring: the
+# lamp shows feelings in its own light only (docs/skills.md, "The
+# expressions").
+[[do]]
+on = "failed"
+body = { gesture = "caring" }
+light = { dim = 1 }
+say = { from = "tasks" }

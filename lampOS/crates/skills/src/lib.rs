@@ -191,6 +191,12 @@ const AGAIN_TOLD: &str = "Not done: you just did this. Do it again only if they 
 #[serde(deny_unknown_fields)]
 struct TriggerFile {
     topic: String,
+    /// The trigger's name, which a step's `on` names.
+    name: Option<String>,
+    /// A field that is a list: each of its items is watched on its own.
+    each: Option<String>,
+    /// The field of an item that names it, with `each`.
+    key: Option<String>,
     when: Option<String>,
     field: Option<String>,
     equals: Option<toml::Value>,
@@ -248,6 +254,8 @@ struct StepFile {
     look: Option<bool>,
     /// `"say"`: this step and every one after it wait for the say to end.
     after: Option<String>,
+    /// The name of the trigger this step is made for; for every one without.
+    on: Option<String>,
 }
 
 /// What a `say` asks of the voice: a note it phrases, or what it keeps.
@@ -262,8 +270,8 @@ fn say_step(say: toml::Value) -> Result<Call, String> {
                 return Err(format!("{WHAT}: a say table has from and nothing else"));
             }
             match table["from"].as_str() {
-                Some("schedule") => Ok(Call::SayFrom(Source::Schedule)),
-                Some("tasks") => Ok(Call::SayFrom(Source::Tasks)),
+                Some("schedule") => Ok(Call::SayFrom(Source::Schedule, None)),
+                Some("tasks") => Ok(Call::SayFrom(Source::Tasks, None)),
                 Some(other) => Err(format!(
                     "say.from is \"schedule\" or \"tasks\", not {other:?}"
                 )),
@@ -335,13 +343,14 @@ pub struct Skill {
     still: String,
     /// Local minutes of the day, from and to, when it never starts itself.
     quiet: Option<(u16, u16)>,
-    steps: Vec<Step>,
+    /// Each step, and the name of the trigger it is made for, if only one.
+    steps: Vec<(Option<String>, Step)>,
 }
 
 impl Skill {
     /// Whether a step holds something until its trigger stops holding.
     fn holds_until_ends(&self) -> bool {
-        self.steps.iter().any(|step| {
+        self.steps.iter().any(|(_, step)| {
             matches!(
                 step,
                 Step::Call(Call::Dim {
@@ -429,6 +438,11 @@ pub enum When {
 #[derive(Clone, Debug)]
 pub struct Trigger {
     pub topic: String,
+    /// What a step's `on` calls it.
+    pub name: Option<String>,
+    /// The list each of whose items is watched on its own, and the field
+    /// that names an item. The test is then of an item.
+    pub each: Option<(String, String)>,
     test: Test,
     pub when: When,
     pub absent_for_us: u64,
@@ -478,7 +492,10 @@ pub enum Call {
     /// reminder due, or the news of work handed over. The voice keeps the
     /// words and their delivery (a reminder's acknowledgement, news told
     /// once); the skill says when, and moves with them.
-    SayFrom(Source),
+    /// With the task an item's run is for (a trigger with `each` and a
+    /// numeric key), sent as `"task"` so the voice gives that task's news
+    /// and no other (#1237).
+    SayFrom(Source, Option<u64>),
     /// The voice's full look (#836), which it takes when the lamp says it
     /// will look. Only in a skill its tool starts.
     Look,
@@ -562,7 +579,13 @@ impl Call {
                 ("light", args)
             }
             Self::Say(note) => ("say", json!({ "note": note })),
-            Self::SayFrom(source) => ("say", json!({ "from": source.name() })),
+            Self::SayFrom(source, task) => {
+                let mut args = json!({ "from": source.name() });
+                if let Some(task) = task {
+                    args["task"] = json!(task);
+                }
+                ("say", args)
+            }
             Self::Look => ("look", json!({})),
             Self::Sound { name, .. } => ("sound", json!({ "sound": name })),
             Self::AfterSay => ("after_say", json!({})),
@@ -652,6 +675,7 @@ fn trigger(file: TriggerFile) -> Result<Trigger, String> {
             ));
         }
     };
+    let rearm_given = file.rearm.is_some();
     let (rearm, rearm_line) = match file.rearm {
         None => (false, None),
         Some(RearmFile::Word(word)) if word == "leaves" || word == "ends" => (true, None),
@@ -685,6 +709,46 @@ fn trigger(file: TriggerFile) -> Result<Trigger, String> {
                 .into(),
         );
     }
+    if let Some(name) = &file.name
+        && (!plain_name(name) || name.contains('-'))
+    {
+        return Err(format!(
+            "trigger name {name:?}: 1 to 64 lowercase letters, digits and _"
+        ));
+    }
+    let each = match (file.each, file.key) {
+        (None, None) => None,
+        (Some(list), Some(key)) if !list.is_empty() && !key.is_empty() => {
+            // An item's edge is its own: what is timed or counted over the
+            // whole topic means nothing for one item (chosen).
+            if when != When::Appears
+                || file.near.is_some()
+                || file.absent_for.is_some()
+                || file.lasting.is_some()
+                || file.gap.is_some()
+                || rearm_given
+                || file.cooldown.is_some()
+                || file.wait.is_some()
+            {
+                return Err(
+                    "each goes with when = \"appears\", and with no near, absent_for, \
+                            for, gap, rearm, cooldown or wait"
+                        .into(),
+                );
+            }
+            if file.field.is_none() {
+                return Err(
+                    "each tests a field of an item, with one of equals, above or below".into(),
+                );
+            }
+            Some((list, key))
+        }
+        _ => {
+            return Err(
+                "each names a list field, and key the field that names one of its items".into(),
+            );
+        }
+    };
     let mut test = test(&file.topic, file.field, file.equals, file.above, file.below)?;
     match (file.near, &mut test) {
         (None, _) => {}
@@ -699,6 +763,8 @@ fn trigger(file: TriggerFile) -> Result<Trigger, String> {
     Ok(Trigger {
         test,
         topic: file.topic,
+        name: file.name,
+        each,
         when,
         absent_for_us: optional(&file.absent_for)?,
         for_us: optional(&file.lasting)?,
@@ -912,7 +978,17 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
             Some((from, to))
         }
     };
+    let names: Vec<&String> = triggers
+        .iter()
+        .filter_map(|trigger| trigger.name.as_ref())
+        .collect();
+    if (1..names.len()).any(|at| names[..at].contains(&names[at])) {
+        return Err("two triggers have one name".into());
+    }
+    let any_on = file.steps.iter().any(|step| step.on.is_some());
     let mut steps = Vec::new();
+    // The trigger each step is for, beside it: one for each step made.
+    let mut ons: Vec<Option<String>> = Vec::new();
     let mut said = false;
     let mut after_say = false;
     for step in file.steps {
@@ -924,6 +1000,17 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
         {
             return Err("a [[do]] step names body, light, say, sound or look".into());
         }
+        if let Some(on) = &step.on
+            && !names.contains(&on)
+        {
+            return Err(format!("on = {on:?} names none of the skill's triggers"));
+        }
+        // Steps for one trigger and steps after the say are not put together
+        // until a skill needs both (chosen).
+        if any_on && step.after.is_some() {
+            return Err("after = \"say\" in a skill whose steps name their trigger".into());
+        }
+        let on = step.on.clone();
         match step.after.as_deref() {
             None => {}
             Some("say") if after_say => {}
@@ -1039,7 +1126,7 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
             let call = say_step(say)?;
             // A tool's run tells the model what to say, and what the voice
             // keeps is not the model's to say (Fourth on #1033).
-            if matches!(call, Call::SayFrom(_)) && file.tool.is_some() {
+            if matches!(call, Call::SayFrom(..)) && file.tool.is_some() {
                 return Err(
                     "say.from, in a skill with a tool: what the voice keeps is said when a trigger starts the skill, never from the model's call"
                         .into(),
@@ -1066,25 +1153,30 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
             check_sound(&path).map_err(|why| format!("{place}: {why}"))?;
             steps.push(Step::Call(Call::Sound { name, path }));
         }
+        ons.resize(steps.len(), on);
     }
-    if steps
-        .iter()
-        .filter(|step| {
-            matches!(
-                step,
-                Step::Call(Call::Say(_) | Call::SayFrom(_) | Call::Sound { .. })
-            )
-        })
-        .count()
-        > 1
-    {
+    let steps: Vec<(Option<String>, Step)> = ons.into_iter().zip(steps).collect();
+    // One say or sound a run: for each trigger, its own steps and those for all.
+    let says = |name: Option<&String>| {
+        steps
+            .iter()
+            .filter(|(on, step)| {
+                matches!(
+                    step,
+                    Step::Call(Call::Say(_) | Call::SayFrom(..) | Call::Sound { .. })
+                ) && (on.is_none() || on.as_ref() == name)
+            })
+            .count()
+    };
+    if says(None) > 1 || names.iter().any(|name| says(Some(name)) > 1) {
         return Err(
-            "one say or sound a skill: its other steps are made, in their order, when the voice begins it"
+            "one say or sound a skill (or one for each trigger its steps name): its other steps are made, \
+             in their order, when the voice begins it"
                 .into(),
         );
     }
     if triggers.is_empty()
-        && steps.iter().any(|step| {
+        && steps.iter().any(|(_, step)| {
             matches!(
                 step,
                 Step::Call(Call::Dim {
@@ -1095,6 +1187,27 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
         })
     {
         return Err("until = \"ends\" is the end of a trigger: in a skill with one".into());
+    }
+    // An item's run has no quiet hours and no end of its own: quiet would be
+    // passed over, and a dim held until it ends would hold the skill busy
+    // (the reviewer on #1042, chosen until a skill needs them).
+    if triggers.iter().any(|trigger| trigger.each.is_some()) {
+        if quiet.is_some() {
+            return Err("[quiet] in a skill with an each trigger: an item's run has none".into());
+        }
+        if steps.iter().any(|(_, step)| {
+            matches!(
+                step,
+                Step::Call(Call::Dim {
+                    until_ends: true,
+                    ..
+                })
+            )
+        }) {
+            return Err(
+                "until = \"ends\" in a skill with an each trigger: an item's run has no end".into(),
+            );
+        }
     }
     Ok(Skill {
         name,
@@ -1160,6 +1273,34 @@ fn within(minute: u16, (from, to): (u16, u16)) -> bool {
         (from..to).contains(&minute)
     } else {
         minute >= from || minute < to
+    }
+}
+
+/// How an item of a list is named by its key field: a text or a number.
+fn item_name(value: &Value) -> Option<String> {
+    match value {
+        Value::String(text) => Some(text.clone()),
+        Value::Number(number) => Some(number.to_string()),
+        _ => None,
+    }
+}
+
+/// Each item of the trigger's list in `value`, by name, and whether it holds.
+fn items_of(trigger: &Trigger, list: &str, key: &str, value: &Value) -> BTreeMap<String, bool> {
+    value[list]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|item| Some((item_name(&item[key])?, trigger.test.holds(item))))
+        .collect()
+}
+
+/// The order items' runs go in: by number when the names are numbers (task
+/// 9 before task 10, as the voice reads them), else by text, numbers first.
+fn item_order(name: &str) -> (bool, u64, &str) {
+    match name.parse::<u64>() {
+        Ok(number) => (false, number, name),
+        Err(_) => (true, 0, name),
     }
 }
 
@@ -1247,6 +1388,8 @@ struct Watch {
     past_line_us: Option<u64>,
     /// A run that holds something until its trigger stops holding is out.
     open: bool,
+    /// With `each`: whether each item in its last message held; none before its first.
+    items: Option<BTreeMap<String, bool>>,
 }
 
 /// A trigger that held: what was said of it, and the calls to make.
@@ -1259,6 +1402,13 @@ pub struct Run {
     /// `skills/ask` (#958's `SkillAsk` without its number), and the calls
     /// wait for its answer.
     pub ask: Option<Value>,
+    /// The run is one item's, from a trigger with `each`: with the skill's
+    /// last run under way it waits its turn, where any other is let go.
+    pub queue: bool,
+    /// The trigger that held, by its place in the skill, and with `each`
+    /// the item's name: what [`Engine::still`] asks again of the Policy's
+    /// answer. None for a tool's run and an end.
+    pub from: Option<(usize, Option<String>)>,
 }
 
 pub struct Engine {
@@ -1346,6 +1496,8 @@ impl Engine {
                         events: Vec::new(),
                         calls: vec![Call::Ends],
                         ask: None,
+                        queue: false,
+                        from: None,
                     });
                 }
             }
@@ -1365,6 +1517,28 @@ impl Engine {
     /// hold only if it is the same condition as before.
     pub fn replace(&mut self, skills: Vec<Skill>) {
         let old = std::mem::replace(&mut self.skills, skills);
+        // A list's items begin again from the topic's value kept here: what
+        // is there at the reload is not news, and the next message, which is
+        // the next change (`tasks/status` is published when it changes, and
+        // its subscriber is kept through a reload), is compared with it (the
+        // reviewer on #1042). With no value kept yet, the topic is new to the
+        // program, and its first message, the bus's kept value, only says
+        // what is there, as at the start.
+        for watch in self.watches.values_mut() {
+            watch.items = None;
+        }
+        for skill in &self.skills {
+            for (index, trigger) in skill.triggers.iter().enumerate() {
+                if let (Some((list, key)), Some((value, _, _))) =
+                    (&trigger.each, self.latest.get(&trigger.topic))
+                {
+                    self.watches
+                        .entry((skill.name.clone(), index))
+                        .or_default()
+                        .items = Some(items_of(trigger, list, key, value));
+                }
+            }
+        }
         let new = &self.skills;
         let condition = |skills: &[Skill], name: &str, index: usize| {
             skills
@@ -1395,7 +1569,7 @@ impl Engine {
                 !skill
                     .steps
                     .iter()
-                    .any(|step| matches!(step, Step::Call(Call::Mood { .. } | Call::Look)))
+                    .any(|(_, step)| matches!(step, Step::Call(Call::Mood { .. } | Call::Look)))
             })
             .map(|skill| (skill.name.as_str(), skill.still.as_str()))
     }
@@ -1410,7 +1584,7 @@ impl Engine {
                 let looks = skill
                     .steps
                     .iter()
-                    .any(|step| matches!(step, Step::Call(Call::Gaze { .. })));
+                    .any(|(_, step)| matches!(step, Step::Call(Call::Gaze { .. })));
                 skill
                     .triggers
                     .iter()
@@ -1477,14 +1651,36 @@ impl Engine {
     /// again at `now_us` (a look at where the face is now), if one of its
     /// triggers still holds on its topic's newest value that lasts and its
     /// conditions hold. `None`: the trigger is gone (nobody there any more).
-    pub fn still(&self, name: &str, now_us: u64) -> Option<Vec<Call>> {
-        let skill = self.skills.iter().find(|skill| skill.name == name)?;
-        let triggered = skill.triggers.iter().any(|trigger| {
-            Self::fresh(&self.latest, &trigger.topic, now_us)
-                .is_some_and(|value| trigger.test.holds(value))
-        });
-        (triggered && Self::conditions_hold(&self.latest, &self.holding, skill, now_us))
-            .then(|| calls(&self.latest, skill, now_us, &Value::Null))
+    /// With the run's trigger known, only that one, and with `each` only its
+    /// item, still in the list and holding; its steps and those for all.
+    pub fn still(&self, run: &Run, now_us: u64) -> Option<Vec<Call>> {
+        let skill = self.skills.iter().find(|skill| skill.name == run.skill)?;
+        let holds = |trigger: &Trigger, item: Option<&String>| {
+            Self::fresh(&self.latest, &trigger.topic, now_us).is_some_and(|value| {
+                match (&trigger.each, item) {
+                    (Some((list, key)), Some(name)) => {
+                        value[list].as_array().into_iter().flatten().any(|item| {
+                            item_name(&item[key]).as_ref() == Some(name) && trigger.test.holds(item)
+                        })
+                    }
+                    _ => trigger.test.holds(value),
+                }
+            })
+        };
+        let trigger = match &run.from {
+            Some((index, item)) => {
+                let trigger = skill.triggers.get(*index)?;
+                holds(trigger, item.as_ref()).then_some(Some(trigger))?
+            }
+            None => skill
+                .triggers
+                .iter()
+                .any(|trigger| holds(trigger, None))
+                .then_some(None)?,
+        };
+        let run_item = run.from.as_ref().and_then(|(_, item)| item.as_deref());
+        Self::conditions_hold(&self.latest, &self.holding, skill, now_us)
+            .then(|| calls(&self.latest, skill, trigger, now_us, &Value::Null, run_item))
     }
 
     /// A message on `topic`, at `now_us`. A payload that is not JSON is
@@ -1540,15 +1736,69 @@ impl Engine {
                     events: Vec::new(),
                     calls: vec![Call::Ends],
                     ask: None,
+                    queue: false,
+                    from: None,
                 });
             }
         };
         for skill in &self.skills {
+            // The runs of a list's items, from all the skill's triggers, go
+            // out in the items' order: task 9 done and task 10 failed in one
+            // message are 9's run, then 10's (the reviewer on #1042).
+            let mut item_runs: Vec<(String, Run)> = Vec::new();
             for (index, trigger) in skill.triggers.iter().enumerate() {
                 if trigger.topic != topic {
                     continue;
                 }
                 let watch = self.watches.entry((skill.name.clone(), index)).or_default();
+                if let Some((list, key)) = &trigger.each {
+                    // Each item on its own: one that holds where, in the
+                    // trigger's last message, it did not, or was not in the
+                    // list. The first message since the program started
+                    // only says what is there: what was there then is not
+                    // news. After a reload the value kept then is the last.
+                    let items = items_of(trigger, list, key, &value);
+                    let came: Vec<String> = match &watch.items {
+                        None => Vec::new(),
+                        Some(before) => items
+                            .iter()
+                            .filter(|(name, holds)| **holds && before.get(*name) != Some(&true))
+                            .map(|(name, _)| name.clone())
+                            .collect(),
+                    };
+                    watch.items = Some(items);
+                    for name in came {
+                        if !Self::conditions_hold(&self.latest, &self.holding, skill, now_us) {
+                            continue;
+                        }
+                        let held = format!("{key} {name} of {list} on {topic} came to hold");
+                        let run = decide(
+                            skill,
+                            held,
+                            (self.skip_ask, self.ask_policy),
+                            question(skill),
+                            || {
+                                calls(
+                                    &self.latest,
+                                    skill,
+                                    Some(trigger),
+                                    now_us,
+                                    &Value::Null,
+                                    Some(&name),
+                                )
+                            },
+                        );
+                        item_runs.push((
+                            name.clone(),
+                            Run {
+                                queue: true,
+                                from: Some((index, Some(name))),
+                                ..run
+                            },
+                        ));
+                    }
+                    continue;
+                }
                 let started = *watch.started_us.get_or_insert(now_us);
                 if let Some(line) = &trigger.rearm_line {
                     if !line.test.holds(&value) {
@@ -1625,73 +1875,40 @@ impl Engine {
                     ),
                     When::Present => format!("{topic} has held for {} s", held_us / 1_000_000),
                 };
-                let mut events = vec![
-                    event(&skill.name, SkillStage::Triggered, held, None),
-                    event(
-                        &skill.name,
-                        SkillStage::Asked,
-                        format!("policy {}", skill.policy),
-                        None,
-                    ),
-                ];
-                if self.ask_policy {
-                    // The Policy's acts: a hello, news of work, a reminder
-                    // the person set, or anything else the lamp starts
-                    // itself.
-                    let act = match skill.policy.as_str() {
-                        "hello" | "news" | "reminder" => skill.policy.as_str(),
-                        _ => "unprompted",
-                    };
-                    let mut ask = json!({ "skill": skill.name, "act": act });
-                    if act == "hello" {
-                        ask["away_min"] = json!(watch.away_us / 60_000_000);
-                        ask["there_s"] = json!(held_us / 1_000_000);
-                    }
+                let mut question = question(skill);
+                if question["act"] == "hello" {
+                    question["away_min"] = json!(watch.away_us / 60_000_000);
+                    question["there_s"] = json!(held_us / 1_000_000);
+                }
+                if self.skip_ask || self.ask_policy {
                     watch.ran_us = Some(now_us);
                     // Its end is told even if the Policy says no: with no
                     // run holding anything, the program lets it pass.
                     watch.open = skill.holds_until_ends();
-                    runs.push(Run {
-                        skill: skill.name.clone(),
-                        events,
-                        calls: calls(&self.latest, skill, now_us, &Value::Null),
-                        ask: Some(ask),
-                    });
-                    continue;
                 }
-                if !self.skip_ask {
-                    events.push(event(
-                        &skill.name,
-                        SkillStage::Answered,
-                        "LAMP_SKILLS_ASK is not set: nothing the lamp starts itself is done \
-                         (LAMP_SKILLS_ASK=policy asks the Policy's gate, skip acts without asking)"
-                            .into(),
-                        Some(false),
-                    ));
-                    runs.push(Run {
-                        skill: skill.name.clone(),
-                        events,
-                        calls: Vec::new(),
-                        ask: None,
-                    });
-                    continue;
-                }
-                events.push(event(
-                    &skill.name,
-                    SkillStage::Answered,
-                    "the ask is skipped (LAMP_SKILLS_ASK=skip): LAMP_SKILLS_ASK=policy asks the Policy's gate"
-                        .into(),
-                    Some(true),
-                ));
-                watch.ran_us = Some(now_us);
-                watch.open = skill.holds_until_ends();
+                let run = decide(
+                    skill,
+                    held,
+                    (self.skip_ask, self.ask_policy),
+                    question,
+                    || {
+                        calls(
+                            &self.latest,
+                            skill,
+                            Some(trigger),
+                            now_us,
+                            &Value::Null,
+                            None,
+                        )
+                    },
+                );
                 runs.push(Run {
-                    skill: skill.name.clone(),
-                    events,
-                    calls: calls(&self.latest, skill, now_us, &Value::Null),
-                    ask: None,
+                    from: Some((index, None)),
+                    ..run
                 });
             }
+            item_runs.sort_by(|(a, _), (b, _)| item_order(a).cmp(&item_order(b)));
+            runs.extend(item_runs.into_iter().map(|(_, run)| run));
         }
         runs
     }
@@ -1741,8 +1958,10 @@ impl Engine {
                 format!("the model called {name} with {args}"),
                 None,
             )],
-            calls: calls(&self.latest, skill, now_us, args),
+            calls: calls(&self.latest, skill, None, now_us, args, None),
             ask: None,
+            queue: false,
+            from: None,
         })
     }
 }
@@ -1810,6 +2029,68 @@ impl Admission {
     }
 }
 
+/// What the Policy is asked of a skill the lamp starts itself: its act, a
+/// hello, news of work, a reminder the person set, or anything else.
+fn question(skill: &Skill) -> Value {
+    let act = match skill.policy.as_str() {
+        "hello" | "news" | "reminder" => skill.policy.as_str(),
+        _ => "unprompted",
+    };
+    json!({ "skill": skill.name, "act": act })
+}
+
+/// A trigger held: with `(skip_ask, ask_policy)`, the Policy is asked
+/// `question` and the calls wait for its answer, or the ask is skipped and
+/// they are made, or neither, and nothing is done. The calls are made only
+/// when the run may go ahead.
+fn decide(
+    skill: &Skill,
+    held: String,
+    (skip_ask, ask_policy): (bool, bool),
+    question: Value,
+    made: impl FnOnce() -> Vec<Call>,
+) -> Run {
+    let mut events = vec![
+        event(&skill.name, SkillStage::Triggered, held, None),
+        event(
+            &skill.name,
+            SkillStage::Asked,
+            format!("policy {}", skill.policy),
+            None,
+        ),
+    ];
+    let run = |events, calls, ask| Run {
+        skill: skill.name.clone(),
+        events,
+        calls,
+        ask,
+        queue: false,
+        from: None,
+    };
+    if ask_policy {
+        return run(events, made(), Some(question));
+    }
+    if !skip_ask {
+        events.push(event(
+            &skill.name,
+            SkillStage::Answered,
+            "LAMP_SKILLS_ASK is not set: nothing the lamp starts itself is done \
+             (LAMP_SKILLS_ASK=policy asks the Policy's gate, skip acts without asking)"
+                .into(),
+            Some(false),
+        ));
+        return run(events, Vec::new(), None);
+    }
+    events.push(event(
+        &skill.name,
+        SkillStage::Answered,
+        "the ask is skipped (LAMP_SKILLS_ASK=skip): LAMP_SKILLS_ASK=policy asks the Policy's gate"
+            .into(),
+        Some(true),
+    ));
+    run(events, made(), None)
+}
+
 /// Whether `args` are what the skill's tool takes: its choice, one of its
 /// values, and its flag, true or false, each optional; nothing else.
 fn arguments(skill: &Skill, args: &Value) -> Result<(), String> {
@@ -1847,12 +2128,16 @@ fn pick(now_us: u64, count: usize) -> usize {
 
 /// A skill's steps as calls now. The face to look at: the largest in the
 /// newest list of faces that still lasts. With none, the other steps go on.
+/// Only the steps for every trigger and those for `trigger`.
 fn calls(
     latest: &HashMap<String, (Value, u64, Option<u64>)>,
     skill: &Skill,
+    trigger: Option<&Trigger>,
     now_us: u64,
     args: &Value,
+    item: Option<&str>,
 ) -> Vec<Call> {
+    let fired = trigger.and_then(|trigger| trigger.name.as_ref());
     let face = Engine::fresh(latest, Faces::TOPIC, now_us).and_then(|faces| {
         serde_json::from_value::<Faces>(faces.clone())
             .ok()?
@@ -1878,11 +2163,21 @@ fn calls(
     skill
         .steps
         .iter()
-        .flat_map(|step| match step {
+        .filter(|(on, _)| on.is_none() || on.as_ref() == fired)
+        .flat_map(|(_, step)| match step {
             Step::Call(Call::Gaze { .. }) => face
                 .map(|face| Call::Gaze { face: Some(face) })
                 .into_iter()
                 .collect(),
+            // An item's run names its task to the voice, by a numeric key,
+            // and only on a `from = "tasks"` ask: the voice refuses `task`
+            // on any other (#1237).
+            Step::Call(Call::SayFrom(source, _)) => {
+                let task = (*source == Source::Tasks)
+                    .then(|| item.and_then(|name| name.parse().ok()))
+                    .flatten();
+                vec![Call::SayFrom(*source, task)]
+            }
             Step::Call(other) => vec![other.clone()],
             Step::Gesture { by, again } => {
                 let names: Vec<&String> =
@@ -2286,8 +2581,11 @@ mod tests {
             )
             .unwrap();
             let loaded = load(&skill).unwrap();
-            assert_eq!(loaded.steps, [Step::Call(Call::SayFrom(source))]);
-            let Step::Call(call) = &loaded.steps[0] else {
+            assert_eq!(
+                loaded.steps,
+                [(None, Step::Call(Call::SayFrom(source, None)))]
+            );
+            let (_, Step::Call(call)) = &loaded.steps[0] else {
                 panic!("{:?}", loaded.steps)
             };
             assert_eq!(call.named(), ("say", json!({ "from": from })));

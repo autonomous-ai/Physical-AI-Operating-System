@@ -1,0 +1,13 @@
+# Nobody in view throughout. Task 7 (claude) is working at 10 s; at 40 s it
+# has left `tasks` and is in `settled` as idle (#1048): done. It leaves
+# `settled` at 160 s. No look, since no face is in view; the
+# glad sway and the news, asked of the voice, which keeps the words.
+[[expect]]
+at = "40s"
+call = "body.gesture"
+args = { gesture = "happy" }
+
+[[expect]]
+at = "40s"
+call = "say"
+args = { from = "tasks", task = 7 }

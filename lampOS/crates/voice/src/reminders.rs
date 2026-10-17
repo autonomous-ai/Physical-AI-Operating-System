@@ -19,9 +19,16 @@ pub const SPEAK_VARIABLE: &str = "LAMP_SCHEDULE_SPEAK";
 
 /// Whether Schedule speech is on: `on`, or `skill`, where a due reminder
 /// also waits for a skill's `from: schedule` ask (#939, (c);
-/// [`crate::say::SKILL_WAITS_US`]).
+/// [`crate::say::SKILL_WAITS_US`]). The one rule for both the parent and
+/// the provider worker's flag (`tools::schedule_arguments`): the worker's
+/// came only for `on`, so under `skill` it refused every reminder and none
+/// was said (the reviewer on #1038).
+pub(crate) fn speaks(value: Option<&str>) -> bool {
+    matches!(value, Some("on" | "skill"))
+}
+
 fn speaking(value: Result<&str, &std::env::VarError>) -> bool {
-    matches!(value, Ok("on" | "skill"))
+    speaks(value.ok())
 }
 pub const LEDGER_VARIABLE: &str = "LAMP_SCHEDULE_DELIVERY_DIR";
 pub const LEASE_US: u64 = 750_000;

@@ -408,7 +408,11 @@ for `say = { from = "schedule" | "tasks" }` ([skills.md](skills.md)).
   reminder waits for such an ask, at most 10 s from when it was first held
   (`say::SKILL_WAITS_US`), and then the voice says it itself, with
   `lamp-voice: no skill asked for the reminder due within 10 s` in the
-  journal: a reminder never waits on `lamp-skills` being up. With
+  journal: a reminder never waits on `lamp-skills` being up. The provider
+  worker speaks reminders under `skill` as under `on` (its
+  `--schedule-speak`, by the same rule, `reminders::speaks`); until 17 Oct
+  it got that only for `on`, refused every reminder under `skill`, and
+  none was said (the reviewer on #1038). With
   **`LAMP_TASK_NEWS=skill`** news of work finished, stopped or asking waits
   the same way; progress is the Policy's to time already and is told as it
   was. Without them nothing waits, and a `from` ask that is waiting is

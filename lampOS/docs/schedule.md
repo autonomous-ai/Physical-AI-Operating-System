@@ -569,6 +569,9 @@ Actions only; installation and on-lamp qualification remain First's work.
 Voice requires exact `LAMP_SCHEDULE_SPEAK=on` (or `skill`, where a due
 reminder also waits up to 10 s for the Reminders skill to ask for it through
 the say service, then is said by Voice itself: [speaking-first.md](speaking-first.md#asked-by-another-part-the-say-service-939))
+(both values give the provider worker its `--schedule-speak`, by one rule,
+`reminders::speaks`: until 17 Oct `skill` gave the worker none, so it
+refused every reminder and none was said, the reviewer on #1038)
 and an explicit absolute
 `LAMP_SCHEDULE_DELIVERY_DIR` on persistent storage. Provision its parent for the
 Voice service user; the final directory/database are private 0700/0600. This is

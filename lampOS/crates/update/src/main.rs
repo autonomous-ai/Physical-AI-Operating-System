@@ -22,6 +22,7 @@ lamp-update check|once|serve --channel-url URL [--channel NAME] [--key-file PATH
                              [--apply on|off] [--every-s N] [--quiet-wait-s N] [--watch-s N]
                              [--keep-free-mb N] [--root DIR] [--bus-root DIR]
 lamp-update install --channel-url URL [--channel NAME] [--key-file PATH] [--setup on|off]
+lamp-update check-units --cat FILE [--product DIR]
 lamp-update manifest --binaries DIR --deploy DIR --channel NAME --sequence N --commit SHA --files-url URL
 lamp-update sign --key-file PRIVATE --manifest FILE --out FILE
 lamp-update public-key --key-file PRIVATE
@@ -50,6 +51,15 @@ install lampOS on a blank lamp (docs/install.md): the newest build's binary of e
   --keep-free-mb  room kept free on the disk beyond the new build (256)
   --root          the filesystem the lamp's paths are under (/), for tests
   --bus-root      the bus (LAMP_BUS_ROOT, or /run/lampos-bus)
+
+check-units  says whether a lamp runs exactly the product's units (docs/install.md):
+          --cat is what `systemctl cat 'lamp-*.service' 'lamp-*.timer' 'lampos*'`
+          printed on it, saved as a file; the product is this program's own units, or
+          the `deploy/product/` folder given with --product. Each product unit is
+          `same`, `missing` or its differing lines; every drop-in, every unit the
+          product has no file for, and every unit not in /etc/systemd/system/ is said.
+          It ends with 0 when everything is the same and nothing else is found, 1 when
+          not, and 2 for a wrong option or a file it cannot read.
 
 manifest  writes DIR/manifest.json for the binaries in --binaries and the units of
           each lamp folder (one with a LAMP.md) in --deploy, copied beside them.
@@ -82,6 +92,7 @@ fn main() -> ExitCode {
         }
         "check" | "once" | "serve" => return on_the_lamp(command, &options),
         "install" => install(&options),
+        "check-units" => return check_units(&options),
         "manifest" => make_manifest(&options),
         "sign" => sign(&options),
         "public-key" => public_key(&options),
@@ -93,6 +104,46 @@ fn main() -> ExitCode {
             eprintln!("lamp-update: {why}");
             ExitCode::FAILURE
         }
+    }
+}
+
+/// `lamp-update check-units`: 0 when the lamp runs exactly the product's
+/// units, 1 when not, 2 for a wrong option or a file that cannot be read, so
+/// a script tells a bad input from a lamp that differs (Twelve on #1346).
+fn check_units(options: &BTreeMap<String, String>) -> ExitCode {
+    use lamp_update::check_units;
+    if options
+        .keys()
+        .any(|name| name != "cat" && name != "product")
+    {
+        return usage();
+    }
+    let Some(cat) = options.get("cat") else {
+        return usage();
+    };
+    let product = match options.get("product") {
+        Some(folder) => match check_units::from_folder(Path::new(folder)) {
+            Ok(units) => units,
+            Err(why) => {
+                eprintln!("lamp-update: {why}");
+                return ExitCode::from(2);
+            }
+        },
+        None => check_units::embedded(),
+    };
+    let printed = match fs::read_to_string(cat) {
+        Ok(text) => check_units::parse(&text),
+        Err(error) => {
+            eprintln!("lamp-update: {cat}: {error}");
+            return ExitCode::from(2);
+        }
+    };
+    let report = check_units::check(&product, &printed);
+    print!("{}", report.said());
+    if report.passes() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
     }
 }
 

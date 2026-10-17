@@ -6,6 +6,7 @@
 //! [`judge`] whether a part is well after it; [`records`] is what is kept;
 //! [`world`] is systemd, the bus, the disk and the clock behind traits; and
 //! [`round`] is one round of an update, with all of them.
+pub mod check_units;
 pub mod fetch;
 pub mod install;
 pub mod judge;

@@ -859,6 +859,15 @@ pub enum Stop {
         position: u16,
         from: u16,
     },
+    /// `Limits::temperature_steps` temperatures of one joint in a row were
+    /// bad reads that did not settle (`Bus::judge_temperatures`): how warm
+    /// it is cannot be read, so it is not known to be cool. The last read,
+    /// and the last good one.
+    BadTemperature {
+        joint: u8,
+        temperature: u8,
+        from: u8,
+    },
     /// Under `--overload release`: it let go a second time within ten
     /// minutes, or could not take the lamp up again. Torque is left as it
     /// was let go, off.
@@ -1189,10 +1198,10 @@ struct Bus<'a, P, R> {
     warm: [Option<u8>; 5],
     bad_temperatures: [u16; 5],
     /// Each joint's last bad read, and for how many reads in a row it
-    /// has stayed near the one before, and
-    /// the reads it must stay to become the good one
-    /// (`Limits::temperature_steps`).
+    /// has stayed near the one before.
     settling: [Option<(u8, u8)>; 5],
+    /// `Limits::temperature_steps`: replaced reads in a row that end the
+    /// run on `Stop::BadTemperature`. Half of it settles a bad value.
     settle_steps: u8,
     /// Each joint's replaced temperature reads in a row.
     bad_warm_in_row: [u8; 5],
@@ -1323,7 +1332,7 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
             Ok(())
         })?;
         self.judge_positions(&mut samples)?;
-        self.judge_temperatures(&mut samples);
+        self.judge_temperatures(&mut samples)?;
         Ok(samples)
     }
 
@@ -1384,16 +1393,17 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
     /// `TEMPERATURE_JUMP`. It is counted and replaced by the last good one,
     /// so it is never a peak, and marked in `temperature_held` so the heat
     /// streak holds for that step, neither adding nor resetting. Bad reads
-    /// that each stay within `TEMPERATURE_SETTLE` of the one before for
-    /// `settle_steps` reads in a row are what the servo reads now, and the
+    /// that each stay within `TEMPERATURE_SETTLE` of the one before for half
+    /// of `settle_steps` reads in a row are what the servo reads now, and the
     /// last becomes the good one: a joint really at 70 after a low read, one
-    /// rising fast after it, or a steady 150, is judged on it again. A
-    /// glitch never stops the run. After `settle_steps` replaced reads of
-    /// one joint in a row that never settle, a replaced read counts in the
-    /// streak again as the last good one, so a hot joint whose reads keep
-    /// glitching still stops on heat, a second later, and a cool one runs on. With no good one yet (the first read) a reading is taken
-    /// as it is (`run_on` reads a hot one again before acting on it).
-    fn judge_temperatures(&mut self, samples: &mut [Sample; 5]) {
+    /// rising fast after it, or a steady 150, is judged on it again. Half,
+    /// so a settle stays well under the stop: `settle_steps` replaced reads
+    /// of one joint in a row end the run on `Stop::BadTemperature`, as three
+    /// bad positions do. A temperature that cannot be read that long is not
+    /// known to be cool: a joint can warm behind it, its last good one cool.
+    /// A glitch, or glitches between good reads, never stop the run. With
+    /// no good one yet (the first read) a reading is taken as it is (`run_on` reads a hot one again before acting on it).
+    fn judge_temperatures(&mut self, samples: &mut [Sample; 5]) -> Result<(), String> {
         self.temperature_held = [false; 5];
         for (index, sample) in samples.iter_mut().enumerate() {
             let read = sample.temperature;
@@ -1413,7 +1423,9 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
                 }
                 _ => 1,
             };
-            if (in_range && read.abs_diff(good) <= TEMPERATURE_JUMP) || count >= self.settle_steps {
+            if (in_range && read.abs_diff(good) <= TEMPERATURE_JUMP)
+                || count >= (self.settle_steps / 2).max(1)
+            {
                 self.warm[index] = Some(read);
                 self.settling[index] = None;
                 self.bad_warm_in_row[index] = 0;
@@ -1422,11 +1434,20 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
             self.settling[index] = Some((read, count));
             self.bad_temperatures[index] = self.bad_temperatures[index].saturating_add(1);
             self.bad_warm_in_row[index] = self.bad_warm_in_row[index].saturating_add(1);
-            // Held this long and never settled, the hold would hide its heat for
-            // as long as it lasts: the last good one counts in the streak again.
-            self.temperature_held[index] = self.bad_warm_in_row[index] < self.settle_steps;
+            if self.bad_warm_in_row[index] >= self.settle_steps {
+                let stop = Stop::BadTemperature {
+                    joint: Joint::ALL[index].id(),
+                    temperature: read,
+                    from: good,
+                };
+                let detail = format!("{stop:?}");
+                self.refused.get_or_insert(stop);
+                return Err(detail);
+            }
+            self.temperature_held[index] = true;
             sample.temperature = good;
         }
+        Ok(())
     }
 
     /// Forget every joint's good temperature, so the next read is taken as

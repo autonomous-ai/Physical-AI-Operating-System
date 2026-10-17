@@ -47,7 +47,8 @@ run on a lamp.
   times and before anything is written, and only heat that repeats on every
   read is acted on: one glitch on the first read would otherwise let go of a
   lamp found standing, and it falls. The reads again are in the end report
-  (`hot_rereads`, per joint). A first temperature over 100 is judged the
+  (`hot_rereads`, per joint). Heat on all four reads is let go as before,
+  where the lamp stands, arm up or not. A first temperature over 100 is judged the
   same way: there is no good reading yet to judge it by
   (`Bus::judge_temperatures`).
 - With `--torque on` (off unless given) it first takes hold of a joint it
@@ -276,19 +277,30 @@ replaced read carried the last good value into the streak: one read of 63
 let in at a true 60, then the register at 59, made 50 hot steps of one hot
 read and let the whole lamp go (the seventh's re-check of #1236, 2026-10-17
 08:37). Bad reads that each stay within 2 degrees (`TEMPERATURE_SETTLE`) of
-the one before for `temperature_steps` (50) reads in a row are what the
-servo reads now, and the last becomes the good one, so a servo really at 70
-after a low first read, one rising 5 degrees a second after it, a jump to 70
-that stays, or a steady 150 still stops on heat, a second later than
-without the check; one 150 is still dropped. With no good one yet (the
-first read) a reading is taken as it is: one over 100 is counted, and a hot
-one is read again before it is acted on (above). Bad ones in a row do not
-stop the run, unlike positions: the hot-servo stop they would stand in for
-needs 50 hot steps in a row, and letting go of a lamp for a sensor glitch
-is worse than the glitch. But after 50 replaced reads of one joint in a row
-that never settle (150 and 5 by turns, say), a replaced read counts in the
-streak again as the last good one, so a hot joint whose reads keep
-glitching still stops on heat, a second later, and a cool one runs on. How often, on lamp-52e6 on
+the one before for half of `temperature_steps` (25) reads in a row are what
+the servo reads now, and the last becomes the good one, so a servo really
+at 70 after a low first read, one rising 5 degrees a second after it, a
+jump to 70 that stays, or a steady 150 still stops on heat, half a second
+later than without the check; one 150 is still dropped. Half, so a settle
+stays well under the stop below (24 replaced reads at most, against 50).
+With no good one yet (the first read) a reading is taken as it is: one over
+100 is counted, and a hot one is read again before it is acted on (above).
+A glitch, or glitches between good reads however many, never stop the run:
+the hot-servo stop needs 50 hot steps in a row, and letting go of a lamp
+for a sensor glitch is worse than the glitch. But 50 (`temperature_steps`)
+replaced reads of one joint in a row that never settle end the run on
+`Stop::BadTemperature`, as three bad positions do, naming the joint
+(`stopped: head_pitch temperature unreadable (it reads 5, last good 41)`):
+
+```text
+"stop":{"kind":"bad_temperature","joint":5,"temperature":5,"from":41}
+```
+
+A temperature that cannot be read that long is not known to be cool: a
+joint can warm behind it while its last good reading is cool (the seventh's
+10:12 re-check of #1270: the last good 40, the servo warming at 5 degrees a
+second behind 60 reads of 150 and 5 by turns, then a glitch on one read in
+27, ran on at a true 80). How often, on lamp-52e6 on
 2026-10-17 from 02:42 to 07:35: of 1,839 logged standing steps (one every
 30 s, and each change of mood), the shoulder read 60 or over on 23 (about 5
 an hour) and the elbow on 19 (about 4 an hour), about one logged step in
@@ -317,8 +329,9 @@ register (63) said. The tests are
 `a_glitch_of_32_between_47_and_48_is_dropped`,
 `a_small_glitch_near_the_limit_then_a_flicker_down_is_not_heat`,
 `a_fast_rise_after_a_low_first_read_still_stops_near_the_limit`,
-`a_hot_joint_whose_reads_never_settle_still_stops_on_heat`,
-`a_cool_joint_whose_reads_never_settle_runs_on`,
+`a_joint_warming_behind_bad_reads_stops_as_unreadable_within_a_second`,
+`a_hot_joint_whose_reads_never_settle_stops_as_unreadable`,
+`a_cool_joint_glitching_one_read_in_27_runs_on_for_a_minute`,
 `a_hot_first_read_that_does_not_repeat_starts_as_usual`,
 `a_hot_first_read_that_repeats_is_refused_as_before` and
 `one_hot_reading_while_it_moves_is_not_heat` (lamp-4ace's yaw reading 72

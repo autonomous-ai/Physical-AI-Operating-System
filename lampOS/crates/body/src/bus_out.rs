@@ -264,6 +264,17 @@ pub fn stopped(stop: &Stop) -> Diagnostic {
                 joint_word(*joint)
             ),
         ),
+        Stop::BadTemperature {
+            joint,
+            temperature,
+            from,
+        } => (
+            Level::Error,
+            format!(
+                "stopped: {} temperature unreadable (it reads {temperature}, last good {from})",
+                joint_word(*joint)
+            ),
+        ),
         Stop::Overload {
             joint,
             load,

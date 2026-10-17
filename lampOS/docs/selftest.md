@@ -54,17 +54,18 @@ owner already has.
 | ring | lamp-voice | at the factory and on demand, each of the ten colours (level 3) asked for on `light/test`, which the ring's owner shows for 2 s at most without touching the person's light, and seen on `light/drawn`, which it says only from its own write receipts, within 1 s, held 0.3 s. All drawn passes; some not drawn fails, naming them; none drawn is `not_checked` (the ring does not draw under the privacy switch or a turn); a light asked for on `light/command` during it ends the check and is `not_checked`. The self-test never writes `light/command`. At first boot `light/state` is only listened to: fresh is `not_checked` ("listened only"), stale or unreadable fails | done |
 | camera | lamp-eyes | `humans/faces/tracked` published within 2 s (the eyes publish each look while the camera is open); otherwise the `eyes` item of `lamp/health`: a warning ("does not open", "stopped giving pictures") fails, ok means closed because seeing is not permitted now and is `not_checked`. The self-test never opens the camera itself, so the privacy switch stays authoritative | listens: done |
 | touch pads, button | lamp-controls | `controls/touch_state` ready, no fault, nothing held 10 s or more; and at the factory only, `touch_by_hand`: the person is asked on the console to swipe the strip, touch the head and press the button, and all 20 s are watched (a swipe is read to its end) for each source to feel the hand; the electrodes each felt are listed, the strip's from the bits of its `active_mask` (`E0` to `E11`), the head's by pad name, so one that never fires shows; a source not felt is `not_checked` and named | idle done; by hand done |
-| air | lamp-air | `air/state` fresh (15 s) and in range | done |
+| air | lamp-air | `air/state` fresh (15 s) and in range; one that read this boot and has gone stale fails (lamp-4ace on 17 Oct: its sensor answered, then 20–30 reads a minute failed). With no reading since boot (the bus is under `/run`), `lamp-air`'s own word decides: "no air sensor answers on I2C bus N", said after three misses by a sensor that never answered since `lamp-air` started, is `not_fitted` (the sensor is optional; lamp-06c1 and lamp-cb94 have none, the first builder on 17 Oct); "the sensor does not answer", in those first looks, is `not_checked`; "the air sensor answered but gives no reading", said instead once it has answered by name or with a reading that failed its CRC, fails (lamp-4ace after a reboot: a fitted sensor that is faulty or unseated, the Seventh and the reviewer on #1324), as does any other warning, such as a bus that cannot be opened. The words are `lamp-air`'s own constants (`watch::LOOKING`, `ABSENT`, `NO_READING`), and a test runs `lamp-air`'s loop against both kinds of sensor | done |
 | board | (none) | `board/state` from `lamp-health`: hottest under 85 °C, 3% of the disk free or more | done |
 | storage | (none) | `/dev/kmsg`, read to its end: no SD/MMC re-tune that timed out ("dma hold bit clear timeout", #784) and no I/O error on `mmcblk` since boot, each counted; unreadable (no `CAP_SYSLOG` under `dmesg_restrict`) is `not_checked`, and so is a log that no longer holds the whole boot (its first record kept is not sequence 0, or records were overwritten while read) with no fault in what is left; a fault kept still fails | done |
 
 A reading never given is `not_checked` (its owner may not run on this
 lamp); one older than its freshness, or unreadable, is `fail`. A topic
-never given a reading is not the end of it: the air, the room microphone
-and the joints then ask their owner's item in `lamp/health` (`air`,
-`ears`, `body`), and the owner's own warning fails the part with its words
-(lamp-4ace, 2026-10-16: `lamp-air` alive since a power cut and no reading
-yet). Touch with no `controls/touch_state` but a fresh `controls/state` is
+never given a reading is not the end of it: the room microphone and the
+joints then ask their owner's item in `lamp/health` (`ears`, `body`), and
+the owner's own warning fails the part with its words. The air asks
+`lamp-air`'s item too, judged by `lamp-air`'s own words (the row above):
+lamp-4ace on 2026-10-16, `lamp-air` alive since a power cut and no reading
+yet, is `not_checked` while it is still looking. Touch with no `controls/touch_state` but a fresh `controls/state` is
 `not_checked`: Controls runs, and whether it reads the pads is not known. Each joint
 of the five is its own part. Run it with
 

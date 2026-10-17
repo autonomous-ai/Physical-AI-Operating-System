@@ -14,6 +14,7 @@ name = "lamp-selftest"
 path = "src/main.rs"
 
 [dependencies]
+lamp-air = { path = "../air" }
 lamp-bus = { path = "../bus" }
 lamp-ipc = { path = "../ipc" }
 lamp-msgs = { path = "../msgs" }

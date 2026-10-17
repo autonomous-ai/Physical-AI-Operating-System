@@ -111,6 +111,44 @@ pub fn air(heard: &Heard<AirState>) -> PartResult {
     result
 }
 
+/// What `lamp-air` says when the sensor never gave a reading this boot
+/// (the bus lives under `/run`, so `air/state` starts empty at each boot),
+/// in `lamp-air`'s own words (`lamp_air::watch`). A sensor that never
+/// answered since `lamp-air` started counts absent after three looks,
+/// [`lamp_air::watch::ABSENT`]: then it is `not_fitted`, as on
+/// lamp-06c1 and lamp-cb94, where the sensor is optional and not fitted
+/// (the first builder, 17 Oct 13:57 and 14:50). Before that, "the sensor
+/// does not answer", it is still being looked for: `not_checked`. Any other
+/// warning fails, as [`owner_says`] does: one that answered and gives no
+/// reading ([`lamp_air::watch::NO_READING`], lamp-4ace after a reboot, the
+/// Seventh and the reviewer on #1324), or a bus that cannot be opened. A
+/// sensor that gave a reading this boot is judged by its reading, so one
+/// that answered and then fails (lamp-4ace) is a `fail`.
+pub fn air_silent(health: &Heard<Health>) -> Option<PartResult> {
+    let Ok(Some(seen)) = health else {
+        return None;
+    };
+    let item = seen.value.items.iter().find(|item| item.name == "air")?;
+    if item.message.starts_with(lamp_air::watch::ABSENT) {
+        return Some(PartResult::new(
+            "air",
+            Verdict::NotFitted,
+            &format!(
+                "no air sensor found since boot (lamp-air: {})",
+                item.message
+            ),
+        ));
+    }
+    if item.message.starts_with(lamp_air::watch::LOOKING) {
+        return Some(PartResult::new(
+            "air",
+            Verdict::NotChecked,
+            &format!("lamp-air is still looking for the sensor: {}", item.message),
+        ));
+    }
+    owner_says("air", "air", health)
+}
+
 /// The room microphone hears something, however quiet.
 pub fn room_mic(heard: &Heard<RoomSound>) -> PartResult {
     let part = "room_mic";
@@ -438,7 +476,10 @@ impl<T: DeserializeOwned> Check for Listen<'_, T> {
 pub fn checks(bus: &Bus) -> Vec<Box<dyn Check + '_>> {
     let mut checks: Vec<Box<dyn Check + '_>> = vec![
         Box::new(Listen::new("room_mic", bus, RoomSound::TOPIC, room_mic).owner("ears")),
-        Box::new(Listen::new("air", bus, AirState::TOPIC, air).owner("air")),
+        Box::new(
+            Listen::new("air", bus, AirState::TOPIC, air)
+                .when_silent(|bus: &Bus| air_silent(&newest(bus, Health::TOPIC))),
+        ),
         Box::new(
             Listen::new("touch", bus, TouchState::TOPIC, touch)
                 .when_silent(|bus| touch_unread(&newest(bus, ControlsState::TOPIC))),
@@ -667,6 +708,147 @@ mod tests {
         assert!(owner_says("air", "air", &Ok(None)).is_none());
     }
 
+    /// The first builder, 17 Oct 14:50: no sensor found since boot is
+    /// `not_fitted` (lamp-06c1, lamp-cb94); one that read and then failed is
+    /// a `fail` (lamp-4ace); a bus that cannot be opened still fails.
+    #[test]
+    fn an_air_sensor_never_found_since_boot_is_not_fitted_and_one_that_failed_is_a_fail() {
+        let absent = seen(
+            1_000,
+            health_of(
+                "air",
+                Level::Warn,
+                "no air sensor answers on I2C bus 0 (command 0xd014: Invalid argument (os error 22)); looked for again every 10 min",
+            ),
+        );
+        let fitted = air_silent(&absent).unwrap();
+        assert_eq!(fitted.verdict, Verdict::NotFitted, "{fitted:?}");
+        assert!(
+            fitted.reason.starts_with(
+                "no air sensor found since boot (lamp-air: no air sensor answers on I2C bus 0"
+            ),
+            "{}",
+            fitted.reason
+        );
+        let looking = air_silent(&seen(
+            1_000,
+            health_of(
+                "air",
+                Level::Warn,
+                "the sensor does not answer: command 0xd014: Invalid argument (os error 22)",
+            ),
+        ))
+        .unwrap();
+        assert_eq!(looking.verdict, Verdict::NotChecked);
+        let no_bus = air_silent(&seen(
+            1_000,
+            health_of(
+                "air",
+                Level::Warn,
+                "I2C bus 0 cannot be opened (No such file or directory); looked at again every 5 s",
+            ),
+        ))
+        .unwrap();
+        assert_eq!(no_bus.verdict, Verdict::Fail);
+        assert_eq!(
+            air_silent(&seen(1_000, health_of("air", Level::Ok, "")))
+                .unwrap()
+                .verdict,
+            Verdict::NotChecked
+        );
+        assert!(air_silent(&Ok(None)).is_none());
+        // lamp-4ace: it read this boot, and its newest reading is stale.
+        let stale = air(&seen(40_000, good_air()));
+        assert_eq!(stale.verdict, Verdict::Fail, "{stale:?}");
+    }
+
+    /// The reviewer's P2 on #1324: the words are `lamp-air`'s, so its own
+    /// loop is run here against a sensor that never answers and one that
+    /// answers its name and never reads, and each report it says is judged.
+    #[test]
+    fn lamp_airs_own_reports_judge_a_missing_sensor_not_fitted_and_a_silent_one_failed() {
+        use lamp_air::watch::{Clock, Missing, Say, Sensor, run};
+        struct Bench {
+            answers: bool,
+        }
+        impl Sensor for Bench {
+            fn find(&mut self) -> Result<String, Missing> {
+                if self.answers {
+                    Ok("SEN63C".into())
+                } else {
+                    Err(Missing::NoAnswer(
+                        "command 0xd014: Invalid argument (os error 22)".into(),
+                    ))
+                }
+            }
+            fn ready(&mut self) -> Result<bool, String> {
+                Err("word 0 fails its CRC".into())
+            }
+            fn read(&mut self) -> Result<AirState, String> {
+                Err("never".into())
+            }
+            fn start(&mut self) -> Result<(), String> {
+                Ok(())
+            }
+            fn lose(&mut self) {}
+        }
+        struct Steps(Duration);
+        impl Clock for Steps {
+            fn now(&mut self) -> Duration {
+                self.0
+            }
+            fn sleep(&mut self, duration: Duration) {
+                self.0 += duration;
+            }
+        }
+        #[derive(Default)]
+        struct Heard(Vec<(Duration, lamp_msgs::Diagnostic)>, Duration);
+        impl Say for Heard {
+            fn air(&mut self, _: &AirState) {}
+            fn health(&mut self, report: &lamp_msgs::Diagnostic) {
+                self.0.push((self.1, report.clone()));
+            }
+            fn log(&mut self, _: &str) {}
+        }
+        let judged = |answers: bool| -> Vec<Verdict> {
+            let (mut clock, mut said) = (Steps(Duration::ZERO), Heard::default());
+            // `Heard` cannot see the clock; the reports come in order, which
+            // is enough.
+            run(
+                &mut Bench { answers },
+                &mut clock,
+                &mut said,
+                0,
+                Duration::from_secs(60),
+            );
+            said.0
+                .iter()
+                .map(|(_, report)| {
+                    let item = lamp_msgs::HealthItem {
+                        name: "air".into(),
+                        level: report.level,
+                        message: report.message.clone(),
+                        age_ms: 0,
+                    };
+                    let health = Health {
+                        level: report.level,
+                        message: String::new(),
+                        items: vec![item],
+                        missing: Vec::new(),
+                    };
+                    air_silent(&seen(100, health)).unwrap().verdict
+                })
+                .collect()
+        };
+        let missing = judged(false);
+        assert_eq!(missing.first(), Some(&Verdict::NotChecked), "{missing:?}");
+        assert_eq!(missing.last(), Some(&Verdict::NotFitted), "{missing:?}");
+        assert!(!missing.contains(&Verdict::Fail), "{missing:?}");
+        let stuck = judged(true);
+        assert_eq!(stuck.last(), Some(&Verdict::Fail), "{stuck:?}");
+        assert!(!stuck.contains(&Verdict::NotFitted), "{stuck:?}");
+    }
+
     #[test]
     fn a_published_air_reading_is_read_from_what_the_bus_keeps_and_silence_asks_the_owner() {
         let root = std::path::PathBuf::from(format!("/tmp/ls-silent-{}", std::process::id()));
@@ -687,11 +869,17 @@ mod tests {
                 &health_of("air", Level::Warn, "the sensor does not answer"),
             )
             .unwrap();
-        let mut check = Listen::new("air", &bus, AirState::TOPIC, air).owner("air");
+        // The air check as the self-test runs it (the reviewer's P3 on
+        // #1324): its wiring in `checks` is what is tested.
+        let mut check = checks(&bus)
+            .into_iter()
+            .find(|check| check.part() == "air")
+            .unwrap();
+        // Still within lamp-air's first looks: not checked yet.
         let silent = check.run(Instant::now());
-        assert_eq!(silent.verdict, Verdict::Fail, "{silent:?}");
+        assert_eq!(silent.verdict, Verdict::NotChecked, "{silent:?}");
         assert!(
-            silent.reason.starts_with("air: the sensor"),
+            silent.reason.starts_with("lamp-air is still looking"),
             "{}",
             silent.reason
         );

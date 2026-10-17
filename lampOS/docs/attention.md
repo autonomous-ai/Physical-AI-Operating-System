@@ -1229,7 +1229,16 @@ lines 17 s apart after the news, all answered with the switch, all held
 without it when the first comes 100 s after; within the news's own 45 s,
 answered either way; and with the switch, talk between two people is still
 held: a line calling someone else by name inside the conversation, and one
-a minute after it). `day-and-night`
+a minute after it).
+
+Its cost in a busy room (the Second on #1378): the reply to the news is
+taken on timing alone, so two colleagues who start talking 45 to 180 s
+after the news are answered, every line, the first as `AFTER_NEWS` and the
+rest as a conversation going on. Without the switch they are held, as they
+are with it when no news came before. A narrowing that keeps tonight's
+first line, without the colleagues' talk, waits on that line's words. Test:
+`with_the_switch_two_people_talking_soon_after_the_news_are_answered`, which
+pins it. `day-and-night`
 is the switch with the day's own bars as well (below; the worker's
 `--spoken-to-by-day`, right after `--spoken-to`).
 

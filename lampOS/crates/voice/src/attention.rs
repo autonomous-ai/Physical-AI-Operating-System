@@ -2258,6 +2258,72 @@ mod tests {
         assert_eq!(run(false, 17), unswitched);
     }
 
+    /// The cost of the switch in a busy room (the Second on #1378, 20:29):
+    /// the first line within [`NEWS_REPLY_US`] of the lamp's news is taken
+    /// as a reply to it on timing alone, and its answer makes the next
+    /// lines a conversation going on. So two colleagues talking to each
+    /// other, no name and no face, are answered every line when they begin
+    /// 120 s after the news, as within the news's own 45 s, and held with no
+    /// news before them. Pinned here so that a narrowing changes it on
+    /// purpose.
+    #[test]
+    fn with_the_switch_two_people_talking_soon_after_the_news_are_answered() {
+        const S: u64 = 1_000_000;
+        let talk = |news: Option<u64>| {
+            let lines = [
+                "Did you get my message about the budget?",
+                "Yes, I'll look at it after lunch.",
+                "Can you send me the numbers first?",
+                "Sure, give me ten minutes.",
+                "Thanks, that works.",
+            ];
+            let start = std::time::Instant::now();
+            let at = |us: u64| start + std::time::Duration::from_micros(us);
+            let mut thread = crate::thread::Thread::new();
+            let mut attention = Attention::default();
+            attention.speak_when_spoken_to(true);
+            let first = news.map_or(1_000 * S, |after| (100 + after) * S);
+            if news.is_some() {
+                own_request().store(9_829, Ordering::Release);
+                attention.began_at(9_829, 4, 100 * S);
+                attention.first_output_busy(9_829, Room::Busy, false, true, Some(false));
+                attention.spoke(9_829, 100 * S);
+                thread.lamp(
+                    9_829,
+                    "The build you asked about has finished.",
+                    at(100 * S),
+                );
+                own_request().store(0, Ordering::Release);
+            }
+            let mut verdicts = Vec::new();
+            for (request, line) in (1..).zip(lines) {
+                // One line every 4 s, each said as the one before ends.
+                let began = first + 4 * S * (request - 1);
+                attention.began_at(request, 4, began);
+                attention.heard(line);
+                thread.person(line, true, at(began));
+                let going_on = thread.going_on(at(began));
+                let verdict = attention
+                    .first_output_busy(request, Room::Busy, going_on, true, Some(false))
+                    .unwrap();
+                if matches!(verdict, Verdict::Play(_)) {
+                    thread.lamp(request, "Here it is.", at(began + 2 * S));
+                }
+                attention.ended(request, began + 3 * S);
+                verdicts.push(verdict);
+            }
+            verdicts
+        };
+        let held = Verdict::Hold(
+            "a busy room, and nothing shows it was called or that anyone is turned to the lamp",
+        );
+        assert_eq!(talk(None), [held; 5]);
+        let mut joined = vec![Verdict::Play(AFTER_NEWS)];
+        joined.extend([Verdict::Play("a conversation with the lamp is going on"); 4]);
+        assert_eq!(talk(Some(30)), joined);
+        assert_eq!(talk(Some(120)), joined);
+    }
+
     /// #918, the reviewer at 05:11: the lamp's own turn opens the reply
     /// window only once its sound goes out. Ended silent, or cancelled
     /// before it spoke, it opens none, and the talk after it is judged as

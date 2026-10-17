@@ -519,6 +519,9 @@ fn run() -> Result<()> {
                 Ok::<(),Box<dyn std::error::Error+Send+Sync>>(())
             })?;
         },
+        [command, config, wav] if command == "stt-check" => {
+            lamp_voice::stop_words::stt_check(Path::new(config), Path::new(wav))?;
+        }
         [command,path] if command=="provider-check" => {
             let config=ProviderConfig::load(Path::new(path))?.into_session()?;
             tokio::runtime::Builder::new_current_thread().enable_all().build()?.block_on(async {

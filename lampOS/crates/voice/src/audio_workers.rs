@@ -296,6 +296,7 @@ pub fn capture_with_noise_suppression(
         ReferenceClock::Fixed,
         ReferenceRecovery::Off,
         lamp_audio::Reference::AsGiven,
+        false,
     )
 }
 
@@ -320,6 +321,7 @@ pub fn capture_with_options(
         options.reference_clock,
         options.reference_recovery,
         options.echo_reference.reference(),
+        options.raw_blocks,
     )
 }
 
@@ -338,6 +340,7 @@ pub fn capture_on<D: CaptureDevice>(
     reference_clock: ReferenceClock,
     reference_recovery: ReferenceRecovery,
     echo_reference: lamp_audio::Reference,
+    raw_blocks: bool,
 ) -> Result<()> {
     let mut recording = Recording::start(
         diagnostic_directory,
@@ -358,6 +361,7 @@ pub fn capture_on<D: CaptureDevice>(
         reference_recovery,
         echo_reference,
         hold::blocks_for(device, reference_clock),
+        raw_blocks,
     );
     // Invalidate input authority and close hardware before any filesystem acknowledgement wait.
     let close = microphone.control_lost();
@@ -392,6 +396,8 @@ fn capture_loop<D: CaptureDevice>(
     reference_recovery: ReferenceRecovery,
     echo_reference: lamp_audio::Reference,
     hold_blocks: usize,
+    // Each frame also carries the block before the canceller (#1047).
+    raw_blocks: bool,
 ) -> Result<EndReason> {
     // A frame waits this many capture blocks before it is cancelled, so that
     // the canceller has its render first. Whatever still waits when this
@@ -724,6 +730,8 @@ fn capture_loop<D: CaptureDevice>(
                 finish_tick(tick);
                 continue;
             };
+            // As the microphone recorded it, for the stop words, when asked.
+            let raw = raw_blocks.then(|| frame.samples.to_vec());
             // The canceller has this block's reference, or the block goes on
             // as the microphone recorded it. Nothing is put in its place.
             let (clean, delay) = match step {
@@ -818,6 +826,7 @@ fn capture_loop<D: CaptureDevice>(
                 },
                 reference: reference.trust(),
                 samples: clean.to_vec(),
+                raw,
             })?;
             if monotonic_us().saturating_sub(last_diagnostic) >= 1_000_000 {
                 channels

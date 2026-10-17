@@ -356,9 +356,13 @@ pub struct DirectedOptions {
 impl DirectedOptions {
     /// Used directly by the real capture-worker spawn path. The default keeps
     /// its exact previous device and arguments; no extra process or I/O.
+    /// The capture worker's argv. `raw_blocks`: each frame also carries
+    /// the microphone's block before the canceller, for the stop words
+    /// (`LAMP_STOP_WORDS_SOURCE=raw`, #1047).
     pub fn capture_arguments(
         self,
         diagnostic_directory: Option<PathBuf>,
+        raw_blocks: bool,
     ) -> io::Result<Vec<String>> {
         AudioWorkerOptions {
             diagnostic_directory,
@@ -366,6 +370,7 @@ impl DirectedOptions {
             reference_clock: self.reference_clock,
             reference_recovery: self.reference_recovery,
             echo_reference: self.echo_reference,
+            raw_blocks,
         }
         .child_arguments(self.microphone.device(), true)
     }
@@ -728,6 +733,10 @@ pub struct AudioWorkerOptions {
     pub reference_clock: ReferenceClock,
     pub reference_recovery: ReferenceRecovery,
     pub echo_reference: EchoReference,
+    /// Capture only: each frame also carries the block as the microphone
+    /// recorded it, before the canceller (`--raw-blocks`; the stop words'
+    /// `LAMP_STOP_WORDS_SOURCE=raw`, #1047).
+    pub raw_blocks: bool,
 }
 impl AudioWorkerOptions {
     /// The exact argv tail used by the supervisor. Values remain individual
@@ -761,9 +770,13 @@ impl AudioWorkerOptions {
                     self.echo_reference.as_str().to_owned(),
                 ]);
             }
+            if self.raw_blocks {
+                arguments.push("--raw-blocks".to_owned());
+            }
         } else if self.reference_clock != ReferenceClock::Fixed
             || self.reference_recovery != ReferenceRecovery::Off
             || self.echo_reference != EchoReference::AsGiven
+            || self.raw_blocks
         {
             return Err(invalid_options());
         }
@@ -819,6 +832,7 @@ impl AudioWorkerOptions {
                         return Err(invalid_options());
                     }
                 }
+                "--raw-blocks" if is_capture && !options.raw_blocks => options.raw_blocks = true,
                 _ => return Err(invalid_options()),
             }
         }
@@ -901,7 +915,9 @@ mod tests {
     }
     #[test]
     fn microphone_selection_reaches_the_capture_spawn_without_changing_processing() {
-        let default = DirectedOptions::default().capture_arguments(None).unwrap();
+        let default = DirectedOptions::default()
+            .capture_arguments(None, false)
+            .unwrap();
         assert_eq!(default, ["plug:device_micro2", "--noise-suppression", "on"]);
         for (name, device) in [
             ("mic1", "plug:device_micro1"),
@@ -924,7 +940,7 @@ mod tests {
             assert_eq!(
                 chosen
                     .directed
-                    .capture_arguments(Some(PathBuf::from("/tmp/mic diagnostic")))
+                    .capture_arguments(Some(PathBuf::from("/tmp/mic diagnostic")), false)
                     .unwrap(),
                 [
                     device,
@@ -1434,6 +1450,40 @@ mod tests {
 
     /// The steady echo reference is a value of its own, reaches only the
     /// capture worker, and is never sent unless chosen.
+    /// #1047: the stop words' raw blocks are asked of the capture worker
+    /// only, by one flag that is never in the default argv.
+    #[test]
+    fn raw_blocks_reach_only_the_capture_worker_and_only_when_asked() {
+        let plain = DirectedOptions::default()
+            .capture_arguments(None, false)
+            .unwrap();
+        assert!(!plain.iter().any(|argument| argument == "--raw-blocks"));
+        let raw = DirectedOptions::default()
+            .capture_arguments(None, true)
+            .unwrap();
+        assert_eq!(
+            raw.iter()
+                .filter(|argument| *argument == "--raw-blocks")
+                .count(),
+            1
+        );
+        let parsed = AudioWorkerOptions::parse(&raw[1..], true).unwrap();
+        assert!(parsed.raw_blocks);
+        assert!(
+            !AudioWorkerOptions::parse(&plain[1..], true)
+                .unwrap()
+                .raw_blocks
+        );
+        let flag = vec!["--raw-blocks".to_owned()];
+        assert!(AudioWorkerOptions::parse(&flag, false).is_err());
+        assert!(AudioWorkerOptions::parse(&[flag.clone(), flag].concat(), true).is_err());
+        let render = AudioWorkerOptions {
+            raw_blocks: true,
+            ..AudioWorkerOptions::default()
+        };
+        assert!(render.child_arguments("plug:speaker", false).is_err());
+    }
+
     #[test]
     fn a_steady_echo_reference_is_explicit_and_reaches_only_the_capture_worker() {
         assert_eq!(
@@ -1450,7 +1500,7 @@ mod tests {
             serde_json::to_value(EchoReference::Steady).unwrap(),
             "steady"
         );
-        let capture = chosen.capture_arguments(None).unwrap();
+        let capture = chosen.capture_arguments(None, false).unwrap();
         assert!(
             capture
                 .windows(2)
@@ -1461,7 +1511,9 @@ mod tests {
         assert_eq!(parsed.echo_reference, EchoReference::Steady);
         // The default argv has no such flag, and a worker told "as-given"
         // was started by nobody this program knows.
-        let plain = DirectedOptions::default().capture_arguments(None).unwrap();
+        let plain = DirectedOptions::default()
+            .capture_arguments(None, false)
+            .unwrap();
         assert!(!plain.iter().any(|argument| argument == "--echo-reference"));
         for wrong in [
             vec!["--echo-reference"],
@@ -1754,6 +1806,7 @@ mod tests {
                     reference_clock: ReferenceClock::Fixed,
                     reference_recovery: ReferenceRecovery::Off,
                     echo_reference: EchoReference::AsGiven,
+                    raw_blocks: false,
                 };
                 let arguments = requested
                     .child_arguments("plug:device_micro2", true)
@@ -1971,8 +2024,8 @@ mod early_end_tests {
             lamp
         );
         assert_eq!(
-            on.capture_arguments(None).unwrap(),
-            lamp.capture_arguments(None).unwrap()
+            on.capture_arguments(None, false).unwrap(),
+            lamp.capture_arguments(None, false).unwrap()
         );
     }
 

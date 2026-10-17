@@ -294,6 +294,12 @@ pub struct MicrophoneFrame {
     #[serde(default)]
     pub reference: ReferenceTrust,
     pub samples: Vec<i16>,
+    /// The same block as the microphone recorded it, before the canceller,
+    /// only from a capture worker asked for it (`--raw-blocks`): for the
+    /// stop words' speech-to-text, which the canceller leaves nothing of a
+    /// word said over the lamp (#1047, `LAMP_STOP_WORDS_SOURCE=raw`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub raw: Option<Vec<i16>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

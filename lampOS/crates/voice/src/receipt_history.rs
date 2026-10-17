@@ -41,12 +41,16 @@ pub(crate) const SOFTWARE_MUTED: &str = "software_muted";
 pub(crate) const HAND_STOP: &str = "hand_stop";
 pub(crate) const HEAD_STOP: &str = "head_stop";
 pub(crate) const CAPTURE_GAP: &str = "capture_gap";
-pub(crate) const LOCAL_CANCELS: [&str; 5] = [
+/// A stop phrase said over the lamp's voice and heard while it speaks
+/// (`LAMP_STOP_WORDS=heard-always`, #828): the hand's stop, by voice.
+pub(crate) const SPOKEN_STOP: &str = "spoken_stop";
+pub(crate) const LOCAL_CANCELS: [&str; 6] = [
     HEAD_SLEEP,
     SOFTWARE_MUTED,
     HAND_STOP,
     HEAD_STOP,
     CAPTURE_GAP,
+    SPOKEN_STOP,
 ];
 
 impl ReceiptHistory {

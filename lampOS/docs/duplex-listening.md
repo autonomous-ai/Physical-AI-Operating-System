@@ -223,6 +223,11 @@ configuration: the words said in a yield are heard, and a stop phrase
 commits it ([stop-word.md](stop-word.md#a-stop-word-heard-in-a-yield-828-step-2-16-october)).
 Off by default; not on any lamp.
 
+`LAMP_STOP_WORDS=heard-always`, with the same: everything heard while the
+lamp speaks is heard, and a stop phrase the lamp did not say itself stops
+the reply as a hand Stop does ([stop-word.md](stop-word.md#a-stop-word-heard-over-the-lamps-voice-828-16-october)).
+Off by default; not on any lamp.
+
 The two are separate because a long session needs the second under every
 turn-taking policy. With neither flag the supervisor's argv to both audio
 workers is byte for byte what it was, and a worker's periodic

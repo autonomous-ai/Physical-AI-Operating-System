@@ -2389,8 +2389,12 @@ fn spawn_rig(
         },
     )?;
     let mut last = 0;
-    let capture_arguments =
-        options.capture_arguments(diagnostic_directory.map(|p| p.join("capture-audio")))?;
+    let capture_arguments = options.capture_arguments(
+        diagnostic_directory.map(|p| p.join("capture-audio")),
+        // Only for stop words that are listened for (#1047).
+        crate::stop_words::listen() != crate::stop_words::Listen::Off
+            && crate::stop_words::raw_source(),
+    )?;
     let speaker_arguments = AudioWorkerOptions {
         diagnostic_directory: diagnostic_directory.map(|p| p.join("render-audio")),
         ..AudioWorkerOptions::default()
@@ -3401,17 +3405,43 @@ fn conversation_with_gate(
         (false, _) => Hold::STANDARD,
     };
     // A yield's words, listened for with the second voice's speech-to-text
-    // (#828, `LAMP_STOP_WORDS=heard`): a stop word ends the reply. Off
-    // unless set, and without the second voice's configuration.
-    let mut stop_words = (duplex && crate::stop_words::heard_on())
+    // (#828, `LAMP_STOP_WORDS=heard`): a stop word ends the reply. Or all
+    // that is heard while the lamp speaks (`heard-always`): a stop word
+    // stops it as a hand Stop does. Off unless set, and without the second
+    // voice's configuration.
+    let listen = crate::stop_words::listen();
+    let always = listen == crate::stop_words::Listen::Always;
+    if listen != crate::stop_words::Listen::Off && !duplex {
+        eprintln!(
+            "lamp-voice: LAMP_STOP_WORDS is set, but stop words are heard only with --turn-taking duplex: not heard"
+        );
+    }
+    let mut stop_words = (duplex && listen != crate::stop_words::Listen::Off)
         .then(|| match crate::second_config::load_from_env() {
-            Ok(Some(config)) => crate::stop_words::RelayEars::start(config)
-                .map(|ears| crate::stop_words::StopWords::new(Box::new(ears)))
+            Ok(Some(config)) => crate::stop_words::RelayEars::start(
+                {
+                    eprintln!(
+                        "lamp-voice: stop words: {}, through the second voice's speech-to-text at {}",
+                        if always { "heard-always, all the lamp's speech" } else { "heard, in a yield" },
+                        crate::stop_words::where_heard(&config)
+                    );
+                    config
+                },
+                always,
+            )
+                .map(|ears| {
+                    if always {
+                        crate::stop_words::StopWords::always(Box::new(ears))
+                            .with_cadence(crate::stop_words::raw_source())
+                    } else {
+                        crate::stop_words::StopWords::new(Box::new(ears))
+                    }
+                })
                 .map_err(|error| eprintln!("lamp-voice: stop words are not heard: {error}"))
                 .ok(),
             Ok(None) => {
                 eprintln!(
-                    "lamp-voice: LAMP_STOP_WORDS=heard has no speech-to-text without the second voice's configuration: stop words are not heard"
+                    "lamp-voice: LAMP_STOP_WORDS has no speech-to-text without the second voice's configuration: stop words are not heard"
                 );
                 None
             }
@@ -3439,7 +3469,8 @@ fn conversation_with_gate(
             "fruitless_yields_before_fallback":FRUITLESS_YIELDS,
             "decision_budget_us":hold.decision_budget_us,
             "first_words_kept_blocks":first_words.then_some(crate::activity::REACH_BACK_BLOCKS),
-            "stop_words_after_still_blocks":stop_words.is_some().then_some(crate::stop_words::FINALIZE_AFTER_STILL_BLOCKS),
+            "stop_words_after_still_blocks":(stop_words.is_some() && !always).then_some(crate::stop_words::FINALIZE_AFTER_STILL_BLOCKS),
+            "stop_words_always":(stop_words.is_some() && always).then_some(true),
             "provider_queue_bound":provider_queue_bound(hold),
             "provider_total_queue_bound":provider_queue_bound(hold) + 1,
             "provider_terminal_allowance":1,
@@ -3692,8 +3723,11 @@ fn conversation_with_gate(
             .as_ref()
             .is_some_and(|current| current.had_audio || current.playback.is_some());
         let head_stop = speaking && head_touch_at_us.is_some();
+        // A stop phrase said over the lamp and heard while it speaks
+        // (#828, `LAMP_STOP_WORDS=heard-always`) stops it as the hand does.
+        let spoken_stop = stop_words.as_mut().is_some_and(|words| words.spoken_stop()) && speaking;
         {
-            if stop || muted || gap_cut || head_stop {
+            if stop || muted || gap_cut || head_stop || spoken_stop {
                 let observed_at_us = monotonic_us();
                 let cancellation = hand::cancel(
                     owner,
@@ -3725,7 +3759,7 @@ fn conversation_with_gate(
                 if let Some(words) = stop_words.as_mut() {
                     words.close();
                 }
-                if gap_cut && !stop && !head_stop && !muted {
+                if gap_cut && !stop && !head_stop && !spoken_stop && !muted {
                     // Admission keeps nothing of it: its capture lineage
                     // ends with the gap. After the gap, what is still said
                     // of it is dropped until a pause, not a new question.
@@ -3756,7 +3790,7 @@ fn conversation_with_gate(
                 asked_in_busy_room = None;
                 busy_answer_since = None;
                 use crate::receipt_history::{
-                    CAPTURE_GAP, HAND_STOP, HEAD_SLEEP, HEAD_STOP, SOFTWARE_MUTED,
+                    CAPTURE_GAP, HAND_STOP, HEAD_SLEEP, HEAD_STOP, SOFTWARE_MUTED, SPOKEN_STOP,
                 };
                 // Only a Stop that cut the lamp's speech: after an idle
                 // Stop, "Lamp?" or "Hi." is taken as always (Second on
@@ -3775,6 +3809,8 @@ fn conversation_with_gate(
                     HAND_STOP
                 } else if head_stop {
                     HEAD_STOP
+                } else if spoken_stop {
+                    SPOKEN_STOP
                 } else {
                     CAPTURE_GAP
                 };
@@ -4115,6 +4151,13 @@ fn conversation_with_gate(
                             None => bus.heard(&text, finished, monotonic_us()),
                         }
                     }
+                    // What the lamp says is its own, not a stop said over it
+                    // (#828, `heard-always`).
+                    if request.is_some()
+                        && let Some(words) = stop_words.as_mut()
+                    {
+                        words.lamp_said(&text, monotonic_us());
+                    }
                     // The model keeping quiet aloud: an answer that opens
                     // with no word in it ("...") while none of it has been
                     // played is not an answer. It ends here, unheard, and
@@ -4356,7 +4399,7 @@ fn conversation_with_gate(
             capture_requested = true;
         }
         for _ in 0..8 {
-            let Some(frame) = rig.capture.channels.data.receive::<MicrophoneFrame>()? else {
+            let Some(mut frame) = rig.capture.channels.data.receive::<MicrophoneFrame>()? else {
                 break;
             };
             // A turn cut by a gap is cancelled on the next pass: until then
@@ -4656,6 +4699,8 @@ fn conversation_with_gate(
             {
                 loud_blocks.pop_front();
             }
+            // Before the canceller, for the stop words, when they asked.
+            let raw = frame.raw.take();
             let observation = ObservedAudio {
                 sequence: frame.frame_sequence,
                 captured_at_us: frame.read_completed_at_us,
@@ -4677,6 +4722,11 @@ fn conversation_with_gate(
             }
             let samples = observation.samples;
             let captured_at_us = observation.captured_at_us;
+            // The lamp's sound still reaches the microphone (#828,
+            // `heard-always`).
+            let sounding = frame.echo.as_ref().is_some_and(|echo| {
+                echo.render_quiet_blocks < Hearing::EVALUATED.clear_after_blocks
+            });
             let (update, input_ended) = observe_prospective_heard(
                 &mut playback_mask,
                 &mut detector,
@@ -4726,14 +4776,25 @@ fn conversation_with_gate(
             // each block while it is in force, and the rule told when they
             // come. Nothing but what is said in a yield is heard.
             if let Some(words) = stop_words.as_mut() {
+                // Listening to everything, a reply counts from its first
+                // sound from the provider: one held, or never answered,
+                // opens no stream (the first builder at 15:29, eleven in two
+                // minutes of office noise). The 0.6 to 0.8 s the stream
+                // takes to connect overlaps the start of playout, and
+                // what is heard meanwhile is kept for it.
+                let replying = reply.as_ref().is_some_and(|current| {
+                    !words.hears_always() || current.had_audio || current.playback.is_some()
+                });
+                words.heard_speech(probability.is_finite() && probability >= 0.5);
                 hear_stop_words(
                     words,
                     &mut playback_mask,
                     &admission,
                     &update.step,
-                    reply.is_some(),
+                    replying,
+                    sounding,
                     captured_at_us,
-                    &samples,
+                    raw.as_deref().unwrap_or(&samples),
                     trace,
                 )?;
             }
@@ -6902,6 +6963,7 @@ fn hear_stop_words(
     admission: &InputAdmission,
     step: &AdmissionStep,
     replying: bool,
+    sounding: bool,
     captured_at_us: u64,
     samples: &[i16],
     trace: &mut SessionState,
@@ -6914,6 +6976,7 @@ fn hear_stop_words(
     };
     match words.block(
         replying,
+        sounding,
         mask.yield_in_force(),
         mask.still_blocks(),
         held,
@@ -9167,6 +9230,7 @@ mod tests {
         capture
             .data
             .send(MicrophoneFrame {
+                raw: None,
                 epoch: 1,
                 dsp_epoch: 1,
                 privacy_generation: 2,
@@ -10419,6 +10483,36 @@ mod tests {
                 .unwrap();
             assert_eq!(discard["expected_cancellation"], true, "{reason}");
         }
+    }
+
+    /// The first builder's P1 on #1047: a stop said over the lamp's voice
+    /// cancels as the hand's does, so the speaker's discard of the rest of
+    /// its audio is expected and ends nothing, as for a head tap (#1024).
+    #[test]
+    fn a_spoken_stop_during_speech_drops_its_audio_without_ending_the_voice() {
+        let (mut owner, current, _) = active_reply();
+        let affected = current.owner;
+        let mut reply = Some(current);
+        let mut trace = SessionState::default();
+        cancel_reply(
+            &mut owner,
+            &mut reply,
+            &mut trace,
+            crate::receipt_history::SPOKEN_STOP,
+        )
+        .unwrap();
+        handle_playback_discard(
+            &mut owner,
+            &mut reply,
+            &mut trace,
+            discarded(affected, PlaybackDiscardReason::StaleOwner, false),
+        )
+        .unwrap();
+        let discard = (0..trace.len())
+            .map(|row| &trace[row])
+            .find(|row| row["kind"] == "playback_discarded")
+            .unwrap();
+        assert_eq!(discard["expected_cancellation"], true);
     }
 
     #[test]

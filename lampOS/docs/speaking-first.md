@@ -78,7 +78,10 @@ typed name is also told to the model after its character on every voice
 route (`person::told`), so a skill's "by name if you know it" (Welcome back)
 can use it. It is one line of at most 40 characters; anything else, or no
 file (before setup, after a reset), is no name, and the voice says why
-without saying the name.
+without saying the name. Each time it is used, the journal says so without
+the name: `the person's name from /etc/lampOS/person/name is used (4
+characters)`. The first five minutes (#841) run in the same session, so their
+notes come after the same instruction.
 
 Tried on lamp-4ace through its relay with `lamp-voice provider-check CONFIG
 --written NOTE`, which opens a session, sends the one request and plays

@@ -1208,11 +1208,12 @@ const TEMPERATURE_JUMP: u8 = 3;
 /// values by turns. lamp-4ace's shoulder on 2026-10-17 read about 55 and 59
 /// to 61 by turns for hours (its settles 4 to 6 apart), and ended on
 /// `Stop::BadTemperature` at 15:25 though every read was under 62. A flap
-/// is never counted toward that stop. Once its value repeats, within
-/// `TEMPERATURE_SETTLE` of the last flap's and within
-/// `TEMPERATURE_FLAP_READS`, the joint is judged on the
+/// that repeats is never counted toward that stop. Once its value repeats
+/// (`TEMPERATURE_FLAP_AGREE`, within `TEMPERATURE_SETTLE` and within
+/// `TEMPERATURE_FLAP_READS`), the joint is judged on the
 /// higher of it and the good one (`Bus::judge_temperatures`), the cautious
-/// side for heat; a lone flap holds, as a replaced read does. 10 takes in twice lamp-4ace's flap and is still far from the
+/// side for heat; a lone flap is a bad read, as on lamp-voice. 10 takes in
+/// twice lamp-4ace's flap and is still far from the
 /// glitches of 60 to 150 from under 58 that lamp-52e6 reads.
 const TEMPERATURE_FLAP: u8 = 10;
 /// Reads within which a flap must repeat to be judged, and for which the
@@ -1221,6 +1222,12 @@ const TEMPERATURE_FLAP: u8 = 10;
 /// so; lamp-52e6's glitches, one read in 27 at random, seldom come twice
 /// within 10 reads and alike, so they never chain into 50 hot steps.
 const TEMPERATURE_FLAP_READS: u8 = 10;
+/// Flaps in a row that must each agree with the last, within
+/// `TEMPERATURE_SETTLE`, for a flap to be kept out of the unreadable stop:
+/// three alike. A real flap reads the same value again (lamp-4ace's 59 to
+/// 61); noise of 64 to 70 at random has two alike about 2 times in 5 and
+/// three about 1 in 7, so it still ends the run within a couple of seconds.
+const TEMPERATURE_FLAP_AGREE: u8 = 2;
 /// How near the last agreeing one a bad read must be to agree with it: a
 /// bad value settles once half of `Limits::temperature_steps` reads agree.
 const TEMPERATURE_SETTLE: u8 = 2;
@@ -1284,12 +1291,12 @@ struct Bus<'a, P, R> {
     /// Each joint's replaced temperature reads in a row, less one for each
     /// good read.
     bad_warm_in_row: [u8; 5],
-    /// Each joint's last flap (`TEMPERATURE_FLAP`): its value, whether it
-    /// repeated the flap before it (within `TEMPERATURE_SETTLE`), and reads
-    /// since. A repeated flap's value is the floor of the good reads after
+    /// Each joint's last flap (`TEMPERATURE_FLAP`): its value, how many
+    /// flaps before it in a row each agreed with the next (within
+    /// `TEMPERATURE_SETTLE`), and reads since. A repeated flap's value is the floor of the good reads after
     /// it until `TEMPERATURE_FLAP_READS` pass with no flap; a lone one is
     /// forgotten then, so glitches that do not repeat are never heat.
-    flap: [Option<(u8, bool, u8)>; 5],
+    flap: [Option<(u8, u8, u8)>; 5],
     /// Each joint's temperature reads since its last good one: a flap holds
     /// only within `TEMPERATURE_FLAP_READS` of it. Reads farther from any
     /// good one are bad reads, toward `Stop::BadTemperature`, as on #1270.
@@ -1543,13 +1550,13 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
                 // in 27 still never adds up.
                 self.bad_warm_in_row[index] = self.bad_warm_in_row[index].saturating_sub(1);
                 self.flap[index] = match self.flap[index] {
-                    Some((last, repeated, since))
+                    Some((last, agreed, since))
                         if since.saturating_add(1) < TEMPERATURE_FLAP_READS =>
                     {
-                        if repeated {
+                        if agreed >= TEMPERATURE_FLAP_AGREE {
                             sample.temperature = read.max(last);
                         }
-                        Some((last, repeated, since + 1))
+                        Some((last, agreed, since + 1))
                     }
                     _ => None,
                 };
@@ -1587,17 +1594,24 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
             self.settling[index] = Some(settling);
             self.bad_temperatures[index] = self.bad_temperatures[index].saturating_add(1);
             if flap {
-                // It holds the heat streak as a replaced read does and never
-                // adds toward the unreadable stop. Only a flap that repeats
-                // the last one is judged: on the higher of it and the good
-                // one, and the good reads after it on it too. A lone flap,
-                // a glitch within the window, is replaced by the good one.
-                let repeated = self.flap[index]
-                    .is_some_and(|(last, _, _)| read.abs_diff(last) <= TEMPERATURE_SETTLE);
-                self.flap[index] = Some((read, repeated, 0));
-                sample.temperature = if repeated { read.max(good) } else { good };
-                self.temperature_held[index] = true;
-                continue;
+                // Only a flap that repeats the last one is kept out of the
+                // unreadable stop: it holds the heat streak as a replaced
+                // read does, is judged on the higher of it and the good one,
+                // and the good reads after it on it too. A lone flap, noise
+                // or a glitch within the window, is a bad read as on
+                // lamp-voice, so noise around a good one still ends the run.
+                let agreed = match self.flap[index] {
+                    Some((last, agreed, _)) if read.abs_diff(last) <= TEMPERATURE_SETTLE => {
+                        agreed.saturating_add(1)
+                    }
+                    _ => 0,
+                };
+                self.flap[index] = Some((read, agreed, 0));
+                if agreed >= TEMPERATURE_FLAP_AGREE {
+                    sample.temperature = read.max(good);
+                    self.temperature_held[index] = true;
+                    continue;
+                }
             }
             self.bad_warm_in_row[index] = self.bad_warm_in_row[index].saturating_add(1);
             if self.bad_warm_in_row[index] >= self.settle_steps {

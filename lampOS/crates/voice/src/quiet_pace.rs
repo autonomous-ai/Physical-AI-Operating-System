@@ -44,6 +44,25 @@ impl Pace {
     }
 }
 
+/// What a pass found going on, which keeps the busy pace.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Going {
+    pub reply: bool,
+    pub provider_queue: bool,
+    pub stream: bool,
+    pub draining: bool,
+    pub room_busy: bool,
+    pub since_speech_us: u64,
+}
+
+impl Going {
+    /// Nothing going on, and no speech for [`SPEECH_KEEPS_US`].
+    pub fn quiet(self) -> bool {
+        !(self.reply || self.provider_queue || self.stream || self.draining || self.room_busy)
+            && self.since_speech_us >= SPEECH_KEEPS_US
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -60,5 +79,45 @@ mod tests {
         assert_eq!(pace.pass(false), BUSY);
         // Far inside the 20 ms renewal and the 100 ms lease of a turn.
         assert!(QUIET * 4 <= Duration::from_millis(20));
+    }
+
+    #[test]
+    fn anything_going_on_or_recent_speech_keeps_the_busy_pace() {
+        let idle = Going {
+            since_speech_us: SPEECH_KEEPS_US,
+            ..Going::default()
+        };
+        assert!(idle.quiet());
+        assert!(
+            !Going {
+                since_speech_us: SPEECH_KEEPS_US - 1,
+                ..idle
+            }
+            .quiet()
+        );
+        for going in [
+            Going {
+                reply: true,
+                ..idle
+            },
+            Going {
+                provider_queue: true,
+                ..idle
+            },
+            Going {
+                stream: true,
+                ..idle
+            },
+            Going {
+                draining: true,
+                ..idle
+            },
+            Going {
+                room_busy: true,
+                ..idle
+            },
+        ] {
+            assert!(!going.quiet(), "{going:?}");
+        }
     }
 }

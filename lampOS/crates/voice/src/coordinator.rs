@@ -6679,12 +6679,15 @@ fn conversation_with_gate(
         stall_pass.done();
         // Nothing going on: no reply, nothing for the provider, no admitted
         // speech, nothing draining, the room not busy, no speech lately.
-        let quiet = reply.is_none()
-            && provider_queue.is_empty()
-            && !admission.owns_stream()
-            && !submission_draining
-            && !room.busy()
-            && monotonic_us().saturating_sub(last_speech_us) >= crate::quiet_pace::SPEECH_KEEPS_US;
+        let quiet = crate::quiet_pace::Going {
+            reply: reply.is_some(),
+            provider_queue: !provider_queue.is_empty(),
+            stream: admission.owns_stream(),
+            draining: submission_draining,
+            room_busy: room.busy(),
+            since_speech_us: monotonic_us().saturating_sub(last_speech_us),
+        }
+        .quiet();
         if let Some(wait) = pace.pass(quiet).checked_sub(loop_start.elapsed()) {
             std::thread::sleep(wait);
         }

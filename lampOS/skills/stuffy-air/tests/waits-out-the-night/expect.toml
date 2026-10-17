@@ -1,0 +1,22 @@
+# Stuffy from 23:00 until 10:00 (1,400 ppm for 11 hours, then down to 700):
+# the chance comes at 23:10, in the quiet hours, and is kept through the
+# night while the air stays stuffy. The lamp droops and dims once, at 08:00
+# (9 hours in), and gives the light back as the air clears, just past 10:09.
+clock = "23:00"
+
+[[expect]]
+at = "32400s"
+within = "30s"
+call = "body.gesture"
+args = { gesture = "sleepy" }
+
+[[expect]]
+at = "32400s"
+within = "30s"
+call = "light"
+args = { dim = 1, until = "ends" }
+
+[[expect]]
+at = "40170s"
+within = "30s"
+call = "ends"

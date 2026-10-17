@@ -1175,7 +1175,9 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
                 .into(),
         );
     }
-    if triggers.is_empty()
+    // A tool's run has no trigger to end it: what it held would be held for
+    // good.
+    if (triggers.is_empty() || file.tool.is_some())
         && steps.iter().any(|(_, step)| {
             matches!(
                 step,
@@ -1186,7 +1188,9 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
             )
         })
     {
-        return Err("until = \"ends\" is the end of a trigger: in a skill with one".into());
+        return Err(
+            "until = \"ends\" is the end of a trigger: in a skill with one and no tool".into(),
+        );
     }
     // An item's run has no quiet hours and no end of its own: quiet would be
     // passed over, and a dim held until it ends would hold the skill busy
@@ -1845,14 +1849,29 @@ impl Engine {
                     watch.disarmed = true;
                     watch.past_line_us = None;
                 }
-                if skill
-                    .quiet
-                    .is_some_and(|quiet| minute.is_none_or(|minute| within(minute, quiet)))
-                    || (trigger.when == When::Appears && watch.away_us < trigger.absent_for_us)
+                if (trigger.when == When::Appears && watch.away_us < trigger.absent_for_us)
                     || watch
                         .ran_us
                         .is_some_and(|ran| now_us - ran < trigger.cooldown_us)
                 {
+                    continue;
+                }
+                if skill
+                    .quiet
+                    .is_some_and(|quiet| minute.is_none_or(|minute| within(minute, quiet)))
+                {
+                    // In the quiet hours the chance is kept, as `wait` keeps
+                    // one through a talk: taken at the trigger's first message
+                    // after they end, while it still holds; the trigger
+                    // stopping (past its `gap`) spends it. A `wait` for a
+                    // condition begins when they end. An `appears` chance is
+                    // spent: someone who came at 22:30 is not greeted at
+                    // 08:00.
+                    if trigger.when != When::Appears {
+                        watch.spent = false;
+                        watch.disarmed = false;
+                        watch.waiting_us = None;
+                    }
                     continue;
                 }
                 if !Self::conditions_hold(&self.latest, &self.holding, skill, now_us) {

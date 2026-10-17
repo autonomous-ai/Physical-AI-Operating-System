@@ -3670,6 +3670,23 @@ fn quiet_hours_keep_a_skill_still_and_so_does_a_time_of_day_not_known() {
     assert_eq!(stuffy_runs(&skill, &air, Some(7 * 60 + 55)).len(), 1);
     // Past midnight, from 01:00: nothing.
     assert!(stuffy_runs(&skill, &air, Some(60)).is_empty());
+    // Stuffy from 23:00 to 10:00: the chance that came at 23:10 is kept
+    // through the night, and the lamp droops once, at 08:00.
+    let mut night = co2(0, 660, 1300);
+    night.extend(co2(660, 670, 800));
+    let runs = stuffy_runs(&skill, &night, Some(23 * 60));
+    let minutes: Vec<u64> = runs.iter().map(|run| run.0).collect();
+    assert_eq!(minutes, [9 * 60, 660], "{runs:?}");
+    assert_eq!(runs[1].1, [Call::Ends]);
+    // An `appears` chance in the quiet hours is spent, not kept until 08:00.
+    let appears = skill_with(
+        dir.path(),
+        "appears",
+        "[trigger]\ntopic = \"air/state\"\nfield = \"co2_ppm\"\nabove = 1200\n\
+         when = \"appears\"\n[quiet]\nfrom = \"22:00\"\nto = \"08:00\"\n\
+         [ask]\npolicy = \"nudge\"\n[[do]]\nbody = { gesture = \"sleepy\" }\n",
+    );
+    assert!(stuffy_runs(&appears, &co2(0, 660, 1300), Some(23 * 60)).is_empty());
     // The time of day not known: never.
     assert!(stuffy_runs(&skill, &air, None).is_empty());
     // A skill without quiet hours needs no clock.
@@ -3700,6 +3717,12 @@ fn the_loader_refuses_a_rearm_line_quiet_hours_or_an_end_it_cannot_use() {
         ("to = \"08:00\"", "to = \"24:00\"", "not a time of day"),
         ("to = \"08:00\"", "to = \"22:00\"", "different times"),
         (triggered, "tool = \"droop\"\n", "the end of a trigger"),
+        // A trigger and a tool: the tool's run would never be told its end.
+        (
+            triggered,
+            &format!("tool = \"droop\"\n{triggered}"),
+            "in a skill with one and no tool",
+        ),
     ] {
         assert!(STUFFY.contains(from), "{from}");
         let skill = skill_with(

@@ -301,6 +301,7 @@ mod tests {
             let (near, flags) = attention::take_near(flags);
             let (passing, flags) = attention::take_passing(flags);
             let (spoken_to, flags) = attention::take_spoken_to(flags);
+            let (_, flags) = attention::take_by_day(flags);
             let (addressed, flags) = take(flags);
             let (_, flags) = attention::take_name(flags);
             let (_, _, flags) = crate::called::take(flags);
@@ -371,6 +372,22 @@ mod tests {
                 ((true, true, true, passing, spoken_to, true, true), vec![])
             );
         }
+        // And after the day's own bars (`LAMP_SPOKEN_TO=day-and-night`).
+        let by_day = flags(
+            &[
+                attention::FLAG,
+                attention::SPOKEN_TO_FLAG,
+                attention::BY_DAY_FLAG,
+                FLAG,
+            ]
+            .into_iter()
+            .chain(root)
+            .collect::<Vec<_>>(),
+        );
+        assert_eq!(
+            taken(&by_day),
+            ((true, false, false, false, true, true, true), vec![])
+        );
         // Alone, it is taken too, and the worker leaves it off: it follows
         // the requests only with the attention rule.
         let alone = flags(&[FLAG].into_iter().chain(root).collect::<Vec<_>>());

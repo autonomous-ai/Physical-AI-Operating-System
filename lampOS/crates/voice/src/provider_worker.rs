@@ -97,6 +97,9 @@ static NAME_NOTE_BUSY_FACE: std::sync::atomic::AtomicBool =
 /// Whether the rule for whom the lamp answers is in its busy form
 /// (`crate::attention::BUSY_FLAG`).
 static ATTENTION_BUSY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// Whether the name is held to the day's own bars
+/// (`crate::attention::BY_DAY_FLAG`). Only with the switch.
+static SPOKEN_TO_BY_DAY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// Whether a tap on the lamp's head counts as a call (`--head-touch`, #711).
 static HEAD_TOUCH: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// Whether a name heard close to the lamp counts as a call
@@ -142,6 +145,9 @@ pub struct Files {
     /// Whether an answer is played only when the lamp was spoken to
     /// (`--spoken-to`, #829).
     pub spoken_to: bool,
+    /// Whether the name is held to the day's own bars as well
+    /// (`--spoken-to-by-day`, `crate::attention::BY_DAY_FLAG`).
+    pub spoken_to_by_day: bool,
     /// The same-voice check's model (`--same-voice-model`, #829): a line in
     /// another voice than the conversation's is no part of it. Only with
     /// `spoken_to`.
@@ -238,6 +244,7 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
     let (attention_near, flags) = crate::attention::take_near(flags);
     let (name_in_passing_ignored, flags) = crate::attention::take_passing(flags);
     let (spoken_to, flags) = crate::attention::take_spoken_to(flags);
+    let (spoken_to_by_day, flags) = crate::attention::take_by_day(flags);
     let (same_voice, flags) = crate::same_voice::take(flags)?;
     let (addressed, flags) = crate::addressed::take(flags);
     let (name_signal, flags) = crate::attention::take_name(flags);
@@ -269,6 +276,7 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
         attention_near,
         name_in_passing_ignored,
         spoken_to,
+        spoken_to_by_day,
         same_voice,
         addressed,
         name_signal,
@@ -937,6 +945,10 @@ pub async fn run_with_continuation(
         files.attention && files.attention_busy,
         std::sync::atomic::Ordering::Relaxed,
     );
+    SPOKEN_TO_BY_DAY.store(
+        files.attention && files.spoken_to && files.spoken_to_by_day,
+        std::sync::atomic::Ordering::Relaxed,
+    );
     ATTENTION_NEAR.store(
         files.attention && files.attention_busy && files.attention_near,
         std::sync::atomic::Ordering::Relaxed,
@@ -1254,6 +1266,7 @@ async fn serve_with_visual<C: Connect>(
     attention.ask_again_when_unclear(options.attention.is_some() && options.ask_unclear);
     attention.ignore_name_in_passing(options.name_in_passing_ignored);
     attention.speak_when_spoken_to(spoken_to);
+    attention.judge_by_day(SPOKEN_TO_BY_DAY.load(std::sync::atomic::Ordering::Relaxed));
     // With it, only talk between people makes the room busy (#829).
     if let Ok(mut room) = crate::room_told::room().lock() {
         room.count_only_talk(spoken_to);
@@ -1346,8 +1359,9 @@ async fn serve_with_visual<C: Connect>(
                     // Whether it is night, read once as the request ends: a
                     // file and the kernel's clock, off the way to its first
                     // output (Ten on #1158). One whose end this worker never
-                    // saw is read at its first output.
-                    if night_read.is_none_or(|(of, _)| of != request) {
+                    // saw is read at its first output. Only with the day's
+                    // own bars, which alone use it (the reviewer on #1158).
+                    if attention.judges_by_day() && night_read.is_none_or(|(of, _)| of != request) {
                         night_read = Some((request, crate::local_time::night_here()));
                     }
                     if intake.handoff.ended_cut_in == Some(request) {
@@ -1917,7 +1931,7 @@ async fn serve_with_visual<C: Connect>(
                                 }
                                 None => going_on,
                             };
-                            if night_read.is_none_or(|(of, _)| of != request) {
+                            if attention.judges_by_day() && night_read.is_none_or(|(of, _)| of != request) {
                                 night_read = Some((request, crate::local_time::night_here()));
                             }
                             attention.set_night(night_read.is_some_and(|(_, night)| night));

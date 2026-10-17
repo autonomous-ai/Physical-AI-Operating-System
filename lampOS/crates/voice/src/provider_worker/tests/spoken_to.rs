@@ -316,6 +316,20 @@ fn both_workers_take_the_spoken_to_flag_in_its_place() {
     assert!(files.spoken_to);
     let (_, _, files, _) = parse_flags(dir, &flags[..3]).unwrap();
     assert!(!files.spoken_to);
+    assert!(!files.spoken_to_by_day);
+    // `LAMP_SPOKEN_TO=day-and-night`: the day's own bars right after it.
+    let by_day = [
+        crate::attention::FLAG,
+        crate::attention::SPOKEN_TO_FLAG,
+        crate::attention::BY_DAY_FLAG,
+        crate::first_output::FLAG,
+        "/run/lamp-voice/first-output",
+    ]
+    .map(str::to_owned);
+    let (_, _, files, _) = parse_flags(dir, &by_day).unwrap();
+    assert!(files.spoken_to && files.spoken_to_by_day);
+    let (_, _, files, _) = crate::second_provider::worker::parse_flags(dir, &by_day).unwrap();
+    assert!(files.spoken_to && files.spoken_to_by_day);
 }
 
 /// Puts the process-wide mark of the lamp's own turn back when dropped,

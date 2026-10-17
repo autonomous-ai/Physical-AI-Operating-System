@@ -599,7 +599,7 @@ pub fn told() -> String {
 /// its existing cache; the opt-in path obtains one frozen note within 300 ms.
 pub fn told_for_session(socket: &Path, session: u64, person: Option<&str>) -> String {
     if DAYS_MODE.get() != Some(&true) {
-        return theirs_too(socket, told(), person);
+        return theirs_too(socket, told(), person, FIRST_READ);
     }
     match DAYS
         .get()
@@ -668,13 +668,14 @@ impl DaysClient {
 }
 
 /// The legacy note with what the person at the lamp asked to keep, read
-/// now within the note's 300 ms, after the room's. Nobody known, or a
-/// voice without a memory: the room's note as it is.
-fn theirs_too(socket: &Path, room: String, person: Option<&str>) -> String {
+/// now within `deadline` (the note's 300 ms on the lamp, a test's longer
+/// one on a loaded machine), after the room's. Nobody known, or a voice
+/// without a memory: the room's note as it is.
+fn theirs_too(socket: &Path, room: String, person: Option<&str>, deadline: Duration) -> String {
     let Some(person) = person.filter(|_| !room.is_empty()) else {
         return room;
     };
-    let theirs = kept(socket, Some(person), FIRST_READ).unwrap_or_default();
+    let theirs = kept(socket, Some(person), deadline).unwrap_or_default();
     if theirs.is_empty() {
         return room;
     }
@@ -2590,7 +2591,7 @@ mod tests {
         ] {
             assert!(run_for(&socket, &call(name, args), Duration::from_secs(2), None).1);
         }
-        assert_eq!(theirs_too(&socket, "room".into(), None), "room");
+        assert_eq!(theirs_too(&socket, "room".into(), None, FIRST_READ), "room");
         assert_eq!(kept(&socket, None, Duration::from_secs(2)), Some(vec![]));
         let read = served.join().unwrap();
         assert_eq!(read.len(), 4);
@@ -2653,7 +2654,7 @@ mod tests {
         assert!(told["found"][1].get("theirs").is_none());
         assert!(run_for(&socket, &call(FORGET, json!({})), deadline, Some(MINH)).1);
         let room = note(&[]);
-        let both = theirs_too(&socket, room.clone(), Some(MINH));
+        let both = theirs_too(&socket, room.clone(), Some(MINH), deadline);
         assert!(both.starts_with(&room) && both.ends_with("- takes coffee black\n"));
         assert!(both.contains("you may say \"you told me\""), "{both}");
         let read = served.join().unwrap();

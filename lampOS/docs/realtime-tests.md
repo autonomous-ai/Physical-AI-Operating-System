@@ -1107,3 +1107,28 @@ owner's state removed, it fails "never: the light is offered", so the move is
 ordered by the event, not by time. The old test passed with the same sleep
 (4.1 s): it was in the group for its length, not for a bound a loaded
 runner misses. It left the group, in all three filtersets, on 2026-10-17.
+
+## The kept-note read gets the test's own bound (#1269)
+
+`remember::tests::someone_known_keeps_to_their_own_and_is_answered_from_theirs_then_the_room`
+failed once in a loaded `cargo test -p lamp-voice --lib` (the twelfth, while
+reviewing #1261) and passed alone. Its last exchange, `theirs_too`, read the
+person's kept notes with `FIRST_READ`, the lamp's real 300 ms for the first
+session's note, and the test's stand-in memory is a thread that has to
+accept, read and answer inside it. A host that did not run that thread in
+time left the note the room's alone. A 400 ms sleep in the stand-in before it
+answers `kept` failed the test every time.
+
+`theirs_too` now takes its deadline from its caller. The voice's
+`told_for_session` passes `FIRST_READ`, so the lamp's 300 ms is unchanged,
+and the test passes the 2 s it already gave its other four exchanges, as
+`DaysClient::told_for_session_within` does for the store tests. Every
+assertion is unchanged; with the 400 ms sleep in place the test passes.
+
+Other remember tests also read a stand-in with the lamp's 300 ms: the Days
+search (`run_at(..., FIRST_READ, ...)`, twice), the rules-off note
+(`DaysClient::told_for_session`) and the Days environment switch's child
+process (`days_environment_child`, its recall and forget). None has been
+reported failing, and they are left as they are. `rules`'
+`the_fact_is_kept_on_the_bus_and_a_stalled_bus_never_holds_up_a_session`
+asserts `took < 300 ms` on purpose: there the bound is what it checks.

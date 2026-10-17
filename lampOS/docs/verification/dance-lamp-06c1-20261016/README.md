@@ -123,3 +123,20 @@ The largest `commanded` change from the pose at the line's end, per second after
 - **Ask 23:** the body began on time. The line ended at 03:33:03.991, `lamp-body` began `dance_groove` at 04.141, and `commanded` shoulder and elbow move from 04.2 on. The start was *seen* 2 s late, though: the send's pose was taken mid-lean (head pitch -0.463 to -0.495 across the line end), and the clip's first real move looked only about 0.62 like groove's first frame. So the second clip came 2 s late. The two starts are 10.18 s apart for an 8.0 s groove (ask 22: 8.18 s), and the lamp stood still for 2 s in the middle of the dance (the reviewer, 04:04 on #1199).
 
 **So the start can be timed neither from the send nor from `body/joint_states`.** Asks 19, 22 and 23 show it: the body begins a clip some time after it is sent (later still when it rises), and the lean as the lamp speaks moves `commanded` before the clip does. #1199 therefore sends the second clip when the body says on `body/gesture` (#1230) that the first is `over`, sends nothing more after `dropped`, and nothing if no `over` comes within the clip's length and 3 s. That has not yet run on a lamp.
+
+## `body/gesture` on lamp-06c1, 17 Oct 09:40–09:43 (#1230, #1199)
+
+- **The build:** body `a2745bf2` and `lamp-skills` `a2be4894`, from ARM64 run 38994438345 on #1199's `eda137451`, which is stacked on #1230's `3fa2c76b7`. The voice was el's `35aa38b9`, untouched.
+- **The calls:** `dance` was called straight on `/run/lampos-actions/skills/call.sock`, as the voice calls it, because the voice's busy-room gate had held back the spoken asks that morning. With no line spoken, the after-say wait ended at its 5 s ("the voice did not begin within 5 s"), and the clips followed.
+
+| Run | Call | `body/gesture` (the body journal gives the same times) |
+|---|---|---|
+| `sock1` | `{long: true, style: upbeat}` | `dance_hype` began 09:40:23.284, over 30.303; began **30.324** (21 ms later), over 37.343 |
+| `sock2` | `{long: true, style: calm}` | `dance_chill` began 09:42:32.663, over 41.663; began **41.704** (41 ms later), over 50.703 |
+
+**What came out:** both long dances played both clips, the second starting within a body step or two of the first's `over`, with no still between them. That's the case asks 19, 22 and 23 got wrong.
+
+**Not shown:**
+- a spoken ask, held back by the busy room;
+- `dropped` on the lamp (a pause or a push mid-dance; tested in `crates/body` and `crates/skills`);
+- a folded lamp standing for the clip (#1080).

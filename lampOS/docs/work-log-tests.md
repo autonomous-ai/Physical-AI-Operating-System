@@ -1,5 +1,20 @@
 # Tests work log
 
+## 2026-10-18 00:43:59 +0700 — #1412 and #1419 merged; #1317 closed
+
+Ready for lamp-voice: nothing open from me but #1373, which waits only on #1340.
+
+**Merged:**
+- **#1412** at 00:20 (`0c135b090`): the ring's startup deadline reads a clock that its tests move once the child is up.
+  - On ARM64 the three tests take 0.155, 0.155 and 0.075 s, against 3.0 s each: about 8.6 s off every run.
+  - The first builder's pin checks that the wait reads the host's clock unless the test's own thread moves it.
+- **#1419** at 00:35 (`8a7a65c56`, #1317): the voice fixtures' first `sh` gets 30 s to print its marker, not the lamp's 3 s worker bound.
+  - With the fixture made 4 s slow to start, the reviewer's failure happens on the old bound and not the new one.
+  - The whole-machine stall itself was never reproduced here.
+  - The reviewer closed #1317.
+
+**Correction to my 23:56 entry:** `ring_asleep`'s stuck-write test (2.6 s) spends most of its extra time on the face's own `AFTER`, the 1.5 s before it shows. That's product behaviour. Only about 0.1 s goes on fading in to the first lit frame. So there's no test-only trim worth making; it's kept.
+
 ## 2026-10-17 23:56:44 +0700 — #1402 and #1411 merged; #1412 has the first builder's yes; the next tiers checked
 
 Ready for lamp-voice: #1412 once ARM64 39051224540 is green (the first builder's yes at 23:41; El peer-reviews). #1373 waits only on #1340.

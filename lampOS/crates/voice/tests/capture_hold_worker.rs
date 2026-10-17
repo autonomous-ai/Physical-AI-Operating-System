@@ -148,6 +148,10 @@ struct Rig {
     refused: Option<std::io::Error>,
     /// The worker's own fault, recorded the same way.
     worker_fault: Option<String>,
+    /// The worker has been sent what ends it, and nothing more is sent: on
+    /// Linux a send that finds it gone drops its `CaptureStopped` unread
+    /// (`a_refused_send_drops_what_the_gone_peer_had_sent`, #1359).
+    ending: bool,
 }
 
 impl Rig {
@@ -281,6 +285,7 @@ impl Rig {
             worker_fault: None,
             fault: None,
             refused: None,
+            ending: false,
         };
         rig.service();
         rig.parent
@@ -346,12 +351,13 @@ impl Rig {
         }
     }
 
-    /// Renew authority as the coordinator does, and take whatever the worker
-    /// has sent.
+    /// Renew authority as the coordinator does, until the worker has been
+    /// sent what ends it, and take whatever the worker has sent.
     fn service(&mut self) {
-        if self
-            .authority_at
-            .is_none_or(|at| at.elapsed() >= Duration::from_millis(40))
+        if !self.ending
+            && self
+                .authority_at
+                .is_none_or(|at| at.elapsed() >= Duration::from_millis(40))
         {
             let snapshot = self.controller.snapshot(now()).unwrap();
             let sent = self.parent.control.send(Control::Authority { snapshot });
@@ -529,6 +535,13 @@ impl Rig {
         }
     }
 
+    /// Send the worker what ends it (`Stop`, or authority that closes the
+    /// microphone), and nothing after it.
+    fn end_with(&mut self, control: Control) {
+        self.parent.control.send(control).unwrap();
+        self.ending = true;
+    }
+
     /// The worker has ended: nothing more arrives, and its loop returned
     /// without a fault.
     fn finish(mut self) -> Vec<Heard> {
@@ -569,7 +582,7 @@ fn warm_up() {
                 let mut rig = Rig::start("scripted warm-up");
                 rig.stream(&signal, 100);
                 rig.settle(0);
-                rig.parent.control.send(Control::Stop).unwrap();
+                rig.end_with(Control::Stop);
                 rig.finish();
             }));
             if ran.is_ok() {
@@ -658,7 +671,7 @@ fn mic1_frames_wait_four_blocks_with_their_own_times_and_a_stop_drops_what_is_he
     assert!(rig.started);
     // Four blocks have been read and not handed on. Stop now.
     assert_eq!(rig.frames.len() + 4, rig.pushed_at.len());
-    rig.parent.control.send(Control::Stop).unwrap();
+    rig.end_with(Control::Stop);
     let pushed_at = rig.pushed_at.clone();
     let frames = rig.finish();
     let (read_after_push, waited) = check(&frames, &pushed_at, blocks);
@@ -695,7 +708,8 @@ fn mic1_muted_while_frames_are_held_hands_none_of_them_on() {
     rig.controller
         .set_microphone_permission(now(), Permission::Denied)
         .unwrap();
-    rig.authority_at = None;
+    let snapshot = rig.controller.snapshot(now()).unwrap();
+    rig.end_with(Control::Authority { snapshot });
     let pushed_at = rig.pushed_at.clone();
     let frames = rig.finish();
     check(&frames, &pushed_at, 4);
@@ -712,7 +726,7 @@ fn another_microphone_is_handed_on_at_once_and_its_early_sound_is_not_accounted_
     rig.stream(&signal, 400);
     rig.settle(0);
     assert_eq!(rig.frames.len(), rig.pushed_at.len());
-    rig.parent.control.send(Control::Stop).unwrap();
+    rig.end_with(Control::Stop);
     let pushed_at = rig.pushed_at.clone();
     let frames = rig.finish();
     let (read_after_push, waited) = check(&frames, &pushed_at, 0);
@@ -748,7 +762,7 @@ fn raw_blocks_carry_the_microphone_before_the_canceller_only_when_asked() {
         let mut rig = Rig::start_asking(name, 0, ReferenceRecovery::Off, raw_blocks);
         rig.stream(&signal, 400);
         rig.settle(blocks);
-        rig.parent.control.send(Control::Stop).unwrap();
+        rig.end_with(Control::Stop);
         let frames = rig.finish();
         assert!(!frames.is_empty());
         assert!(
@@ -776,7 +790,7 @@ fn a_microphone_busy_for_a_moment_at_start_is_opened_once_it_is_free() {
     let mut rig = Rig::start_busy("scripted busy at start", 3);
     assert!(rig.ready && rig.prepared);
     rig.stream(&signal, 50);
-    rig.parent.control.send(Control::Stop).unwrap();
+    rig.end_with(Control::Stop);
     rig.finish();
 }
 
@@ -798,7 +812,7 @@ fn a_microphone_gone_for_a_moment_at_start_is_opened_once_it_is_back() {
     );
     assert_eq!(rig.device.counts().0, 1, "opened once it was back");
     rig.stream(&signal, 50);
-    rig.parent.control.send(Control::Stop).unwrap();
+    rig.end_with(Control::Stop);
     rig.finish();
 }
 
@@ -825,11 +839,13 @@ fn a_mute_while_the_microphone_is_waited_for_opens_nothing() {
     rig.controller
         .set_microphone_permission(now(), Permission::Denied)
         .unwrap();
-    rig.authority_at = None;
     // The worker ends on the refusal, saying so: its fault may be read
-    // before the thread is seen to finish, and an authority sent after it
-    // ended is refused. Both are recorded, not a failure.
+    // before the thread is seen to finish, and a refused receive ends the
+    // drain. Both are recorded, not a failure. Nothing is sent after the
+    // denied authority (#1359).
     rig.tolerate_fault = true;
+    let snapshot = rig.controller.snapshot(now()).unwrap();
+    rig.end_with(Control::Authority { snapshot });
     let worker = rig.worker.take().unwrap();
     let deadline = Instant::now() + Duration::from_secs(2);
     while !worker.is_finished() {
@@ -878,7 +894,7 @@ fn stalls_in_a_row_each_reopen_the_microphone_while_the_reference_goes_on() {
     }
     assert_eq!(rig.epochs, [1, 2, 3, 4]);
     assert_eq!(rig.gaps, 3);
-    rig.parent.control.send(Control::Stop).unwrap();
+    rig.end_with(Control::Stop);
     rig.finish();
 }
 
@@ -969,7 +985,31 @@ fn a_speaker_held_up_ends_the_capture_worker_unless_recovery_is_bounded() {
     rig.stream(&signal, 200);
     rig.settle(0);
     assert_eq!(rig.frames.len(), rig.pushed_at.len());
-    rig.parent.control.send(Control::Stop).unwrap();
+    rig.end_with(Control::Stop);
     let frames = rig.finish();
     assert_eq!(frames.len(), 310);
+}
+
+/// #1359: the worker ends on `Stop` and is gone before the controller looks
+/// again, with a renewal of its authority due. Its `CaptureStopped` is still
+/// read, because nothing is sent after what ends the worker. A renewal sent
+/// then is refused, and on Linux the refusal drops the `CaptureStopped`
+/// waiting unread: the held-up test's bounded half failed that way about one
+/// run in six to ten.
+#[test]
+fn a_stop_is_read_though_the_worker_has_gone_when_authority_falls_due() {
+    warm_up();
+    let signal = Signal::new(100);
+    let mut rig = Rig::start("scripted gone before it is read");
+    rig.stream(&signal, 50);
+    rig.settle(0);
+    rig.end_with(Control::Stop);
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while !rig.worker.as_ref().unwrap().is_finished() {
+        assert!(Instant::now() < deadline, "the worker did not end");
+        sleep(Duration::from_micros(500));
+    }
+    rig.authority_at = None;
+    let frames = rig.finish();
+    assert_eq!(frames.len(), 50);
 }

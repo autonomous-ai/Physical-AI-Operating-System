@@ -1448,8 +1448,6 @@ mod tests {
         );
     }
 
-    /// The steady echo reference is a value of its own, reaches only the
-    /// capture worker, and is never sent unless chosen.
     /// #1047: the stop words' raw blocks are asked of the capture worker
     /// only, by one flag that is never in the default argv.
     #[test]
@@ -1484,6 +1482,8 @@ mod tests {
         assert!(render.child_arguments("plug:speaker", false).is_err());
     }
 
+    /// The steady echo reference is a value of its own, reaches only the
+    /// capture worker, and is never sent unless chosen.
     #[test]
     fn a_steady_echo_reference_is_explicit_and_reaches_only_the_capture_worker() {
         assert_eq!(

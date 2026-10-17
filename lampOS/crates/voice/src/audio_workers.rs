@@ -46,6 +46,9 @@ const BARRIER_US: u64 = 100_000;
 /// busy 330 ms after the old process had gone, and after a power cut too).
 /// Its open is tried again for this long before the worker gives up.
 const BUSY_AT_START: Duration = Duration::from_secs(3);
+/// How often a busy microphone is tried again: often enough to take it soon
+/// after it is free, not on every 2 ms tick (1,500 opens in 3 s).
+const BUSY_RETRY: Duration = Duration::from_millis(50);
 /// At start the microphone may be off USB for a moment: on lamp-4ace on
 /// 2026-10-17 (12:29:20 and 12:49:06) the voice mic fell off for 4-5 s, the
 /// open failed with `ENODEV`, and the run ended and muted the lamp (#1178).
@@ -60,11 +63,14 @@ enum AtStart {
     Gone,
 }
 
-/// A microphone that failed to open at start: busy, or off the bus. The
-/// first such answer starts the wait, which ends after its bound.
+/// A microphone that failed to open at start: busy, or off the bus. Each
+/// reason's wait runs from its own first answer and ends after its bound, so
+/// one coming back from off the bus may still answer busy for a moment.
 #[derive(Default)]
 struct OpenAtStart {
-    since: Option<(Instant, AtStart)>,
+    busy_since: Option<Instant>,
+    gone_since: Option<Instant>,
+    last: Option<AtStart>,
     next: Option<Instant>,
 }
 
@@ -83,11 +89,12 @@ impl OpenAtStart {
         }) else {
             return false;
         };
-        let (since, _) = *self.since.get_or_insert((now, why));
-        let (bound, retry) = match why {
-            AtStart::Busy => (BUSY_AT_START, Duration::ZERO),
-            AtStart::Gone => (GONE_AT_START, GONE_RETRY),
+        let (since, bound, retry) = match why {
+            AtStart::Busy => (&mut self.busy_since, BUSY_AT_START, BUSY_RETRY),
+            AtStart::Gone => (&mut self.gone_since, GONE_AT_START, GONE_RETRY),
         };
+        let since = *since.get_or_insert(now);
+        self.last = Some(why);
         self.next = Some(now + retry);
         now.duration_since(since) < bound
     }
@@ -97,12 +104,15 @@ impl OpenAtStart {
         self.next.is_none_or(|next| now >= next)
     }
 
-    /// The microphone opened: what it waited for, and how long.
+    /// The microphone opened: what it last waited for, and how long since
+    /// the first failed open.
     fn opened(&mut self, now: Instant) -> Option<(AtStart, Duration)> {
+        let first = match (self.busy_since.take(), self.gone_since.take()) {
+            (Some(busy), Some(gone)) => Some(busy.min(gone)),
+            (busy, gone) => busy.or(gone),
+        };
         self.next = None;
-        self.since
-            .take()
-            .map(|(since, why)| (why, now.duration_since(since)))
+        Some((self.last.take()?, now.duration_since(first?)))
     }
 }
 
@@ -1910,9 +1920,27 @@ mod open_at_start_tests {
         let busy = failed(OPEN_CALL, errno::BUSY);
         let mut wait = OpenAtStart::default();
         assert!(wait.waits(&busy, at(0)));
-        assert!(wait.due(at(0)), "busy is tried again on the next tick");
+        assert!(!wait.due(at(49)));
+        assert!(wait.due(at(50)), "busy is tried again every 50 ms");
         assert!(wait.waits(&busy, at(2_999)));
         assert!(!wait.waits(&busy, at(3_000)));
+
+        // Gone for 4.5 s, then busy for a moment as it comes back: busy's
+        // 3 s run from its own first answer, and gone's 10 s from its own.
+        let mut back = OpenAtStart::default();
+        assert!(back.waits(&gone, at(0)));
+        assert!(back.waits(&busy, at(4_500)));
+        assert!(back.waits(&busy, at(7_499)));
+        assert_eq!(
+            back.opened(at(7_500)),
+            Some((AtStart::Busy, Duration::from_millis(7_500)))
+        );
+        let mut back = OpenAtStart::default();
+        assert!(back.waits(&busy, at(0)));
+        assert!(back.waits(&gone, at(2_000)));
+        assert!(back.waits(&gone, at(11_999)));
+        assert!(!back.waits(&gone, at(12_000)));
+        assert!(!back.waits(&busy, at(3_000)), "busy's own 3 s are over");
 
         for other in [
             failed(OPEN_CALL, errno::IO),

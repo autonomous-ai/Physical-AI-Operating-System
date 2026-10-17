@@ -192,6 +192,18 @@ impl Rig {
 
     fn start_failing(
         device_name: &'static str,
+        failed: (usize, i32),
+        recovery: ReferenceRecovery,
+        raw_blocks: bool,
+    ) -> Self {
+        let mut rig = Self::spawn(device_name, failed, recovery, raw_blocks);
+        rig.handshake();
+        rig
+    }
+
+    /// The worker started and asked to capture, before its handshake.
+    fn spawn(
+        device_name: &'static str,
         (failed_opens, errno): (usize, i32),
         recovery: ReferenceRecovery,
         raw_blocks: bool,
@@ -264,6 +276,11 @@ impl Rig {
             .send(Control::ConnectReference { peer: speaker_boot })
             .unwrap();
         rig.parent.control.send(Control::StartCapture).unwrap();
+        rig
+    }
+
+    fn handshake(&mut self) {
+        let rig = self;
         let deadline = Instant::now() + Duration::from_secs(5);
         loop {
             assert!(
@@ -307,7 +324,7 @@ impl Rig {
                                 .unwrap();
                             assert!(rig.ready && rig.prepared);
                             rig.origin = Instant::now();
-                            return rig;
+                            return;
                         }
                         _ => panic!("the capture worker sent the speaker something else"),
                     }
@@ -725,6 +742,42 @@ fn a_microphone_gone_for_a_moment_at_start_is_opened_once_it_is_back() {
     rig.stream(&signal, 50);
     rig.parent.control.send(Control::Stop).unwrap();
     rig.finish();
+}
+
+/// A mute while the worker waits for a microphone off USB opens nothing: the
+/// next try is refused for want of permission, the worker ends, and the
+/// device was never opened.
+#[test]
+fn a_mute_while_the_microphone_is_waited_for_opens_nothing() {
+    warm_up();
+    let mut rig = Rig::spawn(
+        "scripted gone then muted",
+        (40, lamp_audio::device::errno::NODEV),
+        ReferenceRecovery::Off,
+        false,
+    );
+    // Long enough for the first tries to fail: it is waiting.
+    let until = Instant::now() + Duration::from_millis(600);
+    while Instant::now() < until {
+        rig.service();
+        let _ = rig.speaker.connect_step().unwrap();
+        sleep(Duration::from_millis(1));
+    }
+    assert!(rig.ready && !rig.prepared);
+    rig.controller
+        .set_microphone_permission(now(), Permission::Denied)
+        .unwrap();
+    rig.authority_at = None;
+    let worker = rig.worker.take().unwrap();
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while !worker.is_finished() {
+        assert!(Instant::now() < deadline, "the worker went on waiting");
+        rig.service();
+        sleep(Duration::from_millis(1));
+    }
+    let _ = worker.join().unwrap();
+    assert!(!rig.prepared);
+    assert_eq!(rig.device.counts().0, 0, "the microphone was never opened");
 }
 
 /// A worker held up again and again (#784): each stall lapses its authority

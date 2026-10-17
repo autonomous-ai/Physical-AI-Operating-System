@@ -59,18 +59,23 @@ pub fn offline_in(message: Option<lamp_bus::Message>) -> bool {
         .is_some_and(|online| online.online == Some(false))
 }
 
-/// Whether the last `voice/privacy` said is the privacy switch closed: a
-/// valid lease with `physical_muted` true, however late, so a held-up or
-/// restarting sender never reads as open (the reviewer on #1282). Only
-/// never said, or said open or unknown, is not closed. Read at each request
-/// from the head and at each step of a look up, never subscribed: the lease
-/// is said every 10 ms (#711). Only the Controls privacy route
-/// (`LAMP_PRIVACY_CONTROLS=on`) says it at all.
+/// Whether the last `voice/privacy` said is the privacy switch closed. It
+/// is open only when that lease is valid and says `physical_muted: false`;
+/// closed, unknown (the lamp can't listen then either), or a lease that
+/// fails its check or doesn't parse, all count as closed, however late, so
+/// no sender's trouble reads as open (the reviewer on #1282 and #1301).
+/// Only never said counts as open, so a lamp without the route looks up as
+/// before. Read at each request from the head and at each step of a look
+/// up, never subscribed: the lease is said every 10 ms (#711). Only the
+/// Controls privacy route (`LAMP_PRIVACY_CONTROLS=on`) says it at all.
 pub fn privacy_muted_in(message: Option<lamp_bus::Message>) -> bool {
-    message
-        .and_then(|message| message.parse::<lamp_msgs::MicrophonePrivacy>().ok())
-        .filter(|lease| lease.check().is_ok())
-        .is_some_and(|lease| lease.physical_muted == Some(true))
+    message.is_some_and(|message| {
+        message
+            .parse::<lamp_msgs::MicrophonePrivacy>()
+            .ok()
+            .filter(|lease| lease.check().is_ok())
+            .is_none_or(|lease| lease.physical_muted != Some(false))
+    })
 }
 
 /// How often the live service tells the planner the local time of day.

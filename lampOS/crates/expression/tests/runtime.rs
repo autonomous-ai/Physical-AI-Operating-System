@@ -954,11 +954,11 @@ fn only_a_service_with_the_offline_face_draws_listening_unavailable_when_offline
 }
 
 /// #711: with `--head-touch`, a request from the head is weighed with the
-/// last valid `voice/privacy` said: closed counts however late (a held-up
-/// or restarting sender never reads as open, the reviewer on #1282); open,
-/// unknown or nothing ever said does not.
+/// last `voice/privacy` said: closed, unknown or invalid counts as closed
+/// however late (no sender's trouble reads as open, the reviewer on #1282
+/// and #1301); only a valid open lease, or nothing ever said, is open.
 #[test]
-fn a_closed_switch_reads_from_the_last_valid_privacy_lease_said() {
+fn a_closed_switch_reads_from_the_last_privacy_lease_said() {
     let root = Root::new();
     let bus = Bus::new(&root.0).unwrap();
     let latest = || bus.latest(lamp_msgs::MicrophonePrivacy::TOPIC).unwrap();
@@ -987,7 +987,7 @@ fn a_closed_switch_reads_from_the_last_valid_privacy_lease_said() {
     for (sequence, physical_muted, closed) in [
         (1, Some(true), true),
         (2, Some(false), false),
-        (3, None, false),
+        (3, None, true),
     ] {
         let said = lease(sequence, physical_muted);
         said.check().unwrap();
@@ -1006,6 +1006,13 @@ fn a_closed_switch_reads_from_the_last_valid_privacy_lease_said() {
     assert!(runtime::privacy_muted_in(latest()));
     out.publish_json(5, &lease(5, Some(false))).unwrap();
     assert!(!runtime::privacy_muted_in(latest()));
+    // A lease that fails its check, said after an open one: closed, the
+    // safe side (the reviewer on #1301).
+    let mut bad = lease(6, Some(false));
+    bad.microphone_generation = 0;
+    assert!(bad.check().is_err());
+    out.publish_json(6, &bad).unwrap();
+    assert!(runtime::privacy_muted_in(latest()));
 }
 
 /// #830: `--offline-face` reads `lamp/online`: only a fresh, valid "offline"

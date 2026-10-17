@@ -199,18 +199,22 @@ Off unless `lamp-expression serve --head-touch`, and Controls runs with
       read once at each request from the head and at each step of a look.
     - **The last word holds**, however late, until a word replaces it. So a
       sender that stops, or a voice ending or restarting while muted, never
-      reads as open. Only never said counts as open.
+      reads as open. The switch is open only when the last lease said is
+      valid and says it is: unknown (the lamp can't listen then either), a
+      lease that fails its check or doesn't parse all count as closed. Only
+      never said counts as open.
     - **The tap that clears the voice's mute** (the restart guard's,
       `LAMP_RESTORED_MUTE`, `controls.md`) gets its look-up, or wakes the
       lamp, once the voice says it is open, within `TAP_OPENS_US` (1.5 s)
-      of the tap (the seventh on #1282).
+      of the tap (the seventh on #1282). The voice's once-a-second "still
+      muted" in between uses nothing up.
     - **Tests:** `alive_engine`'s `muted_for_privacy_a_tap_gets_no_look_up`,
       `muted_for_privacy_a_tap_does_not_wake_it`,
       `the_voices_mute_holds_until_it_says_open` and
       `the_tap_that_clears_a_mute_looks_up_once_it_is_open`. Through the
       bus, `runtime`'s `a_tap_while_the_privacy_switch_is_closed_gets_no_look_up`
       and `the_switch_closed_mid_look_ends_it`, and its reader,
-      `a_closed_switch_reads_from_the_last_valid_privacy_lease_said`.
+      `a_closed_switch_reads_from_the_last_privacy_lease_said`.
   - **Only the head:** never a turn of the body, so it sends no gaze, which
     would turn the base.
 - Nothing else: a request not enabled, or not from the head, does nothing.

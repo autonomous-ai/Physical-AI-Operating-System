@@ -2,7 +2,8 @@
 
 `lamp-selftest` ([#812](https://github.com/autonomous-ai/lampOS/issues/812))
 checks whether each part of the lamp works, in two minutes, at the factory,
-at the first boot after setup (#806) and when asked. For each part it says
+at the first boot after setup (#806), every six hours after on a product
+lamp, and when asked. For each part it says
 pass, fail, not fitted or not checked, with one plain reason. Nothing leaves
 the lamp.
 
@@ -83,8 +84,30 @@ at boot, as `orangepi` with `CAP_SYSLOG` and no other capability,
 `--occasion on-demand` on `/run/lampos-bus`, keeping its runs in
 `/var/lib/lamp-selftest` (its own `StateDirectory`: the other parts keep
 theirs under `/var/lib/lampOS`, which is root's alone, so `orangepi` cannot
-reach a directory made inside it; lamp-4ace, 2026-10-16 06:43). The first boot (#806) can
-run the same binary with `--occasion first-boot`.
+reach a directory made inside it; lamp-4ace, 2026-10-16 06:43).
+
+On a product lamp (#812) the passive run is `deploy/product/lamp-selftest.service`, started only by
+`lamp-selftest.timer`: five minutes after the lamp starts (so the first boot after setup, #806,
+once its parts have had time to say how they are) and every six hours after, while the lamp runs.
+It is `--occasion first-boot`: nothing lit, played or moved, every part judged from what it
+already says. As `lampos` with `CAP_SYSLOG` alone, keeping its runs in `/var/lib/lamp-selftest`.
+The timer is in `lampos.target` and waits for setup's marker; the service has no `[Install]`, so
+nothing else starts it. Exit 3 (a part not checked) counts as the unit's success; 1 does not.
+It never begins inside a conversation (`quiet`, the first builder on #812): it waits
+until `voice/state` has said `resting`, or nothing fresh within 3 s, on five looks in a row,
+one a second, since the voice rests for a moment between the lamp's answer and the person's
+next words too (the seventh on #1245). It looks for at most two minutes, and leaves a
+conversation longer than that for the next run, exit 0, saying so.
+A run a person asked for begins at once. Passive, it wakes nothing in sleep hours.
+A passive run that failed a part checks that part again half a minute later
+(`lamp_selftest::again`), and keeps the fail only if it fails twice: a part restarting
+at that moment, or a hand resting on a pad, would otherwise mark a sound lamp
+`error` for six hours (the reviewer on #1245). Every timed run reports
+`occasion: first_boot`, the passive one. The timer comes with `lamp-update install`,
+which writes and enables the units; an update round adds no unit, so a lamp that
+only takes rounds gets it at its next install.
+`lamp-health` then carries the newest run in `lamp/health`, so a part that failed since is said
+before its person finds out. The factory's run and an on-demand one are started by hand.
 
 Exit status: 0 every part passed or is not fitted, 1 a part failed, 3 a
 part could not be checked, 2 the arguments were wrong.

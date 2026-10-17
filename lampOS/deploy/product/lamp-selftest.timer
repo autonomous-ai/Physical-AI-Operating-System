@@ -1,0 +1,16 @@
+# Runs the passive self-test (lamp-selftest.service) five minutes after the lamp starts, when its parts have had
+# time to say how they are, and every six hours after, while the lamp runs (#812, lampOS/docs/selftest.md).
+[Unit]
+Description=lampOS self-test, five minutes after the lamp starts and every six hours
+PartOf=lampos.target
+ConditionPathExists=/var/lib/lampos-setup/done
+
+[Timer]
+OnActiveSec=5min
+OnUnitActiveSec=6h
+RandomizedDelaySec=60
+AccuracySec=1min
+Unit=lamp-selftest.service
+
+[Install]
+WantedBy=lampos.target

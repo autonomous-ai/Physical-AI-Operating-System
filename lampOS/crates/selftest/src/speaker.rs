@@ -77,7 +77,7 @@ impl Check for Speaker<'_> {
                 return PartResult::new(
                     "speaker",
                     Verdict::NotChecked,
-                    "asked only at the factory and on demand: at first boot the lamp has not spoken yet",
+                    "asked only at the factory and on demand: a passive run asks the voice nothing",
                 );
             }
         };

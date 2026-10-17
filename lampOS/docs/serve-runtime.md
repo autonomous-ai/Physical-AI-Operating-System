@@ -288,17 +288,19 @@ the loop's end.
 
 To read it on the lamp, `lamp-voice stalls` (or `lamp-voice stalls DIR
 --minutes N`; the voice's run folder and the last 15 minutes unless given)
-prints each role's stalls, the role with the longest first and its five
-longest, each with how long ago it began, its counters, the lamp's, and what
-held it by the rules below: "memory" (major faults of its own), "it waited
-in the kernel" (a `work` pass with voluntary switches), "the CPU was taken"
-(involuntary switches) or "it woke late". A role whose loop ended in a stall
-says so ("1 ended the loop"). For the morning after a night like 17 Oct's:
-run it within the minutes the window covers, on the lamp itself, since
-`at_us` is that boot's clock. Lines from before a reboot were timed on the
-previous boot's clock, so the window leaves them out; they are still in the
-files (`/run` is emptied by the reboot itself, so only a voice restart, not
-a lamp's, keeps any).
+prints each role's stalls, the role with the longest first: its five
+longest, and every pass that ended its loop however short, each with how
+long ago it began, its counters, the lamp's, and what held it: "memory"
+(major faults of its own), "it waited in the kernel" (a `work` pass with
+voluntary switches), "the CPU was taken from it" (involuntary switches),
+"it ran that long on the CPU (its own work)" (a `work` pass with neither:
+the loop's own code was the slow part), or "it woke late" (a `gap` with
+neither); off Linux, "no counters". A role says how many of its passes
+ended the loop, and how many lines the recorder's queue lost ("(N lost)").
+A file that cannot be read is counted, and a byte in one that is not UTF-8
+loses only its own line. `/run` is emptied at boot, so its lines are always
+this boot's, and `at_us` is that boot's clock; read from a folder that
+outlives a reboot, lines of two boots can mix, and then "ago" is wrong.
 
 How to read it: major faults say memory (the voice's own pages read back
 from the eMMC); involuntary switches with none say the CPU was taken;

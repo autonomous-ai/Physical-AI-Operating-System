@@ -826,6 +826,8 @@ struct Read {
     at_us: u64,
     thread: [u64; 4],
     system: Option<serde_json::Value>,
+    /// Lines the recorder's queue had no room for just before this one.
+    lost: u64,
 }
 
 impl Read {
@@ -849,6 +851,7 @@ impl Read {
                 .get("system")
                 .filter(|system| !system.is_null())
                 .cloned(),
+            lost: value["lost_before"].as_u64().unwrap_or(0),
         })
     }
 
@@ -861,8 +864,12 @@ impl Read {
             "it waited in the kernel (a device, a disk or a lock)"
         } else if involuntary > 0 {
             "the CPU was taken from it"
-        } else if self.thread == [0; 4] {
-            "no counters (not Linux?)"
+        } else if !cfg!(target_os = "linux") && self.thread == [0; 4] {
+            "no counters (not Linux)"
+        } else if self.kind == "work" {
+            // A pass that never slept nor lost the CPU: its own code ran that
+            // long (a model, a resample), the one case that is the loop's.
+            "it ran that long on the CPU (its own work)"
         } else {
             "it woke late"
         }
@@ -878,6 +885,7 @@ pub fn summary(dir: &Path, now_us: u64, within_us: u64) -> std::io::Result<Strin
     use std::fmt::Write as _;
     let mut lines: Vec<Read> = Vec::new();
     let mut files = 0;
+    let mut unread = 0;
     for entry in std::fs::read_dir(dir)? {
         let path = entry?.path();
         let name = path
@@ -888,9 +896,12 @@ pub fn summary(dir: &Path, now_us: u64, within_us: u64) -> std::io::Result<Strin
             continue;
         }
         files += 1;
-        let Ok(text) = std::fs::read_to_string(&path) else {
+        // A byte that is not UTF-8 loses its own line, not the file's.
+        let Ok(bytes) = std::fs::read(&path) else {
+            unread += 1;
             continue;
         };
+        let text = String::from_utf8_lossy(&bytes);
         lines.extend(
             text.lines().filter_map(Read::parse).filter(|read| {
                 now_us.saturating_sub(read.at_us) <= within_us && read.at_us <= now_us
@@ -899,6 +910,13 @@ pub fn summary(dir: &Path, now_us: u64, within_us: u64) -> std::io::Result<Strin
     }
     let minutes = within_us / 60_000_000;
     let mut out = String::new();
+    if unread > 0 {
+        let _ = writeln!(
+            out,
+            "{unread} stall files in {} could not be read",
+            dir.display()
+        );
+    }
     if files == 0 {
         let _ = writeln!(
             out,
@@ -939,10 +957,16 @@ pub fn summary(dir: &Path, now_us: u64, within_us: u64) -> std::io::Result<Strin
             .iter()
             .filter(|read| read.end.as_deref() == Some("loop"))
             .count();
+        let lost: u64 = mine.iter().map(|read| read.lost).sum();
         let _ = writeln!(
             out,
-            "{role}: {} lines, longest {:.1} ms{}",
+            "{role}: {} lines{}, longest {:.1} ms{}",
             mine.len(),
+            if lost > 0 {
+                format!(" ({lost} lost)")
+            } else {
+                String::new()
+            },
             mine[0].ms,
             if ended > 0 {
                 format!(", {ended} ended the loop")
@@ -950,7 +974,15 @@ pub fn summary(dir: &Path, now_us: u64, within_us: u64) -> std::io::Result<Strin
                 String::new()
             }
         );
-        for read in mine.iter().take(5) {
+        // The five longest, and every pass that ended the loop, however short:
+        // the one #1178 needs most.
+        let shown: Vec<&&Read> = mine
+            .iter()
+            .enumerate()
+            .filter(|(at, read)| *at < 5 || read.end.as_deref() == Some("loop"))
+            .map(|(_, read)| read)
+            .collect();
+        for read in shown {
             let [major, minor, voluntary, involuntary] = read.thread;
             let ago = now_us.saturating_sub(read.at_us) / 1_000_000;
             let _ = write!(
@@ -1022,7 +1054,19 @@ mod summary_tests {
             line("ring", "gap", None, 80.0, now - 3 * minute, [4, 0, 1, 0]),
         )
         .unwrap();
-        std::fs::write(dir.join("unrelated.log"), "not a stall\n").unwrap();
+        // A valid stall line in a file that is not a stall file: not read.
+        std::fs::write(
+            dir.join("unrelated.log"),
+            line(
+                "camera",
+                "work",
+                Some("done"),
+                999.0,
+                now - minute,
+                [0, 0, 0, 0],
+            ),
+        )
+        .unwrap();
         let text = summary(&dir, now, 15 * minute).unwrap();
         let speaker = text
             .find("speaker: 2 lines, longest 312.4 ms, 1 ended the loop")
@@ -1030,6 +1074,7 @@ mod summary_tests {
         let ring = text.find("ring: 1 lines, longest 80.0 ms").unwrap();
         assert!(speaker < ring, "{text}");
         assert!(!text.contains("900.0"), "{text}");
+        assert!(!text.contains("camera"), "{text}");
         assert!(text.contains("312.4 ms work (loop) 1m00s ago"), "{text}");
         assert!(text.contains("it waited in the kernel"), "{text}");
         assert!(text.contains("the CPU was taken from it"), "{text}");
@@ -1047,5 +1092,65 @@ mod summary_tests {
                 .unwrap()
                 .contains("no stall of 50 ms or more")
         );
+    }
+
+    #[test]
+    fn a_pass_on_the_cpu_says_so_the_loops_end_is_always_shown_and_a_bad_byte_loses_one_line() {
+        let dir = std::env::temp_dir().join(format!("stalls-summary-b-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let now = 3_600_000_000u64;
+        let second = 1_000_000u64;
+        // Six long gaps, then the short pass that ended the loop, after
+        // lines the queue had no room for.
+        let mut speaker = String::new();
+        for n in 0..6 {
+            speaker += &line(
+                "speaker",
+                "gap",
+                None,
+                300.0,
+                now - (20 + n) * second,
+                [0, 0, 1, 0],
+            );
+        }
+        speaker += &line(
+            "speaker",
+            "work",
+            Some("loop"),
+            60.0,
+            now - 5 * second,
+            [0, 3, 0, 0],
+        )
+        .replacen("\"pid\":7,", "\"pid\":7,\"lost_before\":4,", 1);
+        std::fs::write(dir.join("stalls-speaker.log"), speaker).unwrap();
+        // A ring line, then a stray byte that is not UTF-8.
+        let mut ring = line(
+            "ring",
+            "work",
+            Some("done"),
+            400.0,
+            now - 10 * second,
+            [0, 0, 0, 0],
+        )
+        .into_bytes();
+        ring.push(0xff);
+        ring.push(b'\n');
+        std::fs::write(dir.join("stalls-ring.log"), ring).unwrap();
+        let text = summary(&dir, now, 60 * second * 15).unwrap();
+        // The ring is still listed, and its pass ran on the CPU the whole time.
+        assert!(text.contains("ring: 1 lines, longest 400.0 ms"), "{text}");
+        assert!(
+            text.contains("it ran that long on the CPU (its own work)"),
+            "{text}"
+        );
+        assert!(
+            text.contains("speaker: 7 lines (4 lost), longest 300.0 ms, 1 ended the loop"),
+            "{text}"
+        );
+        // The loop's end is shown though five longer lines come first.
+        assert!(text.contains("60.0 ms work (loop) 0m05s ago"), "{text}");
+        assert!(text.contains("it woke late"), "{text}");
+        assert!(!text.contains("not Linux"), "{text}");
     }
 }

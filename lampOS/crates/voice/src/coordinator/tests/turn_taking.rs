@@ -314,7 +314,7 @@ impl Harness {
                     self.admission.pending_ended(),
                     self.detector.pause_blocks(),
                     self.last_speech_us,
-                    state.waited && state.sounding,
+                    may_hold_once_decided(state),
                     at_us,
                 );
                 self.told.extend(told);
@@ -631,13 +631,14 @@ fn with_words(blocks: u32, words: bool, said: Option<(&str, u32)>) -> WithWords 
 }
 
 /// [`with_words`], with the sound in `pieces` of blocks at a score: speech,
-/// a pause, speech again. With `answer_at`, the answer begins to sound at
-/// that block of the sound (`answer_sounds`).
+/// a pause, speech again. With `answer`, the answer begins to sound at
+/// that block of the sound (`answer_sounds`), with no echo evidence from
+/// then on if its flag is set (`echo_missing`).
 fn with_words_in(
     pieces: &[(u32, f32)],
     words: bool,
     said: Option<(&str, u32)>,
-    answer_at: Option<u32>,
+    answer: Option<(u32, bool)>,
 ) -> WithWords {
     let mut h = Harness::duplex(4_000_000);
     let script = words.then(|| {
@@ -655,8 +656,11 @@ fn with_words_in(
         .collect();
     for block in 0..scores.len() as u32 + 150 {
         let score = scores.get(block as usize).copied().unwrap_or(0.0);
-        if answer_at == Some(block) {
+        if let Some((at, echo_missing)) = answer
+            && at == block
+        {
             answer_sounds(&mut h);
+            h.echo_missing = echo_missing;
         }
         sound(&mut h, &mut t, 1, score, true, &mut accepted);
         if decided.is_none() && (accepted.is_some() || !h.let_go.is_empty()) {
@@ -1830,12 +1834,41 @@ fn with_words_a_stop_the_person_went_on_from_takes_the_turn_and_a_lone_one_stops
 #[test]
 fn with_words_a_stop_just_before_the_answer_sounds_still_stops_it() {
     for answer_at in [52, 55, 60] {
-        let stop = with_words_in(&[(40, 0.99)], true, Some(("Stop.", 25)), Some(answer_at));
+        let stop = with_words_in(
+            &[(40, 0.99)],
+            true,
+            Some(("Stop.", 25)),
+            Some((answer_at, false)),
+        );
         assert!(stop.accepted.is_none(), "answer at {answer_at}: taken");
         assert!(stop.stopped, "answer at {answer_at}");
         assert_eq!(stop.let_go, ["stop_said"], "answer at {answer_at}");
     }
-    let no = with_words_in(&[(40, 0.99)], true, Some(("No.", 25)), Some(55));
+    let no = with_words_in(&[(40, 0.99)], true, Some(("No.", 25)), Some((55, false)));
     assert!(no.accepted.is_some());
     assert!(!no.stopped);
+}
+
+/// The reviewer's P1 on #1352: a block with no echo evidence is kept only
+/// among the mask's last reads (80, and 0.6 s), so `on` decides a sound
+/// heard without it (`!heard`) and it must not be held for its words: held,
+/// its first reads fall out and the loop's decision ends the conversation
+/// ("candidate original read interval unavailable"). The reviewer's probe: a
+/// 0.4 s "No.", the answer sounding at block 55 with no echo evidence from
+/// then on, its words back 400 ms after the ask, or never. It goes as `on`
+/// decided, as before the decided path: nothing is held, taken or stopped,
+/// and the answer plays. So does a "Stop." there whose words come back
+/// after the answer sounds: it isn't held for them either, and the answer
+/// is not stopped, as before the decided path (a limitation, said in
+/// `group-talk.md`).
+#[test]
+fn with_words_a_sound_decided_without_echo_evidence_is_never_held_for_its_words() {
+    for said in [Some(("No.", 40)), None] {
+        let no = with_words_in(&[(40, 0.99)], true, said, Some((55, true)));
+        assert!(no.accepted.is_none(), "{said:?}");
+        assert!(!no.stopped, "{said:?}");
+    }
+    let stop = with_words_in(&[(40, 0.99)], true, Some(("Stop.", 25)), Some((55, true)));
+    assert!(!stop.stopped, "{:?}", stop.told);
+    assert!(stop.accepted.is_none() && stop.let_go.is_empty() && stop.told.is_empty());
 }

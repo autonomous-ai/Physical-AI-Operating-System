@@ -248,7 +248,14 @@ everything `on` does, and:
   If that sound's words were asked for and it has been quiet since, it is
   still judged by its words: a stop stops the answer, and while they
   aren't back it waits for them up to the same deadline
-  (`wait_words::then_once_decided`; the seventh's P2 on #1352). Two
+  (`wait_words::then_once_decided`; the seventh's P2 on #1352). It waits
+  only on a block the mask heard with echo evidence: a block without is
+  kept only among the mask's last reads (80, and 0.6 s), so a sound held
+  then loses its first reads and the loop's decision fails, ending the
+  conversation (`coordinator::may_hold_once_decided`; the reviewer's P1 on
+  #1352). So a stop whose words are still out when the answer sounds
+  without echo evidence goes as `on` decided: the answer is not stopped.
+  Two
   stops still take the turn as before, because `on` decides them before
   any words are asked for: one with the lamp's name ("Lamp, stop now."),
   and one still going at its 1 s mark (a slow "Okay, stop it, please.").
@@ -330,8 +337,9 @@ Tests:
   `how_long_the_words_may_take_by_length`,
   `a_stream_for_words_is_kept_ready_only_while_a_sound_may_wait`,
   `with_words_a_lone_stop_while_an_answer_waits_stops_it_and_is_never_asked`,
-  `with_words_a_stop_the_person_went_on_from_takes_the_turn_and_a_lone_one_stops` and
-  `with_words_a_stop_just_before_the_answer_sounds_still_stops_it`.
+  `with_words_a_stop_the_person_went_on_from_takes_the_turn_and_a_lone_one_stops`,
+  `with_words_a_stop_just_before_the_answer_sounds_still_stops_it` and
+  `with_words_a_sound_decided_without_echo_evidence_is_never_held_for_its_words`.
   The stop itself is the loop's spoken-stop path, which no test drives
   through the loop, as for the stop words.
 
@@ -339,7 +347,12 @@ The real relay is not driven by a test. The lamp check, on lamp-4ace with
 the second voice configured: a question, then in the gap before its answer
 "No." and "Wait." five times each, and five coughs. Count `wait_words`
 (`took`, `words`, `null`) and `input_let_go_answer_waits`, with the time
-from `asked_at_us` to `at_us`.
+from `asked_at_us` to `at_us`. Then five "Stop."s said just before the
+answer begins, counting `stop_said` against them. `last_speech_us` is
+the detector's score before the playback mask, so once the answer
+sounds the lamp's own sound may count as speech after the ask, and such a
+stop then goes as `on` decided. The rig drives that clock only from the
+person's score, so only the lamp shows it (the reviewer's P3 on #1352).
 
 **With `LAMP_ASKER_FIRST=on`, the person asked comes first while the
 answer is awaited** (`crates/voice/src/asker_first.rs`, #829; off unless

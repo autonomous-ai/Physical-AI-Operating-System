@@ -233,6 +233,15 @@ fn reply_sounding(mask: &PlaybackMask, reply: &Option<Reply>, at_us: u64) -> boo
         })
 }
 
+/// Whether a waited sound that `on` decided may still be held for its
+/// words: `on` decided it because the answer began to sound, and the mask
+/// heard this block with echo evidence. A block without is kept only among
+/// the mask's last reads, so a sound held then loses its first reads and
+/// the decision fails (the reviewer's P1 on #1352).
+fn may_hold_once_decided(wait: AnswerWait) -> bool {
+    wait.waited && wait.sounding && wait.heard
+}
+
 /// [`WhileAnswerWaits`] for `candidate` at `at_us`: `ended` if its sound is
 /// over, and the detector's pause in blocks.
 fn while_answer_waits(
@@ -346,8 +355,9 @@ struct WordsTold {
 /// endpoint. What they did is told once a sound. `last_speech_us` is when
 /// the last block heard as speech was captured: a stop counts only when
 /// none came after its words were asked for. `answer_sounding` is whether
-/// `on` decided a sound that waited because the answer began to sound
-/// (`AnswerWait::waited` and `sounding`).
+/// `on` decided a sound that waited because the answer began to sound, on a
+/// block the mask heard with echo evidence (`AnswerWait::waited`,
+/// `sounding` and `heard`, [`may_hold_once_decided`]).
 #[allow(clippy::too_many_arguments)]
 fn with_waited_words(
     words: &mut crate::wait_words::WaitWords,
@@ -5323,7 +5333,7 @@ fn conversation_with_gate(
                             admission.pending_ended(),
                             detector.pause_blocks(),
                             last_speech_us,
-                            wait.waited && wait.sounding,
+                            may_hold_once_decided(wait),
                             at_us,
                         );
                         if let Some(told) = told {

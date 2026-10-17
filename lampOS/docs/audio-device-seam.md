@@ -217,6 +217,16 @@ Tests: `tests/capture_hold_worker.rs`'s
 - **Bounded:** the same 100 ms pause; every block is handed on through it
   and after it, and the worker stops cleanly.
 
+The rig sends the worker nothing after what ends it (`Stop`, or authority
+that closes the microphone). Until #1359 it went on renewing authority while
+it waited for `CaptureStopped`. When a renewal fell due just after the
+worker had gone, it was refused, and on Linux the refusal dropped the
+`CaptureStopped` waiting unread
+(`transport::tests::a_refused_send_drops_what_the_gone_peer_had_sent`). The
+bounded half failed that way about one run in six to ten (Tests, Linux
+x86_64 in podman). `a_stop_is_read_though_the_worker_has_gone_when_authority_falls_due`
+makes that order certain.
+
 `transport::tests::a_send_to_a_peer_that_has_gone_is_refused_with_the_sockets_name`
 checks the name. The hold was most likely the kernel's, from the same
 second (cb94 kept no stalls trail): the SD/MMC host's retune, which #784 found holding the voice's processes for about 0.3 s

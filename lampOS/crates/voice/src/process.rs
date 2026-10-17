@@ -890,6 +890,14 @@ mod tests {
             .into_iter()
             .map(|(name, value)| format!("{name}={}", value.to_string_lossy()))
             .collect();
+        // A failure says only the names it got, never their values: a
+        // runner's tokens must not reach a CI log (the reviewer on #1311).
+        let names = |lines: &[String]| -> Vec<String> {
+            lines
+                .iter()
+                .map(|line| line.split('=').next().unwrap_or_default().to_owned())
+                .collect()
+        };
         let given = |written: &str| -> Vec<String> {
             let mut lines: Vec<String> = written
                 .lines()
@@ -925,14 +933,16 @@ mod tests {
             assert!(status.success(), "{role}");
             let written =
                 std::fs::read_to_string(home.path.join(format!("env-{role}.txt"))).unwrap();
-            assert_eq!(given(&written), expected, "{role}");
+            let got = given(&written);
+            assert!(got == expected, "{role}: the child got {:?}", names(&got));
         }
         let status = worker_command(&script, &home.path, "provider", (boot, boot), &[], |_| None)
             .status()
             .unwrap();
         assert!(status.success());
         let written = std::fs::read_to_string(home.path.join("env-provider.txt")).unwrap();
-        assert!(given(&written).is_empty(), "{written}");
+        let got = given(&written);
+        assert!(got.is_empty(), "the child got {:?}", names(&got));
     }
 
     fn child_worker(directory: &SessionDirectory, script: &str) -> Worker {

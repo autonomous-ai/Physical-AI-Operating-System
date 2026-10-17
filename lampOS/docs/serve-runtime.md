@@ -322,6 +322,19 @@ of those ends is at 2 ms again. What it costs is up to 3 ms more before a
 pass sees the first block of speech; authority is still renewed every 20 ms,
 far inside every lease. The workers' own loops keep their pace for now.
 
+The capture worker's echo evidence (`crates/audio/src/evidence.rs`) searches
+up to 32 alignments of the speaker's sound against the microphone on every
+10 ms block louder than -60 dBFS, so a room with a fan or an office in it
+pays for that search while the lamp says nothing: on lamp-4ace on
+2026-10-17 capture rose from 7 % to 17-19 % of a core as the room got
+louder (#705, 11:46). With `LAMP_QUIET_EVIDENCE=on` (off unless set, passed
+on to the capture worker only) the search is skipped while every sample of
+the speaker's sound it would read, the last 520 ms, is zero. It could find
+nothing then: the evidence is the same block for block (no echo, the held
+alignment's age, the search's place moved on), which a test runs both ways
+to show. Measured on a laptop, a silent-speaker block in a -26 dBFS room
+took 54 us of canceller and evidence, and 42 us with the skip.
+
 ## Stop and current limits
 
 After entering the coordinator loop, SIGTERM/SIGINT records a service-stop request,

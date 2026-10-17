@@ -427,6 +427,7 @@ fn capture_loop<D: CaptureDevice>(
         }
     };
     let mut echo = EchoProcessor::with_reference(noise_suppression.enabled(), echo_reference);
+    echo.skip_evidence_while_render_silent(crate::quiet_pace::evidence_skipped());
     let mut speech = SpeechProbability::default();
     let mut dsp_epoch = 1u64;
     let mut last_diagnostic = 0;

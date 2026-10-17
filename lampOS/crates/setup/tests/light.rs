@@ -102,13 +102,23 @@ fn shows(seen: &Seens, wanted: fn(Rgb) -> bool) -> bool {
 /// The painter's clock in the tests that would otherwise wait out its fades:
 /// each frame's pause moves it on by exactly the frame and waits a fiftieth
 /// of that. So a fade takes no time, and the painter's time is its frames,
-/// however the machine stalls.
+/// however the machine stalls. A test can hold it, so that the painter waits
+/// at its next frame while the test does several things.
 #[derive(Clone)]
-struct Fast(Arc<(Instant, Mutex<Duration>)>);
+struct Fast(Arc<(Instant, Mutex<Duration>, Mutex<()>)>);
 
 impl Fast {
     fn new() -> Self {
-        Self(Arc::new((Instant::now(), Mutex::new(Duration::ZERO))))
+        Self(Arc::new((
+            Instant::now(),
+            Mutex::new(Duration::ZERO),
+            Mutex::new(()),
+        )))
+    }
+
+    /// Hold the painter at its next frame until the guard is dropped.
+    fn hold(&self) -> std::sync::MutexGuard<'_, ()> {
+        self.0.2.lock().unwrap()
     }
 
     /// How long the painter has painted, in its own time.
@@ -132,6 +142,7 @@ impl Clock for Fast {
         self.0.0 + self.painted()
     }
     fn pause(&self, pause: Duration) {
+        drop(self.0.2.lock().unwrap());
         *self.0.1.lock().unwrap() += pause;
         thread::sleep(pause / 50);
     }
@@ -293,6 +304,10 @@ fn a_ring_freed_in_its_retry_window_is_not_opened_after_the_marker() {
     assert_eq!(said.lock().unwrap().len(), 1);
     // Faded in (with no ring), so letting go has a fade out to wait through.
     clock.wait(FADE_IN);
+    // The painter is held from before the marker until the ring is free, so
+    // all of its fade out comes after both: a ring opened in it is seen. No
+    // ring is open, so letting go does not wait for the painter.
+    let held = clock.hold();
     ReleasingSave {
         save: Marker(Arc::clone(&seen)),
         light: Some(&light),
@@ -300,6 +315,7 @@ fn a_ring_freed_in_its_retry_window_is_not_opened_after_the_marker() {
     .marker()
     .unwrap();
     busy.store(false, Ordering::SeqCst);
+    drop(held);
     clock.wait(FADE_OUT + Duration::from_millis(300));
     assert_eq!(opens.load(Ordering::SeqCst), 0, "opened after the marker");
     assert_eq!(*seen.lock().unwrap(), [Seen::Marker]);

@@ -1372,3 +1372,15 @@ opening a ring while fading out after the marker, and a 3 s `CHANGE` (blue
 not at once). A 400 ms stall of the painter at its 30th frame, and of the
 test's thread after the press, after the marker and after the ring was
 freed, fails none of them.
+
+The reviewer's P3 on #1402 found what that stall probe missed. A stall of
+the test's thread between the marker and freeing the ring could let the
+whole fast fade out (12 frames, about 12 ms) pass before the ring was free.
+Then a painter that opens a ring while fading out was no longer caught: 0 of
+10 at a 20 ms and at a 40 ms stall, where the host clock's 600 ms had room.
+The test now holds the fast clock (`Fast::hold`: the painter waits at its
+next frame) from before the marker until the ring is free. That is safe,
+since no ring is open and letting go returns at once. So all of the fade out
+comes after both. That painter is now caught 10 of 10 at stalls of 0, 20,
+40 and 400 ms there. The right one passes under a 400 ms stall 10 of 10, and
+all six tests pass 20 of 20.

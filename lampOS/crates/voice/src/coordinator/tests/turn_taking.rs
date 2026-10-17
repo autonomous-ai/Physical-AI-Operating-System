@@ -857,6 +857,35 @@ fn a_request_begun_soon_after_the_lamps_words_says_so_in_its_start() {
     }
 }
 
+/// #828, the reviewer on #1291: a request admitted over a reply in hand says
+/// so in its Start, and says it was over the lamp's voice only when that
+/// reply had sound: `(over_the_lamp, over_the_lamps_voice)` is
+/// `(true, false)` over a silent reply waiting for its answer, and
+/// `(true, true)` over one that had sound.
+#[test]
+fn a_request_over_a_reply_with_sound_says_so_in_its_start() {
+    for had_audio in [false, true] {
+        let mut h = Harness::new(TurnTaking::V1Baseline);
+        h.reply.as_mut().unwrap().had_audio = had_audio;
+        let mut accepted = None;
+        for n in 1..=6 {
+            accepted = h.feed(n * 10_000, 0.99).unwrap().or(accepted);
+        }
+        let queue = h.commit_told(accepted.unwrap(), false, false, false);
+        assert!(
+            matches!(
+                queue.front(),
+                Some(ProviderInput::Start {
+                    over_the_lamp: true,
+                    over_the_lamps_voice,
+                    ..
+                }) if *over_the_lamps_voice == had_audio
+            ),
+            "{queue:?}"
+        );
+    }
+}
+
 #[test]
 fn vad_only_keeps_existing_experiment_semantics() {
     let mut h = Harness::new(TurnTaking::VadOnly);

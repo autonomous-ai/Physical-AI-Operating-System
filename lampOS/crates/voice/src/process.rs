@@ -853,8 +853,11 @@ mod tests {
 
     /// The reviewer on #1158: the switches reach a worker through the real
     /// command it is started with. A script in the worker's place writes
-    /// the environment it got: the provider has all three, the second
-    /// route the memory's days and the clock, and capture none.
+    /// the environment it got: the provider has the memory's two switches
+    /// and the clock, the second route the memory's days and the clock, and
+    /// capture the quiet evidence switch (#1285). With every other variable
+    /// set to a secret, nothing else reaches any of them but the shell's
+    /// own.
     #[test]
     fn a_started_worker_gets_its_roles_switches_and_nothing_else() {
         use std::os::unix::fs::PermissionsExt;
@@ -862,15 +865,43 @@ mod tests {
         let script = home.path.join("worker.sh");
         std::fs::write(&script, "#!/bin/sh\n/usr/bin/env > \"$3/env-$2.txt\"\n").unwrap();
         std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o700)).unwrap();
+        // Every variable the voice has is set: the three switches `on`, and
+        // anything else to a secret, so nothing the command reads besides
+        // them can pass unseen (the reviewer on #1295).
         let on = |name: &str| {
-            [
-                "LAMP_MEMORY_DAYS",
-                crate::rules::ENVIRONMENT,
-                crate::local_time::KERNEL_CLOCK_ENVIRONMENT,
-                crate::quiet_pace::EVIDENCE_ENVIRONMENT,
-            ]
-            .contains(&name)
-            .then(|| std::ffi::OsString::from("on"))
+            Some(std::ffi::OsString::from(
+                if [
+                    "LAMP_MEMORY_DAYS",
+                    crate::rules::ENVIRONMENT,
+                    crate::local_time::KERNEL_CLOCK_ENVIRONMENT,
+                    crate::quiet_pace::EVIDENCE_ENVIRONMENT,
+                ]
+                .contains(&name)
+                {
+                    "on"
+                } else {
+                    "a-secret"
+                },
+            ))
+        };
+        // What the child has that the command did not give it: the shell's
+        // own, and the stall switches this test process may have.
+        let stalls: Vec<String> = crate::stalls::passed_on()
+            .into_iter()
+            .map(|(name, value)| format!("{name}={}", value.to_string_lossy()))
+            .collect();
+        let given = |written: &str| -> Vec<String> {
+            let mut lines: Vec<String> = written
+                .lines()
+                .filter(|line| {
+                    let name = line.split('=').next().unwrap_or_default();
+                    !["PWD", "OLDPWD", "SHLVL", "_"].contains(&name)
+                        && !stalls.iter().any(|stall| stall == line)
+                })
+                .map(str::to_owned)
+                .collect();
+            lines.sort_unstable();
+            lines
         };
         let boot = new_boot().unwrap();
         for (role, expected) in [
@@ -894,28 +925,14 @@ mod tests {
             assert!(status.success(), "{role}");
             let written =
                 std::fs::read_to_string(home.path.join(format!("env-{role}.txt"))).unwrap();
-            let mut got: Vec<&str> = written
-                .lines()
-                .filter(|line| {
-                    ["LAMP_MEMORY", "LAMP_KERNEL", "LAMP_QUIET"]
-                        .iter()
-                        .any(|prefix| line.starts_with(prefix))
-                })
-                .collect();
-            got.sort_unstable();
-            assert_eq!(got, expected, "{role}");
+            assert_eq!(given(&written), expected, "{role}");
         }
         let status = worker_command(&script, &home.path, "provider", (boot, boot), &[], |_| None)
             .status()
             .unwrap();
         assert!(status.success());
         let written = std::fs::read_to_string(home.path.join("env-provider.txt")).unwrap();
-        assert!(
-            !written.contains("LAMP_MEMORY")
-                && !written.contains("LAMP_KERNEL")
-                && !written.contains("LAMP_QUIET"),
-            "{written}"
-        );
+        assert!(given(&written).is_empty(), "{written}");
     }
 
     fn child_worker(directory: &SessionDirectory, script: &str) -> Worker {

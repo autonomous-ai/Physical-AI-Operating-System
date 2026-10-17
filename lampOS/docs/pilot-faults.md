@@ -312,8 +312,10 @@ Two of the voice's start-up failures, found on lamp-52e6 and lamp-4ace on
   the journal (`lamp-voice: capture: the voice mic was off USB for 4.3 s at
   start; opened on try 18`, or `was busy`), the session's events
   (`mic_waited_at_start`, with `said` and the numbers) and the voice's
-  health, so `lamp-health show` names it beside `voice` until the voice
-  starts again.
+  health, so `lamp-health show` names it beside `voice` (after the link's
+  warning, if the link is down) until the next capture start: the voice's
+  own, or the one after a mute or a sleep, which clears it if the microphone
+  opened at once.
 - **A worker's first control message older than 100 ms.** A worker sends its
   first control message as soon as its peer is there; at start the
   coordinator may read it only after starting its other workers. lamp-4ace

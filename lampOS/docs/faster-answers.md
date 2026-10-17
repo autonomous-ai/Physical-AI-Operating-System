@@ -795,6 +795,15 @@ for each answer:
 
 The journal has, for each answer, the provider's line `lamp-voice
 provider: usage total=… prompt=… prompt_audio=… response_audio=…`.
+A usage line that comes within 30 s after a request was closed as
+unanswered, before the next request starts, ends `after request N was
+closed as unanswered M ms before`. Output dropped then is said once for
+that request: `request N: output came M ms after it was closed as
+unanswered, and was dropped (UnownedOutput)`. Such an answer is one the
+service gave after the lamp's `no_reply_after_ms` wait (4 s), which nobody
+heard. On lamp-4ace on 17 October at 08:58, usage counts with response
+audio came two lines after request 39's close at 4,008 ms, and nothing tied
+them to it (#829, the first builder at 10:02).
 
 From these, per answer: **wait** = `includes_silence_wait_ms`; **service**
 = `provider_first_audio` less `local_endpoint`; **hold** =

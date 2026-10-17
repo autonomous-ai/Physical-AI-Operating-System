@@ -2888,6 +2888,7 @@ fn forward_origin(
             lineage,
             waiting_for_barrier,
         } => {
+            discards.started();
             if heard_input && let Ok(mut room) = crate::room_told::room().lock() {
                 room.heard(lineage.request.get(), monotonic_us());
             }
@@ -2953,6 +2954,7 @@ fn forward_origin(
         // The service chose not to answer. For the coordinator the request is
         // complete and had no audio; the connection and conversation stay.
         Event::Unanswered { lineage, waited } => {
+            discards.closed_unanswered(lineage.request.get(), monotonic_us());
             // A sound sent on only for the model to judge, left alone, is
             // not a request the session failed to answer, and is not talk.
             // A reminder attempt has no heard input at all. It must neither
@@ -2997,20 +2999,21 @@ fn forward_origin(
             eprintln!("lamp-voice provider: refused a server message ({error:?}); fields: {shape}");
         }
         Event::Usage { usage, .. } => eprintln!(
-            "lamp-voice provider: usage total={:?} prompt={:?} prompt_audio={:?} response={:?} response_audio={:?} thoughts={:?} cached={:?}",
+            "lamp-voice provider: usage total={:?} prompt={:?} prompt_audio={:?} response={:?} response_audio={:?} thoughts={:?} cached={:?}{}",
             usage.total,
             usage.prompt,
             usage.prompt_audio,
             usage.response,
             usage.response_audio,
             usage.thoughts,
-            usage.cached
+            usage.cached,
+            discards.usage_after(monotonic_us())
         ),
         Event::GoAway { time_left, .. } => eprintln!(
             "lamp-voice provider: service announced a close; time_left_ms={:?}",
             time_left.map(|left| left.as_millis())
         ),
-        Event::Discarded { reason, .. } => discards.note(reason),
+        Event::Discarded { reason, .. } => discards.note(reason, monotonic_us()),
         Event::InputDiscarded {
             through,
             dropped_samples,
@@ -3074,14 +3077,60 @@ fn forward_origin(
     Ok(())
 }
 
+/// How long after a request is closed as unanswered output dropped, and
+/// the service's usage counts, are said to come after it.
+const AFTER_UNANSWERED_US: u64 = 30_000_000;
+
 /// Late provider events never reach the coordinator. Each kind is reported
 /// once per worker so a recurring pattern is visible without unbounded output.
+/// Output dropped after a request was closed as unanswered is said for that
+/// request, once, with how long after the close it came: on lamp-4ace on
+/// 17 October at 08:58 usage counts with response audio came two lines
+/// after request 39's close at 4,008 ms, and nothing tied them to it (#829,
+/// the first builder at 10:02).
 #[derive(Default)]
 struct DiscardLog {
     seen: [bool; 6],
+    /// The newest request closed as unanswered, and when, until the next
+    /// request starts.
+    unanswered: Option<(u64, u64)>,
+    /// The request whose dropped output was last said.
+    late_said: Option<u64>,
 }
 impl DiscardLog {
-    fn note(&mut self, reason: Discard) {
+    fn closed_unanswered(&mut self, request: u64, at_us: u64) {
+        self.unanswered = Some((request, at_us));
+    }
+    fn started(&mut self) {
+        self.unanswered = None;
+    }
+    /// The request closed as unanswered that what comes now follows, and
+    /// how many ms after its close.
+    fn after_unanswered(&self, now_us: u64) -> Option<(u64, u64)> {
+        self.unanswered
+            .map(|(request, at_us)| (request, now_us.saturating_sub(at_us)))
+            .filter(|(_, since_us)| *since_us <= AFTER_UNANSWERED_US)
+            .map(|(request, since_us)| (request, since_us / 1_000))
+    }
+    /// What a usage line adds: the request closed as unanswered it follows.
+    fn usage_after(&self, now_us: u64) -> String {
+        self.after_unanswered(now_us)
+            .map_or_else(String::new, |(request, ms)| {
+                format!(" after request {request} was closed as unanswered {ms} ms before")
+            })
+    }
+    fn note(&mut self, reason: Discard, now_us: u64) {
+        if matches!(
+            reason,
+            Discard::UnownedOutput | Discard::LateOutput | Discard::LateTerminal
+        ) && let Some((request, ms)) = self.after_unanswered(now_us)
+            && self.late_said != Some(request)
+        {
+            self.late_said = Some(request);
+            eprintln!(
+                "lamp-voice provider: request {request}: output came {ms} ms after it was closed as unanswered, and was dropped ({reason:?})"
+            );
+        }
         let index = match reason {
             Discard::LateInterruption => 0,
             Discard::LateTerminal => 1,
@@ -7560,6 +7609,67 @@ mod tests {
         let end = rig.service_message(&mut dial).await;
         assert!(end["realtimeInput"].get("activityEnd").is_some(), "{end}");
         rig.stop().await;
+    }
+
+    /// #829, the first builder at 10:02: output dropped after a request was
+    /// closed as unanswered, and usage counts after it, are said for that
+    /// request with how long after the close they came, within 30 s and
+    /// until the next request starts. Dropped output is said once a request.
+    #[test]
+    fn what_comes_after_an_unanswered_close_is_said_for_its_request() {
+        const S: u64 = 1_000_000;
+        let mut log = DiscardLog::default();
+        assert_eq!(log.usage_after(10 * S), "");
+        log.note(Discard::UnownedOutput, 10 * S);
+        assert_eq!(log.late_said, None);
+        log.closed_unanswered(39, 100 * S);
+        assert_eq!(log.after_unanswered(100 * S + 500_000), Some((39, 500)));
+        assert_eq!(
+            log.usage_after(102 * S),
+            " after request 39 was closed as unanswered 2000 ms before"
+        );
+        log.note(Discard::UnownedOutput, 101 * S);
+        assert_eq!(log.late_said, Some(39));
+        log.note(Discard::LateInterruption, 101 * S);
+        assert_eq!(log.after_unanswered(130 * S), Some((39, 30_000)));
+        assert_eq!(log.after_unanswered(130 * S + 1), None);
+        log.started();
+        assert_eq!(log.after_unanswered(101 * S), None);
+        assert_eq!(log.usage_after(101 * S), "");
+        // Through the events: the close marks it, and the next request's
+        // start ends it. A reminder's close takes the same path without
+        // counting as unanswered talk.
+        let lineage = |request| lamp_gemini::Lineage {
+            session: lamp_gemini::SessionId::new(7).unwrap(),
+            request: RequestId::new(request).unwrap(),
+        };
+        let mut output = VecDeque::new();
+        let mut log = DiscardLog::default();
+        forward_reminder(
+            Event::Unanswered {
+                lineage: lineage(23),
+                waited: Duration::from_millis(4_008),
+            },
+            &mut output,
+            &mut 0,
+            &mut log,
+        )
+        .unwrap();
+        assert!(matches!(
+            log.after_unanswered(monotonic_us()),
+            Some((23, _))
+        ));
+        forward_reminder(
+            Event::InputStarted {
+                lineage: lineage(24),
+                waiting_for_barrier: false,
+            },
+            &mut output,
+            &mut 0,
+            &mut log,
+        )
+        .unwrap();
+        assert_eq!(log.after_unanswered(monotonic_us()), None);
     }
 
     /// The rise a request's journal lines give, and the near rule judges:

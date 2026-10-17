@@ -285,11 +285,21 @@ fn serve(
     for path in lamp_setup::serve::leftover_temporaries(&config) {
         let _ = std::fs::remove_file(path);
     }
+    // The runtime the server answers on, and the stop (`systemctl stop`, a
+    // shutdown), asked for before the light starts: from here on a stop
+    // ends serving as its end does, so the light is put out with black.
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
+    let stopped = {
+        let _inside = runtime.enter();
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?
+    };
     // The setup light from here to the marker (`lamp_setup::light`): the
     // voice is not running, and a dark, silent lamp looks broken.
     let status = Arc::new(Mutex::new(Status::new(String::new())));
     let light = setup_light(config.light, &status).map(Arc::new);
-    let served = answer(config, seconds, status, light.clone());
+    let served = answer(config, seconds, status, light.clone(), runtime, stopped);
     if let Some(light) = &light {
         light.stop();
     }
@@ -321,6 +331,8 @@ fn answer(
     seconds: Option<u64>,
     status: Arc<Mutex<Status>>,
     light: Option<Arc<Light>>,
+    runtime: tokio::runtime::Runtime,
+    mut stopped: tokio::signal::unix::Signal,
 ) -> Result<bool, Box<dyn std::error::Error>> {
     use lamp_setup::{
         http::{Shared, router},
@@ -346,6 +358,17 @@ fn answer(
         ),
     }
     let before_hotspot = before_hotspot.ok().filter(|list| !list.is_empty());
+    // A stop during the look: no hotspot. The wait lets the runtime take in
+    // a signal that came while it was not running; a stop from here on ends
+    // serving at once, once it has begun.
+    if runtime.block_on(async {
+        tokio::time::timeout(Duration::from_millis(20), stopped.recv())
+            .await
+            .is_ok()
+    }) {
+        eprintln!("lamp-setup: asked to stop before the hotspot");
+        return Ok(true);
+    }
     // The hotspot first: on a fresh image it is what names the lamp.
     let started = lamp_setup::serve::start(
         &config,
@@ -415,15 +438,8 @@ fn answer(
         move || lamp_setup::http::warm(&shared, 3, Duration::from_secs(5))
     });
     let web_stop = config.web_stop.clone();
-    let runtime = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()?;
     runtime.block_on(async move {
         let listener = tokio::net::TcpListener::bind(&config.listen).await?;
-        // A stop (`systemctl stop`, a shutdown) ends serving as its end
-        // does, so the setup light is put out with black, not left lit.
-        let mut stopped =
-            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
         let limit = seconds.map(Duration::from_secs);
         let started = tokio::time::Instant::now();
         let done = async move {

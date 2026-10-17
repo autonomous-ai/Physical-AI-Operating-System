@@ -4652,3 +4652,53 @@ fn a_queued_run_whose_item_left_is_let_go_and_the_next_still_starts() {
     assert!(says[1].1.contains("\"task\":6"), "{says:?}");
     assert!(says[1].0 - says[0].0 >= Duration::from_millis(600));
 }
+
+/// How often Stuffy air droops from `unix_ms`, its clock told in `local`
+/// (#1384). A droop's end, when the air clears, is not counted.
+fn stuffy_droops_in(
+    skill: &Path,
+    air: &[(u64, u32)],
+    local: &lamp_local_time::LocalTime,
+    unix_ms: u64,
+) -> usize {
+    let mut engine = Engine::new(vec![load(skill).unwrap()], true);
+    engine.clock_in(local, 0, unix_ms);
+    air.iter()
+        .map(|(minute, ppm)| {
+            let payload = format!(r#"{{"co2_ppm":{ppm}}}"#);
+            engine
+                .observe("air/state", minute * 60_000_000, payload.as_bytes(), None)
+                .iter()
+                .filter(|run| run.calls.contains(&Call::Gesture("sleepy".into())))
+                .count()
+        })
+        .sum()
+}
+
+/// #1384: a lamp in New York keeps its quiet hours (22:00 to 08:00) at the
+/// same clock hours across 1 Nov 2026, when its clocks go back an hour. A
+/// fixed offset from the day of setup (-240) starts the skill an hour early
+/// all winter; the zone does not.
+#[test]
+fn quiet_hours_keep_their_clock_hours_across_summer_time_in_the_lamps_zone() {
+    let dir = tempfile::tempdir().unwrap();
+    let skill = skill_with(dir.path(), "stuffy", STUFFY);
+    // Stuffy for half an hour, then clear: its tenth minute is 25 minutes
+    // after the start, and it has cleared before 08:00 from 07:15.
+    let mut air = co2(0, 30, 1300);
+    air.extend(co2(30, 35, 800));
+    let new_york = lamp_local_time::LocalTime::zone("America/New_York").unwrap();
+    let setup_day = lamp_local_time::LocalTime::Offset(-240);
+    // 31 Oct, 07:15 summer time (11:15 UTC): quiet either way.
+    const SUMMER_0715: u64 = 1_793_445_300_000;
+    assert_eq!(stuffy_droops_in(&skill, &air, &new_york, SUMMER_0715), 0);
+    assert_eq!(stuffy_droops_in(&skill, &air, &setup_day, SUMMER_0715), 0);
+    // 2 Nov, 07:15 winter time (12:15 UTC): still quiet in the zone, but
+    // 08:15 by the fixed offset, so it would droop an hour early.
+    const WINTER_0715: u64 = 1_793_621_700_000;
+    assert_eq!(stuffy_droops_in(&skill, &air, &new_york, WINTER_0715), 0);
+    assert_eq!(stuffy_droops_in(&skill, &air, &setup_day, WINTER_0715), 1);
+    // 2 Nov, 08:15 winter time (13:15 UTC): past the night.
+    const WINTER_0815: u64 = 1_793_625_300_000;
+    assert_eq!(stuffy_droops_in(&skill, &air, &new_york, WINTER_0815), 1);
+}

@@ -195,11 +195,10 @@ lamp-4ace, `expression-alive` on lamp-52e6): the product takes lamp-4ace's.
 
 **Neither: the person's.** The time zone (#820). Setup links `/etc/localtime`
 to the zone the person's phone gives and names it in `/etc/timezone` (#806).
-Memory and Expression take `--zone system`, which follows that file, across
-daylight saving and without a restart. Schedule takes `--zone ${LAMP_ZONE}`
-and skills `--utc-offset-minutes ${LAMP_UTC_OFFSET_MINUTES}`, both from
-`zone.env`, which install writes from the image's zone and setup writes again
-with the person's; skills' offset is the one on the day of setup. The voice
+Memory, Expression and skills take `--zone system`, which follows that file,
+across daylight saving and without a restart (skills since #1384). Schedule
+takes `--zone ${LAMP_ZONE}` from `zone.env`, which install writes from the
+image's zone and setup writes again with the person's. The voice
 tells the time from `/etc/localtime` itself. The policy keeps none: only its
 hello and progress news would use one, and the product doesn't pass them.
 `install`'s `the_parts_that_keep_local_time_read_the_zone_setup_saves` holds
@@ -251,9 +250,10 @@ What steps 2 and 3 build, unless an answer on #811 changes it.
   never changes for one lamp; a lamp's file is written once, when the lamp
   is measured, and no update touches it.
 - **The zone**, `/etc/lampOS/zone.env`: `LAMP_ZONE` (schedule) and
-  `LAMP_UTC_OFFSET_MINUTES` (skills), written by the install from the
-  system's zone and again by setup with the person's (#820). Memory and
-  Expression follow `/etc/localtime` instead (`--zone system`).
+  `LAMP_UTC_OFFSET_MINUTES` (for a unit that takes an offset), written by
+  the install from the system's zone and again by setup with the person's
+  (#820). Memory, Expression and skills follow `/etc/localtime` instead
+  (`--zone system`, #1384).
 - **Locks, the bus and the voice's state**, `/etc/tmpfiles.d/lampos.conf`:
   `/run/lampos-bus` as the keeper makes it, and `/run/lampos-locks/{motor,camera}`
   (each 0700 and `lampos`'s, under a root 0755 parent, as the body and the
@@ -415,7 +415,7 @@ As root, on a lamp with the base image (`crates/update/src/install.rs`):
 6. Writes `/etc/lampOS/zone.env` from the system's zone if it is not there,
    and again when it names another zone than the one the lamp was set up in
    (`/etc/timezone`): a lamp set up before setup wrote it kept the image's
-   zone for schedule and skills (#820). Only to a zone file in
+   zone for schedule (#820). Only to a zone file in
    `/usr/share/zoneinfo`, as setup checks one: a wrong `/etc/timezone` keeps
    the file, and says so, since schedule would not start on it.
    Writes the voice's service, `/etc/lampOS/voice/provider.json`

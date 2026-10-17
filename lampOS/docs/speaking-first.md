@@ -394,6 +394,16 @@ for `say = { from = "schedule" | "tasks" }` ([skills.md](skills.md)).
   window, and the skill looks and moves with that one. It is still a
   reminder said, with its own words; the case is two reminders due within
   20 s of each other (Thirteen on #1038).
+- **A news ask may name its task:** `"from":"tasks","task":10`. It is
+  given that task's news and no other; an ask naming none takes any, as
+  before. `task` goes only with `from: tasks`. Without it, task 9 done and
+  task 10 failed in one message, asked for in the order 10, 9, drooped
+  and dimmed the lamp while it said 9 was done (the reviewer on #1042).
+  With `LAMP_TASK_NEWS=skill`, news waits its 10 s for an ask for its own
+  task, then is said by the voice. With `LAMP_TASK_NEWS_AT_PAUSE=on`, news
+  told with a skill's ask, or while another such ask waits, is told one
+  at a time, not together (the reviewer on #1223): each run takes its own
+  task's news.
 - With **`LAMP_SCHEDULE_SPEAK=skill`** (Schedule speech on, as `on`), a due
   reminder waits for such an ask, at most 10 s from when it was first held
   (`say::SKILL_WAITS_US`), and then the voice says it itself, with

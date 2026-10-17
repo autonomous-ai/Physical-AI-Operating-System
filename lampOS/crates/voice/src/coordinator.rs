@@ -6261,6 +6261,7 @@ fn conversation_with_gate(
                 crate::say::Source::Schedule,
                 reminders.by_skill(),
                 &reminder_key(&offer),
+                None,
                 &mut reminder_held,
                 reminder_now_us,
             )
@@ -6605,8 +6606,16 @@ fn conversation_with_gate(
             // With the switch, tasks that finished together are told in
             // one turn (the reviewer on #1161). Not while news waits for a
             // skill: the skill tells each task in its own run (#1042), and a
-            // later run's ask would find its news told already.
-            && let Some(told) = if news_at_pause && !news_by_skill {
+            // later run's ask would find its news told already. Nor when this
+            // is told with a skill's ticket, or while a skill asks for news:
+            // each run takes its own task's news (the reviewer on #1042 and
+            // #1223).
+            && let Some(told) = if news_at_pause
+                && !news_by_skill
+                && ticket.is_none()
+                && !says.as_ref().is_some_and(|says| {
+                    says.asks_for(crate::say::Source::Tasks, monotonic_us())
+                }) {
                 news.tell_together()
             } else {
                 news.tell()
@@ -7246,6 +7255,7 @@ fn for_skill(
     source: crate::say::Source,
     by_skill: bool,
     key: &str,
+    task: Option<u64>,
     held: &mut Option<(String, u64)>,
     now_us: u64,
 ) -> Option<Option<crate::say::Ticket>> {
@@ -7256,7 +7266,7 @@ fn for_skill(
     };
     // An ask that waits is taken, switch or not (Fourth on #1038): the
     // skill moves with the words.
-    if let Some(ticket) = says.take_from(source, now_us) {
+    if let Some(ticket) = says.take_from(source, task, now_us) {
         *held = None;
         return Some(Some(ticket));
     }
@@ -7313,14 +7323,15 @@ fn news_for_skill(
     by_skill: bool,
     held: &mut Option<(String, u64)>,
 ) -> Option<Option<crate::say::Ticket>> {
-    let (key, progress) = news
+    let (key, progress, task) = news
         .waiting()
-        .map(|front| (front.key.clone(), front.progress.is_some()))?;
+        .map(|front| (front.key.clone(), front.progress.is_some(), front.task()))?;
     for_skill(
         says,
         crate::say::Source::Tasks,
         by_skill && !progress,
         &key,
+        task,
         held,
         monotonic_us(),
     )

@@ -817,6 +817,8 @@ as above. With `LAMP_TASK_NEWS=skill`, news of work finished, stopped or
 asking waits for the skill's `from: tasks` ask on the say service, at most
 10 s, and is then told with that ask's ticket, or by the voice itself
 ([speaking-first.md](speaking-first.md#asked-by-another-part-the-say-service-939)).
+An ask that names its task (`"task":10`) is given that task's news only,
+so the skill's look and light go with its own task (the reviewer on #1042).
 Progress is the Policy's to time already and is told as before.
 
 ### News too long for one written turn (2026-10-15, 02:31)

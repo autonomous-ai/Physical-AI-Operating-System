@@ -1397,8 +1397,16 @@ stamps `skill:<name>` and `skill` ([skills.md](skills.md)).
   its widest: the shoulder 1, 2, 2, 4 … 13 … 3, 2, 1 counts a step). Never
   more than the gesture's own step (24, 34, 26, 21 and 21 counts), the arm's
   through the same guarded write as every arm goal; the new one begins once
-  they are back at nothing. Not yet looked at on a lamp: it is, on
-  lamp-52e6, before the switch goes on. Asked at the same priority or
+  they are back at nothing. Ended mid-swing, it carries on past the
+  gesture's own farthest before it turns, as anything moving does: over
+  every frame of every built-in clip, by up to 50 counts of the head's
+  roll (headshake), 32 of the shoulder (laugh), 28 of the elbow (nod), 18
+  of the head's pitch and 16 of the base's turn (reviewer, 09:46 on
+  #1239); never past `GESTURE_REACH`, and V1's 22 mm cut holds through it.
+  A slump during the ease ends it with everything else, so the lamp taken
+  up two minutes later carries no gesture's offsets. Not yet looked at on
+  a lamp: it is, on lamp-52e6, a headshake ended mid-swing among it,
+  before the switch goes on. Asked at the same priority or
   lower, it is dropped, naming who holds the body (`dropped: busy,
   conversation`). The body's own turn to a call is the conversation's.
 - Of several gestures read in one step (the socket is read up to 32

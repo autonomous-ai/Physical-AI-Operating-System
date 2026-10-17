@@ -4,6 +4,18 @@
 
 Newest first. Times from `date` (+07). 00:12 to 01:40: the review agents stopped at a usage limit.
 
+- 15:59 #1332 reviewed at 72a183819: 2 P1 (LAMP_POLICY_HOLDS_ACTIONS without the product policy's --act attention delays every nameless call 2 s; LAMP_MARK_WEIRD keeps transcripts a reset doesn't wipe), 2 P2 (LAMP_LOOK_FULL and LAMP_LIGHT_REQUESTS half-set), P3s; #1335 matches it, 4 P3s
+- 15:58 merged #1331 (the voice mic note is the latest capture start's and follows the link warning; my #1326 P3s)
+- 15:58 #1331 reviewed at 3e259ff6c: no finding (my #1326 P3s fixed); merge on green ARM64
+- 15:56 #1323 re-checked at f7e49b274: P1 and P2 fixed (the name reaches both workers; placeholders only), one P3; merge on green ARM64 per the first builder's 15:30 terms
+- 15:55 merged #1330 (the supervisor tests' inert child builds its worker once connected, as native.rs does)
+- 15:52 #1334 reviewed at ebb23d05e: no finding (the first-output test proves the hash is off the caller's thread with a FIFO, not a clock); merge on green ARM64
+- 15:48 merged #1322 (with LAMP_QUIET_EVIDENCE=on capture says once a minute how many blocks the skip saved; off unless set)
+- 15:46 merged #1325 (setup breathes a light on the ring through the hotspot, the join and a failed join; on the first builder's 15:14 terms)
+- 15:45 #1328 reviewed at f42fc130d: code right and safe (still refuses when unsure), 3 P3s; for the first builder (only lamp-4ace shows it)
+- 15:44 #1333 reviewed at e84545715: no finding, docs only (Stuffy air's row: no lamp with a working sensor has run it); merge on green ARM64
+- 15:42 #1330 reviewed at c7a805ba7: no finding, tests only (the inert child builds its worker once connected, as native.rs does); merge on green ARM64
+- 15:42 merged #1327 (lamp-health show reads for the owner: plain names, a sudo hint, ages only where they matter)
 - 15:38 #1115 re-reviewed at 1bc637702: rebase good; new P2 (the shoulder lowering holds 8 s against a press on base/head/elbow, and one bad read is taken for a hand); lamp step 4 still open
 - 15:35 #1067 reviewed at 2eff71446: 2 P2s (an old sway_roll catalogue stops Expression at start; every pause sways, alternating like a metronome) + P3s; then waits for the fifth's lamp evidence (not on by default)
 - 15:35 #1327 reviewed at 22a575521: 5 P3s (a tie can name different parts on the first line and top row; a healthy lamp can print the 5 s age), no blocker; merge on green ARM64

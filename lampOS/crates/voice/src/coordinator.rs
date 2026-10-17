@@ -3930,6 +3930,10 @@ fn conversation_with_gate(
                     if stop_told && let Some(session) = stopped_session {
                         stop_untold.stopped(observed_at_us, session);
                     }
+                    // The lamp's words are over: nothing said next follows on
+                    // from an earlier answer (`LAMP_FOLLOWS_ON`, the reviewer
+                    // on #1278), with `LAMP_STOP_TOLD` or without.
+                    lamp_words_ended_us = None;
                 }
                 let reason = if asleep {
                     HEAD_SLEEP

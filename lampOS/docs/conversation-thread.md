@@ -222,13 +222,18 @@ session trace's `input_admitted`).
   sound plays. It isn't when the worker handed the sound on, which runs
   ahead by the queued audio. Only a reply that played to its end starts the
   clock; one cut off never does.
-- **The first line after a Stop** isn't marked: it's told the lamp's words
-  are over (`STOPPED_NOTE`).
+- **After a Stop that cut the lamp's speech** the clock is cleared, so
+  nothing said next is marked from an earlier answer, with
+  `LAMP_STOP_TOLD` or without. With it, the first line after the Stop is
+  told the lamp's words are over (`STOPPED_NOTE`) instead.
 - **A continuation after an early end** isn't marked again. Its first part
   was told beside its own sound, in the same session.
-- **The provider worker** then gives the model `follows_on::NOTE` beside
-  the line, unless the room is busy: "(For you to know, not to answer: you
-  said something a moment ago, so what you hear now may follow on from it.)"
+- **The provider worker** then gives the model `follows_on::NOTE` with the
+  line's End, unless the End says it was a sound sent on for the model to
+  judge, or the room is busy: "(For you to know, not to answer: you said
+  something a moment ago, so what you hear now may follow on from it.)" At
+  the Start it can't be known that a line will end as a sound, and a thump
+  told it "may follow on" would push the model to answer it.
 - **The note says only what the lamp did,** in the character file's own
   words. Whether the line follows on is still the model's to judge, so talk
   that doesn't follow on stays unanswered.
@@ -251,8 +256,9 @@ Tests:
 - `coordinator::tests::turn_taking::a_request_begun_soon_after_the_lamps_words_says_so_in_its_start`:
   the Start and the trace, and no mark after a Stop.
 - `provider_worker::tests::a_request_begun_soon_after_the_lamp_spoke_is_told_it_may_follow_on`:
-  through the worker's loop. Told in a room not known to be busy; not in a
-  busy room, nor without the Start's mark.
+  through the worker's loop. Told with its End in a room not known to be
+  busy; not in a busy room, nor without the Start's mark, nor when the End
+  is a sound.
 
 Not exercised through the loop: a line begun over a sound sent on (it's
 `takes_over`'s case, pinned in the rule's own test).

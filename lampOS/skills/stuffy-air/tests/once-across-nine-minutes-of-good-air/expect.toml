@@ -1,0 +1,22 @@
+# Two spells from 10:00 with only 9 minutes under 1,000 ppm between them
+# (from 94.5 to 103.5 minutes): the first droops and dims once and gives the
+# light back as its air clears; the second does nothing, since the air did
+# not stay under 1,000 for the skill's own `rearm` `for = "10m"`.
+clock = "10:00"
+
+[[expect]]
+at = "1890s"
+within = "30s"
+call = "body.gesture"
+args = { gesture = "sleepy" }
+
+[[expect]]
+at = "1890s"
+within = "30s"
+call = "light"
+args = { dim = 1, until = "ends" }
+
+[[expect]]
+at = "5550s"
+within = "30s"
+call = "ends"

@@ -13,9 +13,10 @@ word about it on its own.
 
 It does this once a stuffy spell. A short dip in between does not count: it
 does it again only after the air has stayed under 1,000 ppm for ten
-minutes. It keeps still at night (22:00 to 08:00, the lamp's local time)
-and while someone is talking to it: if the moment comes during a talk, it
-waits, and does it once the talk ends, within ten minutes.
+minutes. It keeps still at night (22:00 to 08:00, the lamp's local time):
+if the air has been stuffy since the night, it does it once at 08:00. It
+keeps still while someone is talking to it too: if the moment comes during
+a talk, it waits, and does it once the talk ends, within ten minutes.
 
 If someone talks to the lamp or asks about the air, it may say "it's getting
 stuffy in here, maybe open a window?" That comes from the voice's own air

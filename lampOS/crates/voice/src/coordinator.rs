@@ -3484,6 +3484,9 @@ fn conversation_with_gate(
     // With LAMP_STALLS=on, a pass or a gap between passes of 50 ms or more
     // is recorded with what the lamp was doing (#1178).
     let mut stalls = crate::stalls::Stalls::from_environment("coordinator");
+    // With LAMP_QUIET_PACE=on, a pass every 5 ms rather than 2 while nothing
+    // is going on (#705, 08:37: the quiet voice's CPU).
+    let pace = crate::quiet_pace::Pace::from_environment();
     loop {
         #[cfg(test)]
         if host_deadline.is_some_and(|deadline| Instant::now() >= deadline) {
@@ -6674,7 +6677,15 @@ fn conversation_with_gate(
             continue;
         }
         stall_pass.done();
-        if let Some(wait) = Duration::from_millis(2).checked_sub(loop_start.elapsed()) {
+        // Nothing going on: no reply, nothing for the provider, no admitted
+        // speech, nothing draining, the room not busy, no speech lately.
+        let quiet = reply.is_none()
+            && provider_queue.is_empty()
+            && !admission.owns_stream()
+            && !submission_draining
+            && !room.busy()
+            && monotonic_us().saturating_sub(last_speech_us) >= crate::quiet_pace::SPEECH_KEEPS_US;
+        if let Some(wait) = pace.pass(quiet).checked_sub(loop_start.elapsed()) {
             std::thread::sleep(wait);
         }
     }

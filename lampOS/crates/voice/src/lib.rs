@@ -75,6 +75,7 @@ pub mod process;
 pub(crate) mod provider_flow;
 pub mod provider_link;
 pub mod provider_worker;
+pub mod quiet_pace;
 pub mod reference;
 pub mod remember;
 pub mod reminders;

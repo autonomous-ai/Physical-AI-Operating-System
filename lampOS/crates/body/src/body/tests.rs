@@ -7622,12 +7622,20 @@ fn a_joint_flapping_between_60_and_64_stops_on_heat() {
         "lamp-body[1]: {{\"port\":{{}},\"body\":{}}}",
         serde_json::to_string(&report).unwrap()
     );
-    let summary = crate::exit_report::summary(&line).expect("an exit report");
+    let Some(crate::exit_report::Found::Read(summary)) = crate::exit_report::summary(&line) else {
+        panic!("no readable exit report in {line}");
+    };
     assert!(
-        summary.starts_with("stop: temperature joint 5"),
+        summary.contains("\nstop: wrist_pitch (joint 5): too hot at "),
         "{summary}"
     );
-    assert!(summary.contains("temperature_flaps:"), "{summary}");
+    // Every field is read by its name: one renamed would say "not in this
+    // report" here.
+    assert!(!summary.contains("not in this report"), "{summary}");
+    assert!(
+        summary.contains("\ntemperature_flaps: base_yaw "),
+        "{summary}"
+    );
 }
 
 /// eighth's probe on #1347: a cool head at 56 whose register reads 57 to

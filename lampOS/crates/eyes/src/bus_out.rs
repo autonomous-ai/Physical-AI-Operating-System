@@ -438,4 +438,30 @@ mod tests {
         assert_eq!(said[3].message, "the camera does not open");
         std::fs::remove_dir_all(&root).unwrap();
     }
+
+    #[test]
+    fn speaking_is_said_only_when_asked_for() {
+        let looks = [
+            face(240.0, 120.0, 160.0, 200.0, 0.0),
+            face(40.0, 100.0, 120.0, 150.0, 0.0),
+        ];
+        let mut off = Ids::default();
+        let text = serde_json::to_string(&message(&looks, PICTURE, &mut off, 0)).unwrap();
+        assert!(!text.contains("speaking"), "{text}");
+        let mut on = Ids {
+            mouths: Some(speaking::Mouths::default()),
+            ..Ids::default()
+        };
+        for look in 0..2u64 {
+            let seen = message(&looks, PICTURE, &mut on, look * 150_000);
+            assert_eq!(seen.faces.len(), 2);
+            for tracked in &seen.faces {
+                // New faces: too few looks to tell yet.
+                let said = tracked.speaking.expect("judged");
+                assert_eq!(said.state, lamp_msgs::SpeakingState::Unknown);
+            }
+            let text = serde_json::to_string(&seen).unwrap();
+            assert_eq!(text.matches("\"speaking\":").count(), 2, "{text}");
+        }
+    }
 }

@@ -861,23 +861,37 @@ With the switch:
   #1047).
 - **`LAMP_STOP_WORDS_HOLD=own-words`** (off unless set; #828 section 2):
   a stop heard is acted on only once the lamp's own words cover the block
-  its result came in (one of them stamped at or after that block's capture
-  time), or `HOLD_US` (150 ms, on the blocks' capture clock) after it,
-  whichever is first (`StopWords::with_hold`). Without it, at a reply's
+  its result arrived in, or `HOLD_US` (150 ms, on the blocks' capture
+  clock) after that block, whichever is first (`StopWords::with_hold`).
+  The block is the one the relay's result arrived in, so after the words
+  were said, by the relay's answer; the 150 ms is counted from there,
+  which is what a person's stop is delayed by. Without it, at a reply's
   start with nothing queued, the lamp's text for its own "stop" can come
   after the speech-to-text's words for it, and its own "stop" stopped it.
-  Held, a stop whose words the lamp's own then hold is let go ("a stop
-  phrase heard was the lamp's own, its words came within N ms"). Several
-  stops heard during one hold are judged together, from the first's block.
+  - **What covers it:** only a word of the lamp's stamped ahead of when it
+    was written (the reply's audio queued before it), at or after that
+    block. Text stamped as it was written can be a piece for audio played
+    before the stop, since transcripts come in pieces, so it ends no hold
+    (the reviewer on #1353 at 17:34: "And the owl said:" then "stop,
+    little fox." 60 ms late).
+  - At each block of the hold, a stop whose words the lamp's own then hold
+    is let go ("a stop phrase heard was the lamp's own, let go after N ms
+    held"). One that acts says so ("a held stop phrase acts after N ms
+    held"). Several stops heard during one hold are judged together, from
+    the first's block.
   - **Its delay:** a person's stop acts 150 ms later at most, measured on
-    the 10 ms block clock in `a_persons_stop_is_held_at_most_150_ms`; 0
-    when the lamp's words are already stamped ahead (audio queued), as
-    soon as the next of them is written otherwise.
+    the 10 ms block clock in `a_persons_stop_is_held_at_most_150_ms`. It
+    is 0 when the lamp's words are already stamped ahead (audio queued),
+    and the full 150 ms otherwise, which is at a reply's start.
   - **Own words later than 150 ms** still stop the lamp, as without the
     hold: a person's stop is never held longer or dropped, and a false one
     ends the reply as a hand Stop does, with the lamp listening.
   - A reply that ends, or a microphone that closes, during the hold lets
     the held stop go.
+  - **Counted:** with `LAMP_STOP_WORDS_COUNTS`, `reply.held` lists each
+    held stop, with `waited_ms` and whether it `acted`. The end-of-reply
+    line adds ", N stops held". A lamp run then shows whether the 150 ms
+    is ever what acts (the first builder on #1353, 17:21).
 - **A yield takes its usual course,** without waiting for words.
 - `duplex_policy` records `stop_words_always`.
 

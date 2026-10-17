@@ -1,0 +1,14 @@
+# The model has seen a page with a line that goes wrong and calls show_verdict before pointing to it: the curious tilt and the tutoring note, at once.
+[[call_tool]]
+name = "show_verdict"
+at = "0s"
+args = { verdict = "wrong" }
+
+[[expect]]
+at = "0s"
+call = "body.gesture"
+args = { gesture = ["curious"] }
+
+[[expect]]
+at = "0s"
+call = "say"

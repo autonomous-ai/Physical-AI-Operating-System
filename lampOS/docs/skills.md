@@ -577,8 +577,7 @@ run. The look happens only on a voice with its look on (`LAMP_EYES_LOOK_FILE`,
 with `LAMP_LOOK_FULL=on` for the full one); without the full one, only if
 the model's answer begins with those words. A `tools.json` left by a `lamp-skills` that was
 killed stays until it starts again; a call then is answered as not
-running. Desk tutor (`ten/desk-tutor`) is not on `lamp-voice`, so the test
-uses a folder of its shape.
+running. The test uses a folder of Desk tutor's shape.
 
 ### Reflexes stay in the body and Expression
 
@@ -710,7 +709,7 @@ library as skills.
 | Stretch break | Someone at the desk for 50 minutes | Stretches itself as an invitation, never a lecture (creature.md) | New |
 | Stuffy air (#1021) | `air/state`'s `co2_ppm` above 1,200 for 10 minutes | Droops once (`sleepy`) and dims a shade until the air is under 1,200 again; once a spell, again only after 10 minutes under 1,000; never from 22:00 to 08:00, nor while someone talks to it; the dim also ends 15 minutes after the sensor falls silent; never speaks of it (the voice's air facts do, when spoken to) | New: reworked by jarvis from ten's; the rearm line, the quiet hours and the dim held until the trigger ends were added to `lamp-skills` for it. Its cases are made by hand (lamp-4ace's sensor is stuck); it has not run on a lamp |
 | Dance (#999) | "Lamp, dance", "show me a dance", "dance to this": its tool, `dance(style, long)` | One short playful line, then, when the line ends, one of V1's five dances (#979) picked by the mood asked for (calm: chill or waltz; upbeat: groove or hype; jazz), played twice for a long one, with a low warm glow given back at its end. Never on its own: the ears cannot yet tell music from talk | New: written by jarvis; its tool's arguments, the body's clips by name and the steps after the say were added to `lamp-skills` for it. Its cases are replays; it has not run on a lamp |
-| Desk tutor (the owner, 09:45) | "Lamp, check my work" or "I'm stuck" | Tips its head over the page and brightens it, takes one full-resolution still, tutors by voice (a hint or a question, never the answer), a small nod where a step is right, a curious tilt where it is wrong, then faces the person again | New: needs a look-at-the-desk move (#940) and a full-resolution look step (#938); written by ten with the skill creator (#941) |
+| Desk tutor (the owner, 09:45) | "Lamp, check my work" or "I'm stuck" | Tips its head over the page and brightens it, takes one full-resolution still, tutors by voice (a hint or a question, never the answer), a small nod where a step is right, a curious tilt where it is wrong, then faces the person again | Built: `skills/desk-tutor` (#1002, the look #1125, the reading pose #1011/#1098) and its marks, `skills/desk-tutor-marks` (the nod or the tilt, by the model's `show_verdict`, #941); the camera stays at 1280×960 (#987) |
 
 The first three prove that built-in behaviour moves onto the framework; the
 last two that a new skill needs no new code.

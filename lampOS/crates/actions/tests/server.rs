@@ -2,7 +2,7 @@
 use lamp_actions::{
     Executive,
     light::{BusLight, Light, STATE},
-    server::{CALL_SOCKET, CATALOG_FILE, LOOK_AGAIN, READY_FILE, serve, serve_with_clock},
+    server::{CALL_SOCKET, CATALOG_FILE, READY_FILE, serve, serve_with_clock},
     sound::{Mixer, Volume},
 };
 use serde_json::{Value, json};
@@ -174,7 +174,9 @@ fn the_light_is_offered_when_its_owner_appears_and_withdrawn_when_it_goes() {
     let stop = Arc::new(AtomicBool::new(false));
     // The executive's periods on a clock the test moves on: the list is
     // looked at again once the owner's change is on the bus and the test
-    // has moved the clock by `LOOK_AGAIN`, not after two seconds of waiting.
+    // has moved the clock by two seconds, not after two seconds of waiting.
+    // Two seconds is the period docs/actions.md gives, so an executive that
+    // looked again less often would fail here.
     let base = Instant::now();
     let ahead_ms = Arc::new(AtomicU64::new(0));
     let serving = {
@@ -190,7 +192,7 @@ fn the_light_is_offered_when_its_owner_appears_and_withdrawn_when_it_goes() {
         })
     };
     let look_again = || {
-        ahead_ms.fetch_add(LOOK_AGAIN.as_millis() as u64, Ordering::AcqRel);
+        ahead_ms.fetch_add(2_000, Ordering::AcqRel);
     };
     let bus = lamp_bus::Bus::new(&root).unwrap();
     until("ready", || home.join(READY_FILE).exists());

@@ -5,27 +5,24 @@
 //! `--touch` Controls), read from the bus by the ring's own worker. It only
 //! shapes the face; it never decides whether the ring may show anything.
 //!
-//! A tap on the head of a lamp at rest is listened for (#711, First's design
-//! on #711, 05:05): the resting face is the listening face for
-//! [`TAP_LISTENS_US`], then settles back ([`crate::ring_face::Face::tapped`]).
-//! The tap is Controls' own (`controls/touch`), read by the same worker.
+//! A tap on the head is not read here. Its listening face at rest follows
+//! the voice's "hm?" ([`crate::ring_face::Face::hum_frame`]), so a tap the
+//! voice does not answer gets no face (First on #705, 17 Oct 07:26).
 //!
 //! Switched on with `LAMP_HEAD_TOUCH=on`, which the voice passes to its ring
 //! worker as `--head-touch`. Off unless set.
 //!
-//! The bus is read by a thread of its own, never by the ring's loop: one
-//! receive from the bus passes over any number of messages it refuses, so a
-//! flood of them on `controls/touch` must never stand between the loop and
-//! its Stop, Authority and expiry (#849 review). The loop only reads what
-//! the thread last found, two numbers.
+//! The bus is read by a thread of its own, never by the ring's loop, so a
+//! slow bus never stands between the loop and its Stop, Authority and
+//! expiry (#849 review). The loop only reads what the thread last found.
 use lamp_bus::{Bus, Message};
-use lamp_msgs::{TOUCH_STATE_TTL_US, TouchEvent, TouchGesture, TouchSource, TouchState};
+use lamp_msgs::{TOUCH_STATE_TTL_US, TouchSource, TouchState};
 use std::{
     io,
     path::Path,
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicBool, Ordering},
     },
     thread,
     time::Duration,
@@ -34,28 +31,14 @@ use std::{
 /// The ring worker's flag for it.
 pub const FLAG: &str = "--head-touch";
 
-/// Controls says the head's state at least every 20 ms; this looks every 50,
-/// and waits at most this long for a tap between looks.
+/// Controls says the head's state at least every 20 ms; this looks every 50.
 const LOOK_EVERY_US: u64 = 50_000;
-
-/// How long a tap on the head is listened for at rest: the attention rule's
-/// own window for a tap ([`crate::attention::TAPPED_BEFORE_US`]), so the
-/// face is shown exactly as long as a request may begin as a call. Speech
-/// that begins in it is a turn, whose own listening face goes on from there.
-pub const TAP_LISTENS_US: u64 = crate::attention::TAPPED_BEFORE_US;
-
-/// The ring's name among the head's subscribers.
-const SUBSCRIBER: &str = "voice_ring";
-
-/// No hand on the head, and no tap yet, as the thread says them.
-const NONE: u64 = u64::MAX;
 
 #[derive(Default)]
 struct Found {
     /// The hand's time, and until when the state that said it holds, on
     /// the ring's monotonic clock: a stalled intake lets it expire.
     held: Mutex<Option<(u64, u64)>>,
-    tapped_at_us: AtomicU64,
     stop: AtomicBool,
 }
 
@@ -64,55 +47,29 @@ pub struct RingHead {
 }
 
 impl RingHead {
-    /// The head's state and requests on the bus under `root`, read by a
-    /// thread of its own from now on.
+    /// The head's state on the bus under `root`, read by a thread of its
+    /// own from now on.
     pub fn on(root: &Path) -> io::Result<Self> {
         let bus = Bus::new(root)?;
-        let mut taps = bus.subscribe_typed(TouchEvent::TOPIC, SUBSCRIBER, TouchEvent::TYPE)?;
-        let found = Arc::new(Found {
-            held: Mutex::new(None),
-            tapped_at_us: AtomicU64::new(NONE),
-            stop: AtomicBool::new(false),
-        });
+        let found = Arc::new(Found::default());
         let reading = Arc::clone(&found);
         thread::Builder::new()
             .name("voice-ring-head".into())
             .spawn(move || {
-                let mut looked_at_us = None;
                 while !reading.stop.load(Ordering::Acquire) {
-                    match taps.recv(Duration::from_micros(LOOK_EVERY_US)) {
-                        Ok(Some(message)) if tapped(&message) => reading
-                            .tapped_at_us
-                            .store(lamp_ipc::monotonic_us(), Ordering::Release),
-                        Ok(_) => {}
-                        // A bus that cannot be read is no hand and no tap.
-                        Err(_) => thread::sleep(Duration::from_micros(LOOK_EVERY_US)),
+                    // A bus that cannot be read is no hand.
+                    let held = bus
+                        .latest(TouchState::TOPIC)
+                        .ok()
+                        .flatten()
+                        .and_then(|message| held(&message));
+                    if let Ok(mut slot) = reading.held.lock() {
+                        *slot = held;
                     }
-                    let now_us = lamp_ipc::monotonic_us();
-                    if looked_at_us.is_none_or(|at: u64| now_us.saturating_sub(at) >= LOOK_EVERY_US)
-                    {
-                        looked_at_us = Some(now_us);
-                        let held = bus
-                            .latest(TouchState::TOPIC)
-                            .ok()
-                            .flatten()
-                            .and_then(|message| held(&message));
-                        if let Ok(mut slot) = reading.held.lock() {
-                            *slot = held;
-                        }
-                    }
+                    thread::sleep(Duration::from_micros(LOOK_EVERY_US));
                 }
             })?;
         Ok(Self { found })
-    }
-
-    /// Until when the latest tap on the head is listened for at rest, on
-    /// the same monotonic clock as the ring's.
-    pub fn tapped_until(&self) -> Option<u64> {
-        match self.found.tapped_at_us.load(Ordering::Acquire) {
-            NONE => None,
-            at => Some(at + TAP_LISTENS_US),
-        }
     }
 
     /// Call from the ring's loop with its clock: how long a hand has been
@@ -127,8 +84,8 @@ impl RingHead {
 }
 
 impl Drop for RingHead {
-    /// The thread ends at its next look. It is not waited for: a flood on
-    /// the bus may keep one receive busy, and the ring's own end must not.
+    /// The thread ends at its next look. It is not waited for: the ring's
+    /// own end never waits on the bus.
     fn drop(&mut self) {
         self.found.stop.store(true, Ordering::Release);
     }
@@ -150,19 +107,6 @@ pub fn held(message: &Message) -> Option<(u64, u64)> {
         .find(|source| source.source == TouchSource::Head)?
         .held_us?;
     Some((held, state.stamp.at_us.saturating_add(TOUCH_STATE_TTL_US)))
-}
-
-/// A fresh, valid, enabled tap on the head, from Controls.
-pub fn tapped(message: &Message) -> bool {
-    if message.expired || message.header.source != "controls" {
-        return false;
-    }
-    message.parse::<TouchEvent>().ok().is_some_and(|event| {
-        event.check().is_ok()
-            && event.enabled
-            && event.source == TouchSource::Head
-            && event.gesture == TouchGesture::Tap
-    })
 }
 
 /// The ring worker's argument for the switch in the environment.
@@ -231,57 +175,6 @@ mod tests {
             .unwrap();
         other.publish_json(2, &state).unwrap();
         soon(None, || head.tick(lamp_ipc::monotonic_us()));
-        drop((said, other));
-        std::fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
-    fn a_tap_on_the_head_from_controls_is_listened_for_and_nothing_else() {
-        let root = std::path::PathBuf::from(format!("/tmp/lrt-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&root);
-        let bus = Bus::new(&root).unwrap();
-        let head = RingHead::on(&root).unwrap();
-        let now = lamp_ipc::monotonic_us();
-        let mut recognizer = crate::hand_controls::TestHead::new("boot", now - 1_500_000);
-        let mut ticks = recognizer.run(now - 500_000, false);
-        ticks.extend(recognizer.run(now - 300_000, true));
-        ticks.extend(recognizer.run(now, false));
-        let events: Vec<_> = ticks
-            .into_iter()
-            .flat_map(|(_, _, events)| events)
-            .collect();
-        let tap = events
-            .iter()
-            .find(|event| event.gesture == TouchGesture::Tap)
-            .expect("a tap")
-            .clone();
-        let touch = events
-            .iter()
-            .find(|event| event.gesture == TouchGesture::Touch)
-            .expect("its touch")
-            .clone();
-        let mut said = bus
-            .publisher_declared(TouchEvent::TOPIC, &TouchEvent::declaration(), "controls")
-            .unwrap();
-        let mut other = bus
-            .publisher_declared(TouchEvent::TOPIC, &TouchEvent::declaration(), "replay")
-            .unwrap();
-        // A touch is not a tap; a tap from anyone but Controls is nothing.
-        said.publish_json(1, &touch).unwrap();
-        other.publish_json(2, &tap).unwrap();
-        thread::sleep(Duration::from_millis(150));
-        assert_eq!(head.tapped_until(), None);
-        // Controls' tap: listened for two seconds from when it was read.
-        let sent = lamp_ipc::monotonic_us();
-        said.publish_json(3, &tap).unwrap();
-        soon(true, || head.tapped_until().is_some());
-        let until = head.tapped_until().unwrap();
-        assert!(
-            (sent + TAP_LISTENS_US..=lamp_ipc::monotonic_us() + TAP_LISTENS_US).contains(&until)
-        );
-        // Nothing new: the window stands.
-        thread::sleep(Duration::from_millis(100));
-        assert_eq!(head.tapped_until(), Some(until));
         drop((said, other));
         std::fs::remove_dir_all(root).unwrap();
     }

@@ -200,6 +200,13 @@ const COUNTDOWN_LOW: f32 = 0.15;
 /// eases and does not snap (First, #711).
 const SETTLE_EASE_US: f32 = 170_000.0;
 const SETTLE_US: u64 = 600_000;
+/// How long a tap on the head is listened for at rest: the attention rule's
+/// own window for a tap ([`crate::attention::TAPPED_BEFORE_US`]), so the
+/// face is shown as long as a request may begin as a call. It runs from the
+/// hum's first frame, after the voice has heard the tap and decided to hum
+/// (not measured on a lamp, `docs/ring-choreography.md`). Speech that begins
+/// in it is a turn, whose own listening face goes on from there.
+pub const TAP_LISTENS_US: u64 = crate::attention::TAPPED_BEFORE_US;
 const BLINK_EVERY_US: (u64, u64) = (7_000_000, 9_000_000);
 
 /// One face. It keeps what is on the ring now, so that a change of mood, or
@@ -235,8 +242,10 @@ pub struct Face {
     blinks: u64,
     /// How long a hand has been kept on the head ([`Face::hand`]).
     held_us: Option<u64>,
-    /// Until when a tap on the head is listened for at rest ([`Face::tapped`]).
+    /// Until when a tap on the head is listened for at rest, and the turn
+    /// of the hum that answered it ([`Face::hum_frame`]).
     tapped_until_us: Option<u64>,
+    hum_turn: Option<u64>,
     /// The accent with the lamp's gesture ([`accent_code`]) and when it began.
     accent: u8,
     accent_at_us: u64,
@@ -267,6 +276,7 @@ impl Face {
             blinks: 0,
             held_us: None,
             tapped_until_us: None,
+            hum_turn: None,
             accent: 0,
             accent_at_us: 0,
         }
@@ -280,12 +290,18 @@ impl Face {
         self.held_us = held_us;
     }
 
-    /// A tap on the head of a lamp at rest (#711): until `until_us` the
-    /// resting face is the listening face, the one a call gets while the
-    /// lamp waits for the rest, then it settles back to its own light over
-    /// about half a second. A turn's own faces are unchanged.
-    pub fn tapped(&mut self, until_us: Option<u64>) {
-        self.tapped_until_us = until_us;
+    /// A frame of the head tap's "hm?" (#711), of the turn `turn`, shown at
+    /// `now_us`. The first frame of each hum starts the tap's window: until
+    /// it ends ([`TAP_LISTENS_US`]) the resting face is the listening face,
+    /// the one a call gets while the lamp waits for the rest, then it
+    /// settles back to its own light over about half a second. Only the hum
+    /// starts it, so a tap the voice does not answer gets no face (First on
+    /// #705, 17 Oct 07:26). A turn's own faces are unchanged.
+    pub fn hum_frame(&mut self, turn: u64, now_us: u64) {
+        if self.hum_turn != Some(turn) {
+            self.hum_turn = Some(turn);
+            self.tapped_until_us = Some(now_us.saturating_add(TAP_LISTENS_US));
+        }
     }
 
     /// Whether a resting frame at `now_us` shows the lamp's own light: not
@@ -699,11 +715,11 @@ mod tests {
         assert!((ratio(None, 3.0) - 1.0).abs() < 0.02);
     }
 
-    /// #711: a tap on the head of a lamp at rest shows the listening face
-    /// for the window, then settles back to rest over about half a second,
-    /// never snapping. A turn's own faces are unchanged.
+    /// #711: a tap the voice answers with its hum shows the listening face
+    /// at rest for the window, then settles back to rest over about half a
+    /// second, never snapping. A turn's own faces are unchanged.
     #[test]
-    fn a_tap_at_rest_listens_for_its_window_and_settles_back_slowly() {
+    fn a_hummed_tap_listens_at_rest_for_its_window_and_settles_back_slowly() {
         let at = |seconds: f32| 4_000_000_000 + (seconds * 1e6) as u64;
         let apart = |a: &[Rgb; PIXEL_COUNT], b: &[Rgb; PIXEL_COUNT]| -> u32 {
             a.iter()
@@ -721,8 +737,10 @@ mod tests {
         for face in [&mut resting, &mut tapped, &mut listening] {
             play(face, Mood::Resting, 0, at(0.0), 50);
         }
-        // The window: the resting face is the listening face.
-        tapped.tapped(Some(at(3.0)));
+        // The window from the hum's first frame: the resting face is the
+        // listening face. More frames of the same hum don't stretch it.
+        tapped.hum_frame(7, at(3.0) - TAP_LISTENS_US);
+        tapped.hum_frame(7, at(2.5));
         let during = play(&mut tapped, Mood::Resting, 0, at(1.0), 100);
         let heard = play(&mut listening, Mood::Listening, 0, at(1.0), 100);
         let rest = play(&mut resting, Mood::Resting, 0, at(1.0), 100);
@@ -744,6 +762,27 @@ mod tests {
         assert!(left(5) > 0.45, "{}", left(5));
         assert!(left(29) < 0.06, "{}", left(29));
         assert!((1..30).all(|frame| left(frame) <= left(frame - 1) + 0.01));
+    }
+
+    /// First on #705, 17 Oct 07:26: the face only with the hum (that a
+    /// refused tap sends no hum frame is the coordinator's test,
+    /// `only_the_hums_own_ring_frames_are_marked_listening`). A hum keeps
+    /// the face until its window and settle are over; each hum that plays
+    /// gets its own window.
+    #[test]
+    fn each_hum_opens_its_own_window_at_rest_until_its_settle() {
+        let at = |seconds: f32| 4_000_000_000 + (seconds * 1e6) as u64;
+        let mut hummed = Face::new();
+        hummed.light(Lit::of(true, "warm", 5).unwrap());
+        assert!(hummed.rests_on_its_light(at(2.0)));
+        hummed.hum_frame(7, at(3.0));
+        assert!(!hummed.rests_on_its_light(at(3.0)));
+        let end = at(3.0) + TAP_LISTENS_US + SETTLE_US;
+        assert!(!hummed.rests_on_its_light(end - 1));
+        assert!(hummed.rests_on_its_light(end));
+        // The next hum, 30 s on, is a new window.
+        hummed.hum_frame(9, at(33.0));
+        assert!(!hummed.rests_on_its_light(at(33.0) + TAP_LISTENS_US));
     }
 
     #[test]

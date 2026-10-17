@@ -68,18 +68,33 @@ worker is gone while the voice is muted.
 
 ### A tap on the head at rest: the listening face (#711)
 
-Same switch and same worker. A tap on the head (Controls' `controls/touch`,
-a fresh, enabled head Tap from `controls`) and the head's hand time are read
-from the bus by a thread of the head's own (`ring_head.rs`), never by the
-ring's loop, which only reads the two numbers it last found, after each
-tick's Stop, Authority and expiry (#849 review, twice):
-- One receive from the bus passes over any number of messages it refuses, so
-  no count of receives would bound it. The loop does no bus work at all.
+Same switch and same worker. **The face follows the voice's "hm?", not the
+tap** (First on #705, 17 Oct 07:26: no face when the hum doesn't play). The
+ring reads no taps. The first frame of the hum's own turn
+(`RingFrame::listening`, stamped by the coordinator for a `HeadCue` turn
+from the pass that admits it) starts the tap's window (`Face::hum_frame`).
+It is keyed by the hum's turn, so the hum's later frames don't stretch the
+window, and each hum gets its own. A tap the voice doesn't answer gets no
+face. Those are the reasons `head_cue::may_hum` gives in `head_tap_cue`'s
+`why`: `microphone_not_allowed`; `was_speaking` (a touch that stopped
+speech); `not_quiet` (a reply, provider audio or a speaker chunk under way,
+a stream owned or a candidate open, a submission draining, paused, or the
+speaker not yet free); `listening_not_ready`; `reply_owed`; and
+`hummed_recently` (within 30 s of the last hum). Until 17 Oct the
+ring read taps from the bus itself, and showed the face on every tap at
+rest.
+
+The head's hand time (above) is read from the bus by a thread of the head's
+own (`ring_head.rs`), never by the ring's loop, which only reads what it
+last found, after each tick's Stop, Authority and expiry (#849 review,
+twice):
+- The loop does no bus work at all, so no receive can stand between it and
+  its Stop, Authority and expiry.
 - The test `a_flood_of_head_requests_never_holds_back_revocation_or_expiry`
-  floods `controls/touch` from four senders: valid taps through the bus, and
-  messages of another type written straight to the subscriber. While it goes
-  on, a 50 ms permit must blank within 150 ms and a Stop sent then must end
-  the worker within 50 ms.
+  floods `controls/touch` from four senders. While it goes on, a 50 ms
+  permit must blank within 150 ms, and a Stop sent then must end the worker
+  within 50 ms. Since 17 Oct nothing in the ring receives `controls/touch`;
+  the test stays as a guard.
 - It failed on the first head, which read the bus before the controls. On
   the second head (at most four receives a tick, after the controls) this
   fixture passes on Third's Mac. The reviewer's own fixture, a different
@@ -93,7 +108,16 @@ tick's Stop, Authority and expiry (#849 review, twice):
   (#849 review).
 - **Shown:** at rest, the resting face becomes the listening face, the one a
   turn shows while it listens, for `TAP_LISTENS_US` (2 s, as long as a call
-  waits for the rest on lamp-4ace, #891).
+  waits for the rest on lamp-4ace, #891), from the hum's first frame.
+- **How fast:** the face opens with the hum's first frame, drawn in the
+  pass that decides the hum. From Controls' tap that is the bus to the
+  voice's poll (about 2 ms on a host, [attention.md](attention.md)), that
+  pass, and one 2 ms ring tick. It waits on the coordinator's loop, which
+  #1178 saw held 50 ms or more. Before 17 Oct the ring read the tap itself
+  and drew it on its next resting frame, within about 27 ms of the bus.
+  First's target is under 100 ms. On a lamp: the hum turn's first
+  `ring_feedback` `Presented.write_finished_at_us` minus
+  `head_tap_cue.acquired_at_us`. Not measured yet.
 - **Speech in the window** is a turn, whose own listening face goes on from
   there.
 - **Afterwards:** if nothing comes, the face settles back to its own light,
@@ -105,10 +129,21 @@ tick's Stop, Authority and expiry (#849 review, twice):
   from the pass that admits it), so the face does not wait for the hum to end.
 - **Not changed:** other turns' faces, and the ring's refusal of a resting
   frame when nobody may listen.
+- **Tests:**
+  - The coordinator's `only_the_hums_own_ring_frames_are_marked_listening`,
+    the loop with a ring: a tap that hums has its first requested frame
+    marked `listening`, and a tap refused while the lamp thinks has none.
+  - `ring_face`'s `each_hum_opens_its_own_window_at_rest_until_its_settle`
+    and `a_hummed_tap_listens_at_rest_for_its_window_and_settles_back_slowly`:
+    the window, its settle, and a hum's later frames not stretching it.
+  - `ring_worker`'s `only_a_frame_of_the_hum_opens_the_taps_window_at_rest`:
+    a drawn hum frame opens it, and another turn's frame doesn't.
 
-It is one gesture with the voice's "hm?" ([attention.md](attention.md#a-tap-on-its-head-is-a-call-711))
+With the hum, it is one gesture with the voice's "hm?" ([attention.md](attention.md#a-tap-on-its-head-is-a-call-711))
 and Expression's look-up ([alive.md](alive.md)), all from the one tap event
-(First, #711, 05:05).
+(First, #711, 05:05). A tap with no hum gets no face, but Expression still
+looks up, even while muted, since a plain mute leaves it awake. Whether the
+look-up should follow the hum too is the open question on #705.
 
 ### The eye (task 34, #712)
 

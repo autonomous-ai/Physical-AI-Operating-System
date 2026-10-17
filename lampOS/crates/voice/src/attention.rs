@@ -535,7 +535,7 @@ const NAMED: &str = "its name was heard in the room's sound";
 /// call for a request that begins no longer than this after it: the tap
 /// asks the lamp to listen, and the person may take a breath first. It is
 /// the one window the lamp shows it listens for, the ring's listening face
-/// ([`crate::ring_head::TAP_LISTENS_US`] is this) and Expression's look-up:
+/// ([`crate::ring_face::TAP_LISTENS_US`] is this) and Expression's look-up:
 /// as long as a call waits for the rest on lamp-4ace (#891, First on #711).
 /// A request that begins inside it keeps it however long it goes on.
 pub const TAPPED_BEFORE_US: u64 = 2_000_000;

@@ -2,7 +2,7 @@
 # someone working on paper asks the lamp to check their work or says they
 # are stuck (SKILL.md's description tells it when): a person asked, so the
 # Policy is not asked. No trigger, no [ask].
-needs = ["eyes", "voice", "light"]
+needs = ["eyes", "voice", "light", "body"]
 tool = "check_my_work"
 
 [[do]]

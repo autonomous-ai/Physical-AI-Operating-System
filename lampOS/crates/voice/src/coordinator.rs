@@ -5302,7 +5302,7 @@ fn conversation_with_gate(
                     // on with it. Taking over from a sound is neither.
                     let took_over = reply.as_ref().is_some_and(|current| {
                         crate::not_speech::takes_over(
-                            current.had_audio || current.playback.is_some(),
+                            lamps_voice_heard(Some(current)),
                             said_turn == Some(current.owner.turn()),
                         )
                     });
@@ -5447,7 +5447,7 @@ fn conversation_with_gate(
                         )?;
                         let took_over = reply.as_ref().is_some_and(|current| {
                             crate::not_speech::takes_over(
-                                current.had_audio || current.playback.is_some(),
+                                lamps_voice_heard(Some(current)),
                                 said_turn == Some(current.owner.turn()),
                             )
                         });

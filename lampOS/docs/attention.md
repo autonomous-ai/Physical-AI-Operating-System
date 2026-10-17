@@ -1443,6 +1443,8 @@ Tests: `room_told::tests::with_the_switch_cut_ins_left_unanswered_do_not_make_th
 (three silent cut-ins in a minute, then the "Hold on…" question, with and
 without the switch), `with_the_switch_a_split_cut_in_is_kept_out_whole_and_keeps_a_busy_room_busy`,
 `the_cut_ins_switch_is_on_only_and_its_flag_follows_the_room_facts_one`,
+`coordinator::tests::turn_taking::a_request_over_a_reply_with_sound_says_so_in_its_start`
+(the Start's bit through `commit_admitted_input`),
 and `provider_worker::tests::a_request_begun_over_the_lamps_voice_is_kept_out_of_the_busy_count_with_the_switch`
 (the Start's mark reaching the room, a reply only in hand not marking, and
 the flag's place for both workers).

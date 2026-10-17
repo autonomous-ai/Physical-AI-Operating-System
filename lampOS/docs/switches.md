@@ -41,21 +41,19 @@ added, turned on or removed.
 | | Voice: hearing, turns, ring | Voice: tasks, memory, schedule, skills, looks | Voice: its own flags | Other parts | All |
 |---|---|---|---|---|---|
 | On already, or right at its default | 13 | 9 | 7 | 16 | **45** |
-| **Proposed to turn on now** | 0 | 2 | 0 | 1 | **3** |
-| Off until its named lamp check | 25 | 12 | 0 | 5 | **42** |
+| **Proposed to turn on now** | 0 | 1 | 0 | 1 | **2** |
+| Off until its named lamp check | 25 | 13 | 0 | 5 | **43** |
 | Stays off (diagnostic, turned down, or not needed) | 5 | 1 | 2 | 2 | **10** |
 | A setting, not a behaviour | 1 | 2 | 0 | 0 | **3** |
 
-**Proposed to turn on now**, each with its newest lamp-4ace record a pass:
-- `LAMP_TASKS_WHO=on`: its own minute on lamp-4ace, 15 Oct 17:47–17:49 (#769),
-  and nothing starts without a heard yes.
+**Proposed to turn on now**, with its newest lamp-4ace record a pass:
 - `LAMP_LOOK_FULL=on` **with** `lamp-eyes --full-look`, the two together: it
   works end to end on lamp-4ace and has answered there since 16 Oct 03:17
   (#842), with things held up by a person shown on lamp-52e6.
 
-`LAMP_SPOKEN_TO` and `LAMP_POLICY_HOLDS_ACTIONS` were proposed here at first on
-their 16 Oct morning passes; both have newer lamp-4ace records that fail (the
-reviewer on #1238), so both are "off until" those scenes pass.
+`LAMP_SPOKEN_TO`, `LAMP_POLICY_HOLDS_ACTIONS` and `LAMP_TASKS_WHO` were proposed
+here at first on earlier passes; each has a newer lamp-4ace record that fails
+(the reviewer on #1238), so each is "off until" its scenes pass.
 
 **The quickest wins among "off until"** are the switches whose check needs no
 motion, since lamp-4ace's motors stay still until Monday: `LAMP_STAFF_NOTE`
@@ -77,10 +75,10 @@ motion, since lamp-4ace's motors stay still until Monday: `LAMP_STAFF_NOTE`
 | LAMP_EXPRESSION_OUT | `on`; nothing otherwise. Voice publishes voice/timing, activity, playout for Expression | on | on | commit 40e9b1c00 (direct) | expression.md: playout said ahead since 14 Oct 13:00, measured on lamp-4ace | on (already) | Expression's faces depend on it; in use on lamp-4ace since 14 Oct |
 | LAMP_FAINT_FLOOR_MAX_DB | dBFS -47 to -20; unset = floor fixed at --faint-floor-db (-28) | — | — | commit 96bc22266 (direct) | lamp-4ace RUNBOOK: "off (watching)"; `room_floor` / `room_alone_dbfs` records to be watched first | unset until lamp-4ace's room_floor records support a ceiling | RUNBOOK lists it off (watching); group-talk.md says watch a room before letting the floor go |
 | LAMP_FAINT_HOLD_MS | ms 0–1000; unset/0 = each block judged alone. Keeps trailing desk speech | 400 | 400 | commit de6ae60ed (direct) | not-speech.md: shown on lamp-4ace at 400 ms, 0 of 7 short phrases thrown out | 400 (already) | not-speech.md result on lamp-4ace; quiet lines at a tenth of the volume still not admitted |
-| LAMP_FIRST_WORDS | `kept`; off. A yield's request starts at first words under the lamp's voice (≤1.6 s) | — | — | #936 | "Not shown: nothing was played"; a played minute of cut-ins (cutins.sh) and stories asked over | off until the played cut-in minute | #936 measured only on replayed recordings; no lamp run in PR or docs |
+| LAMP_FIRST_WORDS | `kept`; off. A yield's request starts at first words under the lamp's voice (≤1.6 s) | — | — | #936 | "Not shown: nothing was played"; a played minute of cut-ins (cutins.sh) and stories asked over. On 17 Oct #1246 measured on lamp-4ace that neither microphone carries a person's word said over the lamp's own speech, which this check depends on | off until the played cut-in minute | #936 measured only on replayed recordings; no lamp run in PR or docs |
 | LAMP_HEAD_TAP_CUE_DBFS | dBFS -60 to -20, else start refused; default -35. Level of the tap "hm?" | — | — | #849 | Hum level by ear on a lamp (#849 "Next"); attention.md: -35 "not yet measured" | unset (-35) until tuned by ear on a lamp | For tuning only; default untested against the lamp's speech (attention.md) |
 | LAMP_HEAD_TOUCH | `on`; off. Head tap is a call / stops speech; hold 3 s = sleep | — | — | #849 | Tap-to-speaker under 150 ms, hum by ear, head_gap_ms recording; attention.md "not on any lamp" | off until tap latency is measured on a lamp | #849 says lamp latency unmeasured; #1176 keeps product pats in the old engine |
-| LAMP_KERNEL_CLOCK | `on`; off. Says the clock is not set rather than tell a wrong time | — | on | #884 | offline.md "What was not shown": nothing run with the network cut; NTPSynchronized on lamp-4ace not checked | on (already in product; lamp-4ace's unit lacks it) | No battery clock (#830); it changes anything only while the clock is unset |
+| LAMP_KERNEL_CLOCK | `on`; off. Says the clock is not set rather than tell a wrong time | — | on | #884 | offline.md "What was not shown": nothing run with the network cut. **Found 17 Oct (Ten on #705, the reviewer read the same):** the provider worker is spawned with `env_clear()` and this switch isn't passed on (`process.rs`), so the worker's `the_time` and session note never see the clock unset; Fourth passes it in #1158 | on (already in product; lamp-4ace's unit lacks it) | No battery clock (#830); it changes anything only while the clock is unset |
 | LAMP_MARK_WEIRD | `on`; off. "That was weird" keeps the last minute for review, 7 days | — | — | #855 | Shown on lamp-52e6 15 Oct (mark written, listed); 7-day sweep host only | off | A builder review tool that keeps session records on the lamp; #855 itself is a builder check |
 | LAMP_NAME_IN_PASSING | `ignored`; off. "the lamp" spoken about is no call in a busy room | — | — | #864 | #864: "Nothing was run on a lamp"; attention.md: not on any lamp | off until played on lamp-4ace with LAMP_SPOKEN_TO | Model declined both played cases itself (14, 15 Oct); #918 run still answered 1 of 2 in-passing lines |
 | LAMP_NAME_NOTE | `on`; never otherwise. Tells the model the lamp's name was heard | on | on | commit 7a07ebd9e (direct) | attention.md: played on lamp-4ace 14 Oct 07:28, note arrives and does no harm | on (already) | Shown on lamp-4ace 14 Oct (attention.md table) |
@@ -102,16 +100,16 @@ motion, since lamp-4ace's motors stay still until Monday: `LAMP_STAFF_NOTE`
 | LAMP_SPEAK_FIRST | `on`; otherwise moments only recorded. The voice's own hello on arrival | — (commented out) | — (commented out) | commit 4985caf77 (direct) | RUNBOOK: on since 15 Oct, never due in 0 of 680 sessions; now replaced by Welcome back | off | Both units leave it commented so only the Welcome back skill greets (install.md, skills.md) |
 | LAMP_SPOKEN_TO | `on`; off. In every room an answer plays only when the lamp was spoken to | — | — | #918 | Passed on lamp-4ace 16 Oct 04:38 on the pre-merge `211f32c74` (budget line 0 of 8, named 6 of 6, day.sh 12 of 12); **newer and failing**: 06:06 on `1dc286181` the budget line was answered 3 of 4 (#918, 06:15), and 15:39 "Yes, give me five minutes.", said to someone else, set a timer (#829, attention.md "To another"). The rules added for both (`TO_ANOTHER`, `AFTER_QUESTION`, `TALK_ENDS_CONVERSATION`) are not yet played | off until those two scenes pass on the merged build | The newest record is a failure, and the rules made for it are unplayed (attention.md, the "Not yet played" list) |
 | LAMP_STALLS | `on`; off. Logs loop stalls ≥50 ms with getrusage to /run/lampos-voice | — | — | #1179 | Next: on in lamp-4ace's drop-in, a scene across 00:00 (#1178) | off | A diagnostic for #1178, meant for lamp-4ace (serve-runtime.md) |
-| LAMP_START_OFFLINE | `on`; off. Voice started without internet keeps listening past the 25 s budget | — | — | #884 | Stop Wi-Fi, restart the voice, stays up logging "listening with no link"; offline.md: not yet shown | off until the Wi-Fi-off restart check | offline.md: "Not yet shown on a host with its network cut or on a lamp" |
+| LAMP_START_OFFLINE | `on`; off. Voice started without internet keeps listening past the 25 s budget | — | — | #884 | Stop Wi-Fi, restart the voice, it stays up logging "listening with no link"; lamp-4ace's installed unit has run it since 16 Oct, and the line never printed because that day's cut left the link up (#1242, offline.md) | off until the Wi-Fi-off restart check | offline.md: "Not yet shown on a host with its network cut or on a lamp" |
 | LAMP_STOP_TOLD | `on`; off. First request after a hand/head stop tells the model it was stopped | — | — | #1148 | Code and not-speech.md: "off until it is played on lamp-4ace" | off until played on lamp-4ace | Its own doc says it waits on that lamp check (from 16 Oct 16:32, story restarted 4 of 6 times) |
-| LAMP_STOP_WORDS | `heard`; off. Stop words heard in a yield end the reply (relay speech-to-text) | — | — | #970 | Count yield outcomes against played cut-ins; privacy accepted for lamp-4ace only (#828, 16 Oct) | off | stop-word.md: privacy "to be decided again before home lamps"; speech goes to the relay during yields |
+| LAMP_STOP_WORDS | `heard`; off. Stop words heard in a yield end the reply (relay speech-to-text) | — | — | #970 | Count yield outcomes against played cut-ins; privacy accepted for lamp-4ace only (#828, 16 Oct). On 17 Oct #1246 measured on lamp-4ace that neither microphone carries a person's word over the lamp's own speech, which this depends on | off | stop-word.md: privacy "to be decided again before home lamps"; speech goes to the relay during yields |
 | LAMP_VOICE_LINK | `on` (with bus); off. Publishes voice/link for lamp/online | — | — | #884 | lamp/online false 5 s after the link drops (with lamp-health --online on); not run | off until that check and lamp-health --online on in product | Only a signal; nothing in product reads it yet; offline.md shows nothing run |
 | LAMP_WAIT_KEEPS_ANSWER | `on`; off. A short sound does not cut off an answer still to come | — | — | #1130 | lamp-4ace steps 1–4: cough within 2 s, real follow-up, #1123 count before/after; not documented done | off until those lamp-4ace steps | #1130 "Most likely wrong": the 1 s, and a short "No."/"Wait." let go |
 | LAMP_SAME_VOICE_MODEL | absolute model path; unset = no check. The same-voice check beside LAMP_SPOKEN_TO (a line in another voice counts as talk) | — | — | #1030 | none recorded on a lamp | off until played with LAMP_SPOKEN_TO | It works only beside LAMP_SPOKEN_TO, which is itself off until its scenes pass |
-| LAMP_VOICE_SECOND_CONFIG | absolute config path; unset = no backup voice. The second voice (the relay's chat) when Gemini can't answer | — | — | #778 | Runs on lamp-52e6 (#1154, #1195, the relay log); lamp-4ace not recorded | off until its run on lamp-4ace | Without it LAMP_SECOND_WAIT_CUE and LAMP_SECOND_DOWN_LINE do nothing; the relay was down 25–30 min on 17 Oct (the sixth's log) |
+| LAMP_VOICE_SECOND_CONFIG | absolute config path; unset = no backup voice. The second voice (the relay's chat) when Gemini can't answer | — | — | #778 | Runs on lamp-52e6 (#1154, #1195, the relay log); **on lamp-4ace on 16 Oct** (second-voice.md): 9 of 10 backup turns waited past 1.5 s, first events 1.6 to 20.5 s after the words, and it answered "Me." and half a question | off until a lamp-4ace run where its turns answer within #1154's bounds (3 s, 5 s for a look) and the relay's day log (the sixth, from 17 Oct) shows them reachable | Without it LAMP_SECOND_WAIT_CUE and LAMP_SECOND_DOWN_LINE do nothing; the relay was down 25–30 min on 17 Oct (the sixth's log) |
 | LAMP_SELFTEST_SPEAKER | `on`; off. The speaker part of the self-test, from the echo of the lamp's own last speaking turn (#968; it plays nothing) | — | — | #895 (changed by #968) | #968: shown on lamp-52e6 (43.4 dB median echo); not on lamp-4ace | off until its lamp-4ace run | Without it the self-test's speaker is `not_checked`, never a false fail |
-| LAMP_FIRST_OUTPUT | absolute directory; unset = nothing kept. Keeps what was heard for each request, on the lamp | /var/lib/lampOS/voice/first-output | /var/lib/lampOS/voice/first-output | commit 8ae7b8868 (direct) | none of its own: a record, read by builders | set (already); worth a privacy line for a home | It keeps words heard in a home on the lamp, which `docs/privacy` rules should name |
-| `lamp-voice --controls-mute` | absolute record path; off. The software mute (the privacy path) | — | — | commit 5f9914314 (direct) | none recorded | off until LAMP_HEAD_TOUCH and LAMP_RESTORED_MUTE are checked | LAMP_HEAD_TOUCH's 3 s sleep and LAMP_RESTORED_MUTE need it (`hand_controls.rs`, controls.md); head touch also needs the product pins' `"legacy_head": true` gone (#1176) |
+| LAMP_FIRST_OUTPUT | absolute directory; unset = nothing kept. Keeps what was heard for each request, on the lamp | /var/lib/lampOS/voice/first-output | /var/lib/lampOS/voice/first-output | commit 8ae7b8868 (direct) | none of its own: a record, read by builders | set (already); worth a privacy line for a home | It keeps words heard in a home on the lamp, which `docs/service-privacy.md` (the nearest doc) should name |
+| `lamp-voice --controls-mute` | absolute record path; off. The software mute (the privacy path) | — | — | commit 5f9914314 (direct) | Ran on lamp-4ace on 16 Oct: a crash at 12:20 brought the voice up muted, and nothing at the lamp could open it (controls.md, #997) | off until LAMP_HEAD_TOUCH and LAMP_RESTORED_MUTE are checked | LAMP_HEAD_TOUCH's 3 s sleep and LAMP_RESTORED_MUTE need it (`hand_controls.rs`, controls.md); head touch also needs the product pins' `"legacy_head": true` gone (#1176) |
 
 ## The voice: tasks, memory, schedule, skills and looks
 
@@ -134,11 +132,11 @@ motion, since lamp-4ace's motors stay still until Monday: `LAMP_STAFF_NOTE`
 | LAMP_SESSION_FACT | `on` only; off. Tells each new session nobody is talking to the lamp | on | on | commit 0b042f8fd (direct) | none named; RUNBOOK: on since 13 Oct 17:29, "unmeasured" | on (already) | On since 13 Oct; session_fact.rs: its effect on a session's first hearing still unmeasured |
 | LAMP_SKILLS_ASK | `policy` (Policy's gate) or `skip` (act unasked); unset = nothing self-started runs (lamp-skills) | skip | skip | #950 | #950: nothing ran on a lamp; device run the first builder's on lamp-4ace 17 Oct | skip (already) until `lamp-policy --gate` is in the product unit and #1155 lands, then policy | skills.md: with `policy` a hello at the first lull is refused; product greets in a busy room only while it skips |
 | LAMP_STAFF_NOTE | `on`; off. A request whose heard words name one of the staff gets a hand-over note | — | — | #1173 | lamp-4ace with TASKS_WHO/ASKED: Codex haiku, Claude Code poem, code X; count "in time" vs "after its input was closed"; not shown | off until the first builder's in-time/late count on lamp-4ace | tasks.md "Not shown on a lamp yet"; most likely wrong: transcript arriving after the request's end |
-| LAMP_TASKS_ASKED | `on` only; off. Work asked of the staff is always handed over; an unclear name asked | — | — | #859 | Shown on lamp-4ace 15 Oct 21:22–21:59; then `handovers.sh` on lamp-4ace 16 Oct: a pass at 03:37 (#903, 03:40), a fail at 06:16 (#854, 06:21), hand-overs 3 of 3 at 06:53–07:07 (#854, 07:09) | off until `handovers.sh` passes whole on the merged build (told 4/4, offered 0, handed 3/3) | Its runs went both ways on 16 Oct; tasks.md's "Not shown yet" for #903 is stale (these runs) |
+| LAMP_TASKS_ASKED | `on` only; off. Work asked of the staff is always handed over; an unclear name asked | — | — | #859 | Shown on lamp-4ace 15 Oct 21:22–21:59; `handovers.sh` on 16 Oct: a pass at 03:37 (#903, 03:40), a fail at 06:16 (#854, 06:21), hand-overs 3 of 3 at 06:53–07:07 (#854, 07:09); **newest, failing:** 16 Oct about 21:05 and 22:51, a Claude Code poem and a Codex haiku asked for by name, done by the lamp itself (tasks.md, #1173) | off until `handovers.sh` passes whole on the merged build (told 4/4, offered 0, handed 3/3) | Its runs went both ways on 16 Oct; tasks.md's "Not shown yet" for #903 is stale (these runs) |
 | LAMP_TASKS_NEEDS | file path; unset = a missing part is told as not running. Light "not set up" words | — | /usr/local/bin/harness | #1063 | none named on a lamp (#1063 host tests and gate only) | /usr/local/bin/harness (already) | A home lamp without Harness gets plain words (tasks.md, #811); lamp-4ace has Harness so does not need it |
 | LAMP_TASKS_TARGET | alias string; default `office`. The tasks target the work goes to | — | — | commit c2ac775f5 (direct) | none of its own; LAMP_TASKS_WHO's lamp-4ace minute used `office-claude` | the lamp's own alias where its `targets.json` names differ; unset (`office`) otherwise | A per-lamp name, not a behaviour |
 | LAMP_TASKS_TOLD | file path; default /var/lib/lampOS/voice/tasks-told. Record of task news already told | — | — | commit 55e92e3d8 (direct) | none named | unset (default path) | A storage location, not a behaviour switch (tasks.md, setup.md) |
-| LAMP_TASKS_WHO | `on` only; off. The person may name Claude Code, Codex or OpenCode | — | — | #769 | Its own minute on lamp-4ace: #769, 15 Oct 17:47–17:49, with `LAMP_TASKS_TARGET=office-claude` (tasks.md's "Nothing was run on a lamp" there is stale) | on | Shown on lamp-4ace; every hand-over waits for a heard yes, switch or no (`agent_tasks.rs`) |
+| LAMP_TASKS_WHO | `on` only; off. The person may name Claude Code, Codex or OpenCode | — | — | #769 | Its own minute on lamp-4ace: #769, 15 Oct 17:47–17:49, with `LAMP_TASKS_TARGET=office-claude`. **Newer, with it on and failing:** 16 Oct about 21:05 and 22:51 (stack36, with LAMP_TASKS_ASKED), a Claude Code poem and a Codex haiku, each asked for by name, were done by the lamp itself with no `start_agent_task` (tasks.md) | off until LAMP_STAFF_NOTE's count shows named hand-overs landing on lamp-4ace | Its newest records with it on fail; the miss is the model's (what LAMP_TASKS_ASKED and LAMP_STAFF_NOTE are for), but switching it on alone doesn't make a named hand-over land |
 | LAMP_TASK_NEWS | `skill`; otherwise as before. Finished/stopped/asking news waits up to 10 s for a skill's ask | — | — | #1038 | #1038: lamp-tasks --progress, LAMP_SAY, Task news skill folder; news said once via the skill; no record shown | off until #1038's task-news-through-the-skill check is played, after #1237 and #1042 send `task` | Needs the Task news skill (#1042); until a news ask names its task (#1237), a look or dim can go with the wrong task when two settle together (the Second) |
 | LAMP_TASK_NEWS_AT_PAUSE | `on`; off. News at the first 1 s pause instead of after 15 s of quiet; since #1223 tasks finished together are told in one turn, at most three | — | — | #1161 | lamp-4ace: talk while a task runs; news at the first ~1 s pause, 3 s after the lamp's words, under 20 s; not shown | off until #1161's lamp-4ace check, which also covers #1217, #1223 and #1231 (one play: news at the first 1 s pause; `since_turn_ms` about 3,000 after an unanswered reply; two tasks within a minute told in one turn) | #1161 names rule 8 (news landing between two people talking) as most likely wrong; no lamp result recorded |
 | LAMP_TOOLS | `on` only; off. Model may call not_for_me instead of speaking | on | on | commit 995240456 (direct) | none named | on (already) | On in both units since the function-call routing landed (tools.md) |
@@ -205,13 +203,17 @@ Gaps between the docs, the units and the code, for whoever owns each:
   `docs/tasks.md` says `LAMP_TASKS_WHO` and `LAMP_TASKS_ASKED` stay on on
   lamp-4ace (15 Oct 21:30), `docs/attention.md` records
   `LAMP_POLICY_HOLDS_ACTIONS` taken there on the merged build (16 Oct 07:25),
-  and #997 and #1148 describe head taps (`LAMP_HEAD_TOUCH`).
+  #997 and #1148 describe head taps (`LAMP_HEAD_TOUCH`) and the 12:20 mute
+  (`--controls-mute`), #842 the full look (LAMP_LOOK_FULL with `lamp-eyes
+  --full-look`, since 16 Oct 03:17), #1242 `LAMP_START_OFFLINE`, and
+  second-voice.md the backup voice's config.
   `deploy/lamp-4ace/lamp-voice.service` sets none of them,
   so they live in drop-ins on the lamp that the repo doesn't have. Before
   switching groups on, the lamp's own drop-ins should be read and copied here.
 - **No repo policy unit passes `--act attention`, `--act progress`, `--hello` or
-  `--gate`.** So from the repo units alone `LAMP_PROGRESS_NEWS` and
-  `LAMP_SKILLS_ASK=policy` do nothing, and `LAMP_POLICY_HOLDS_ACTIONS` and
+  `--gate`.** So from the repo units alone `LAMP_PROGRESS_NEWS` does nothing,
+  `LAMP_SKILLS_ASK=policy` refuses every self-started run at once (so Welcome
+  back would never greet; skills.md), and `LAMP_POLICY_HOLDS_ACTIONS` and
   `LAMP_HELLO_ASKS_POLICY` only make what they hold 2 s late: each waits for a
   decision that never comes, then goes on (`policy_holds.rs`).
 - **lamp-tasks:** the product unit passes `--progress --push-wait`; the
@@ -240,9 +242,13 @@ Gaps between the docs, the units and the code, for whoever owns each:
 - **Small ones:** `LAMP_SCHEDULE_SPEAK` is defined twice (`reminders.rs` and
   `tools.rs`); `LAMP_ONBOARDING` has no doc comment; #987
   (`LAMP_LOOK_FULL_SIDE`) names no lamp check.
-- **`LAMP_SCHEDULE_SPEAK=skill` looks like it never speaks a reminder** (the
-  reviewer on #1238, read, not run): the coordinator takes `skill` as
+- **`LAMP_SCHEDULE_SPEAK=skill` never speaks a reminder** (the reviewer on
+  #1238, a probe test on #1038, 08:28; the Second's fix is #1253): the coordinator takes `skill` as
   speaking (`reminders.rs`), but only `on` passes `--schedule-speak` to the
   provider worker (`tools.rs`), so the worker defers every due reminder as
   disabled (`provider_worker.rs`, `reminder_policy.rs`). It came in with
   #1038, and agrees with that row's "`skill` off".
+- **`LAMP_KERNEL_CLOCK` never reached the provider worker:** it is spawned
+  with `env_clear()` and the switch isn't passed on (`process.rs`), so the
+  worker's `the_time` and session note never saw the clock unset (Ten on
+  #705, 17 Oct). Fourth passes it in #1158.

@@ -145,6 +145,9 @@ pub struct WaitWords {
     /// oldest blocks while it waits, so place in it is no guide.
     sent_through: Option<u64>,
     asked_at_us: Option<u64>,
+    /// When the last block heard before the words were asked for was
+    /// captured: speech captured after it is the person going on.
+    asked_through_us: Option<u64>,
     verdict: Verdict,
     /// What its words did has been told.
     told: bool,
@@ -158,6 +161,7 @@ impl WaitWords {
             candidate: None,
             sent_through: None,
             asked_at_us: None,
+            asked_through_us: None,
             verdict: Verdict::Pending,
             told: false,
         }
@@ -215,6 +219,9 @@ impl WaitWords {
     /// audio first. When they were first asked for.
     pub fn ask(&mut self, candidate: CandidateId, audio: &[ObservedAudio], at_us: u64) -> u64 {
         self.hear(candidate, audio);
+        if self.asked_at_us.is_none() {
+            self.asked_through_us = audio.last().map(|block| block.captured_at_us);
+        }
         *self.asked_at_us.get_or_insert_with(|| {
             self.ears.finalize();
             at_us
@@ -245,6 +252,12 @@ impl WaitWords {
         self.asked_at_us
     }
 
+    /// When the last block heard before its words were asked for was
+    /// captured, if they were.
+    pub fn asked_through_us(&self) -> Option<u64> {
+        self.asked_through_us
+    }
+
     /// Whether what the words did to the sound in hand is still to be told:
     /// true once a sound.
     pub fn tell(&mut self) -> bool {
@@ -259,6 +272,7 @@ impl WaitWords {
         }
         self.sent_through = None;
         self.asked_at_us = None;
+        self.asked_through_us = None;
         self.verdict = Verdict::Pending;
         self.told = false;
     }

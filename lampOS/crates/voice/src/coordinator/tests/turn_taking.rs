@@ -313,6 +313,7 @@ impl Harness {
                     self.admission.pending_audio(c.id).unwrap_or_default(),
                     self.admission.pending_ended(),
                     self.detector.pause_blocks(),
+                    self.last_speech_us,
                     at_us,
                 );
                 self.told.extend(told);
@@ -625,6 +626,12 @@ struct WithWords {
 /// 0.99, then 1.5 s of quiet. `said` comes back from the ears `after`
 /// blocks once its words were asked for, if ever.
 fn with_words(blocks: u32, words: bool, said: Option<(&str, u32)>) -> WithWords {
+    with_words_in(&[(blocks, 0.99)], words, said)
+}
+
+/// [`with_words`], with the sound in `pieces` of blocks at a score: speech,
+/// a pause, speech again.
+fn with_words_in(pieces: &[(u32, f32)], words: bool, said: Option<(&str, u32)>) -> WithWords {
     let mut h = Harness::duplex(4_000_000);
     let script = words.then(|| {
         let (words, script) = crate::wait_words::tests::scripted();
@@ -635,8 +642,12 @@ fn with_words(blocks: u32, words: bool, said: Option<(&str, u32)>) -> WithWords 
     sound(&mut h, &mut t, QUIET_FIRST, 0.0, true, &mut accepted);
     let began = h.base + t + 10_000;
     let (mut asked, mut decided) = (None, None);
-    for block in 0..blocks + 150 {
-        let score = if block < blocks { 0.99 } else { 0.0 };
+    let scores: Vec<f32> = pieces
+        .iter()
+        .flat_map(|&(blocks, score)| std::iter::repeat_n(score, blocks as usize))
+        .collect();
+    for block in 0..scores.len() as u32 + 150 {
+        let score = scores.get(block as usize).copied().unwrap_or(0.0);
         sound(&mut h, &mut t, 1, score, true, &mut accepted);
         if decided.is_none() && (accepted.is_some() || !h.let_go.is_empty()) {
             decided = Some(block);
@@ -1769,4 +1780,29 @@ fn with_words_a_lone_stop_while_an_answer_waits_stops_it_and_is_never_asked() {
     assert!(more.told[0].took && !more.told[0].stop);
     let on = with_words(40, false, None);
     assert!(on.accepted.is_none() && !on.stopped);
+}
+
+/// The reviewer's P2 on #1352: "Wait, … what about tomorrow?" with a
+/// comma's pause. Its words are asked for at the pause and come back
+/// "Wait.", but the person has gone on by then, so it is no stop: it takes
+/// the turn from its start, as any word does, and nothing is stopped. The
+/// reviewer's probe: 0.3 s of speech, 150 ms of quiet, 0.6 s more, "Wait."
+/// back 150 ms after the ask. A lone "Wait." with nothing after it still
+/// stops.
+#[test]
+fn with_words_a_stop_the_person_went_on_from_takes_the_turn_and_a_lone_one_stops() {
+    let went_on = with_words_in(
+        &[(30, 0.99), (15, 0.0), (60, 0.99)],
+        true,
+        Some(("Wait.", 15)),
+    );
+    assert!(!went_on.stopped, "the answer the person wanted was stopped");
+    let accepted = went_on.accepted.expect("the request goes on as one line");
+    assert!(accepted.audio.first().unwrap().captured_at_us <= went_on.began);
+    assert!(went_on.let_go.is_empty(), "{:?}", went_on.let_go);
+    assert!(went_on.told[0].took && !went_on.told[0].stop);
+    let lone = with_words(30, true, Some(("Wait.", 15)));
+    assert!(lone.stopped);
+    assert_eq!(lone.let_go, ["stop_said"]);
+    assert!(lone.accepted.is_none());
 }

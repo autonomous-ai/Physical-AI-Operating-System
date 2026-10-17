@@ -343,7 +343,10 @@ struct WordsTold {
 /// blocks. Its audio goes to the stream while it waits, and its words are
 /// asked for once it has been quiet for
 /// [`crate::wait_words::ASK_AFTER_QUIET_BLOCKS`], well before its
-/// endpoint. What they did is told once a sound.
+/// endpoint. What they did is told once a sound. `last_speech_us` is when
+/// the last block heard as speech was captured: a stop counts only when
+/// none came after its words were asked for.
+#[allow(clippy::too_many_arguments)]
 fn with_waited_words(
     words: &mut crate::wait_words::WaitWords,
     waits: WhileAnswerWaits,
@@ -351,6 +354,7 @@ fn with_waited_words(
     audio: &[ObservedAudio],
     ended: bool,
     pause_blocks: u16,
+    last_speech_us: u64,
     at_us: u64,
 ) -> (WhileAnswerWaits, Option<WordsTold>) {
     use crate::wait_words::{Then, Verdict};
@@ -363,7 +367,19 @@ fn with_waited_words(
     } else {
         words.hear(candidate.id, audio);
     }
-    let verdict = words.verdict(candidate.id);
+    let mut verdict = words.verdict(candidate.id);
+    // A stop counts only if no new speech has begun since its words were
+    // asked for. "Wait, … what about tomorrow?" with a comma's pause is
+    // asked for at the pause and comes back "Wait.": the person went on, so
+    // it takes the turn from its start, as any word does (the reviewer's P2
+    // on #1352).
+    if let Verdict::Stop(count) = verdict
+        && words
+            .asked_through_us()
+            .is_some_and(|through| last_speech_us > through)
+    {
+        verdict = Verdict::Words(count);
+    }
     let deadline_us = candidate
         .decision_deadline_us
         .saturating_sub(WAIT_DECIDES_BEFORE_US);
@@ -4034,9 +4050,12 @@ fn conversation_with_gate(
         // and so does one said before its answer began, heard as a waited
         // sound's words (`LAMP_WAIT_KEEPS_ANSWER=words`, the reviewer's P3
         // on #1277).
-        let spoken_stop = (stop_words.as_mut().is_some_and(|words| words.spoken_stop())
-            && speaking)
-            || std::mem::take(&mut waited_stop);
+        // Both taken on every pass, so that one heard on the same pass as
+        // the other does not leave it to cancel again on the next (the
+        // reviewer's P3 on #1352).
+        let waited = std::mem::take(&mut waited_stop);
+        let heard_over = stop_words.as_mut().is_some_and(|words| words.spoken_stop()) && speaking;
+        let spoken_stop = waited || heard_over;
         {
             if stop || muted || gap_cut || head_stop || spoken_stop {
                 let observed_at_us = monotonic_us();
@@ -5283,6 +5302,7 @@ fn conversation_with_gate(
                             admission.pending_audio(candidate.id).unwrap_or_default(),
                             admission.pending_ended(),
                             detector.pause_blocks(),
+                            last_speech_us,
                             at_us,
                         );
                         if let Some(told) = told {

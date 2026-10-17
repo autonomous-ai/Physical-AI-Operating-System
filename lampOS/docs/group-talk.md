@@ -238,6 +238,11 @@ everything `on` does, and:
   reviewer's P3 on #1277). A stop with more asked ("Wait, what about
   tomorrow?", "Stop, what's the weather?") takes the turn as before, and
   "Don't stop." is no stop.
+  A stop counts only when no speech came after its words were asked for:
+  "Wait, … what about tomorrow?" with a comma's pause is asked for at
+  the pause and comes back "Wait.", but the person has gone on, so it
+  takes the turn from its start as any word does (the reviewer's P2 on
+  #1352; `WaitWords::asked_through_us` against the loop's `last_speech_us`).
 - where `on` would let it go and its words aren't back: it waits for them
   while it hasn't ended, up to 100 ms before its deadline, and is then let
   go as with `on`. A sound that has ended is never held. The next sound's
@@ -313,7 +318,8 @@ Tests:
   `with_words_a_sound_is_never_held_for_them_past_its_end`,
   `how_long_the_words_may_take_by_length`,
   `a_stream_for_words_is_kept_ready_only_while_a_sound_may_wait` and
-  `with_words_a_lone_stop_while_an_answer_waits_stops_it_and_is_never_asked`.
+  `with_words_a_lone_stop_while_an_answer_waits_stops_it_and_is_never_asked` and
+  `with_words_a_stop_the_person_went_on_from_takes_the_turn_and_a_lone_one_stops`.
   The stop itself is the loop's spoken-stop path, which no test drives
   through the loop, as for the stop words.
 

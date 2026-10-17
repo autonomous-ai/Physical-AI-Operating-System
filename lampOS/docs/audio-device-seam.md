@@ -201,8 +201,8 @@ the canceller isn't run and no echo evidence is given, for at most 1 s,
 then it reseeds from fresh reference. It allows three reseeds a minute and
 warms for 3 s. That costs the canceller for a moment, not the voice. The
 repo's units have it off (`switches.md`), but lamp-4ace has run it from a
-drop-in since the morning of 17 October and didn't end on `ReferenceLate`
-that day (the first builder on #1178). lamp-cb94 took it at 07:21 UTC,
+drop-in since the morning of 17 October and hadn't ended on `ReferenceLate`
+by 13:21 that day (the first builder on #1178). lamp-cb94 took it at 07:21 UTC,
 with Twelve watching an hour of `NRestarts`, the reference statuses, run
 ends, mute and the kernel's mmc and usb lines.
 
@@ -218,8 +218,8 @@ Tests: `tests/capture_hold_worker.rs`'s
   and after it, and the worker stops cleanly.
 
 `transport::tests::a_send_to_a_peer_that_has_gone_is_refused_with_the_sockets_name`
-checks the name. The hold itself is the kernel's: the SD/MMC host's
-retune, which #784 found holding the voice's processes for about 0.3 s
+checks the name. The hold was most likely the kernel's, from the same
+second (cb94 kept no stalls trail): the SD/MMC host's retune, which #784 found holding the voice's processes for about 0.3 s
 some eleven times a day on lamp-4ace. On cb94 the ring's slow SPI write
 (its third in 4.5 h) came in the same second.
 

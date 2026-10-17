@@ -366,9 +366,15 @@ leaving the explained share and the floor (`audio/src/duplex.rs`) alone
 against false yields. The replay that decides it reads the `vad` share over
 the lamp-alone seconds as well as over the stop. Capture says at start that
 the detector reads the linear output, and once a minute on how many blocks
-it did (`the speech detector read the linear output on 5990 of 6000 blocks
-in the last 60 s`): 0 would mean the switch did not take. Only the detector changes: the provider's audio, the
-residual and the evidence keep the processed block. The canceller keeps its
+it did (for example `the speech detector read the linear output on 5990 of
+6000 blocks in the last 60 s`, not a measured figure): 0 would mean the switch
+did not take. Only the detector's input changes: the provider's audio, the
+residual and the evidence keep the processed block. The score's readers all
+get the new score: the turn's start and end, the re-centre's quiet test
+(`reference/recovery.rs`, `note_score`), the frame's probability handed to the
+turn detector, and the recordings' `vad_score`. The linear output comes
+before noise suppression, which every unit runs off (`--noise-suppression
+off`), so that part changes nothing today. The canceller keeps its
 linear output only with the switch, and a block with none (no reference
 yet) is read as before. `activity::tests::the_detector_hears_the_linear_output_only_with_the_switch`
 scores a generated "Stop." (Piper `en_US-libritts-high`) with the processed block silenced: speech with

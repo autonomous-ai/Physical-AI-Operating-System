@@ -848,6 +848,9 @@ fn capture_loop<D: CaptureDevice>(
                 None => (frame.samples, 0),
             };
             // The linear output is this block's only when the canceller ran.
+            // With the switch the score is 4 ms (one canceller block) ahead
+            // of the block handed on; the letters, `explained` and `heard`
+            // still come from `clean`.
             let linear = step.and(echo.linear());
             vad_said.1 += 1;
             vad_said.2 += u64::from(vad_linear && linear.is_some());

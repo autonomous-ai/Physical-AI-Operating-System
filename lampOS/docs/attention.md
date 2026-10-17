@@ -938,6 +938,11 @@ tomorrow?", which the model did not answer, gave none, as it should.
 With `LAMP_ADDRESSED=on` each line also has `addressed`: the request's
 `attention/addressed` judgement (above), if it was judged.
 
+Each line also has `lamp_asked`: whether the lamp's own last line before the
+request ended in a question, as the rule read it (the short-sound case below
+turns on it). It is beside the decision, not in the seven `baseline` fields,
+which the Policy's fitting reads as they are.
+
 What was heard is in these files, and so are bystanders' words in an office:
 they stay on the lamp and are not published. Not recorded yet: whether any
 sound of the answer was played (`request_outcome`), when a request began, and
@@ -949,9 +954,39 @@ With `LAMP_SHORT_SOUNDS=quiet-room-checked` ([not-speech.md](not-speech.md#a-roo
 the rule has one more case, before the busy-room ones: a request whose end
 came marked as a short sound let through is played only when what was heard
 is a short word said to the lamp, it was said close to the lamp (the room
-microphone, as for `--attention-near`), someone is turned to the lamp, or
-the lamp began the turn itself; otherwise it is held. Off unless set; the
-rule is otherwise as above.
+microphone, as for `--attention-near`), someone is turned to the lamp, the
+lamp began the turn itself, or it answers the lamp's own question (below);
+otherwise it is held. Off unless set; the rule is otherwise as above.
+
+**An answer to the lamp's own question (17 October).** On lamp-4ace on
+2026-10-17 at 16:11, the lamp asked "Shall I start it?" and the person said
+"Yes. Please start it.", with 700 ms between the two. The end came after
+"Yes." (`silence_fallback`), which was heard as "bien", so the request ended
+as a short sound. The model's first output was `confirm_agent_task`, and the
+check held it: not a short word, not close, nobody turned to the lamp. Held,
+the call was answered and not run, and nothing was said. A short sound is
+now played, with the reason "a short sound with a word in it, right after
+the lamp's own question, in a conversation going on", when all three hold:
+- what was heard has a letter or a digit in it;
+- a conversation is going on (and is not someone else's, #829);
+- the lamp's own last line before the request ended in a question
+  (`Thread::lamp_asked`, as #926 reads it).
+
+Then the model judges it. A room sound with no question before it is held
+as before: of the 17 requests held this way on lamp-4ace from 16 to 17
+October, only 3 came in a conversation (the first builder's count on #828).
+What it lets through is a sound heard as words in that one moment, "¿Qué?"
+as well as "bien". It is part of `quiet-room-checked`, the mode the product
+runs (#1332), not a switch of its own. Only the Live route has it: the
+second voice holds every sound not heard as a short word
+([not-speech.md](not-speech.md#a-room-sound-let-through-and-answered-800)).
+Tests: `a_short_sound_with_a_word_right_after_the_lamps_question_is_its_answer`
+(`attention.rs`: "bien" played in every room; held with no question, with no
+conversation, with no word; a short word keeps its own reason; unchecked or
+not a sound, the question changes nothing) and
+`a_sound_with_a_word_right_after_the_lamps_question_is_answered` (the
+worker's own loop, with the conversation as the worker keeps it: "bien"
+after "Shall I start it?" answered, after a line that asks nothing held).
 
 ## The lamp spoken of is not a call (#829)
 

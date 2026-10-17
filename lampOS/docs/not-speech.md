@@ -346,7 +346,11 @@ end came marked `sound` as one to check, and plays its answer only when:
   close to the lamp (this needs the ears, read with `LAMP_ATTENTION=busy-near`);
 - or someone is turned to the lamp (the eyes are read for it whatever the
   room);
-- or the lamp began the turn itself.
+- or the lamp began the turn itself;
+- or what was heard has a word in it, the lamp's own last line was a
+  question, and a conversation is going on: the person's answer to it
+  (lamp-4ace, 17 October 16:11, "Yes. Please start it." heard as "bien";
+  [attention.md](attention.md#a-short-sound-let-through-in-a-quiet-room-800)).
 
 Otherwise the answer is held, as a held answer always is (its sound and
 words are not let out, a call in it is answered and not run), with the
@@ -367,7 +371,8 @@ on #818, 20:11). That route has no ears and no eyes, so only the heard words
 can show the sound was said to the lamp: one not heard, whole, as a short
 word ends quietly after its words, and its chat is never asked. A sound said
 close or facing the lamp but not heard as a short word is held there, where
-the Live route would answer it. Tests:
+the Live route would answer it, and so is one with a word in it after the
+lamp's own question. Tests:
 `a_short_sound_not_heard_as_a_short_word_is_held_when_sounds_are_checked`
 (`second_provider/tests.rs`: "¿Qué?" held with the chat never asked, "Yes."
 answered, and "¿Qué?" answered unchecked or unmarked) and

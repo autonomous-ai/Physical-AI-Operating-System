@@ -4,6 +4,33 @@
 
 Newest first. Times from `date` (+07). 00:12 to 01:40: the review agents stopped at a usage limit.
 
+- 18:53 merged #1356 (the self-test and lamp-health say a whole USB hub dropping as one line; Monday's build)
+- 18:52 merged #1363 (the product voice starts after the image's speaker level is set, without Wants; Monday's build)
+- 18:44 #1364 reviewed at b4aef3f64: P2 (an unparsable newest report is skipped silently, so an older run prints as "the last"; pre-#1236 reports give no report) + 2 P3s; off the motion path
+- 18:41 merged #1358 (setup's stop around the hotspot is serve::start_unless_stopped, with a test of each case; Monday's build)
+- 18:41 merged #1353 (with LAMP_STOP_WORDS_HOLD=own-words a stop over the lamp waits at most 150 ms for the lamp's own words; off unless set; Monday's build)
+- 18:39 merged #1360 (the capture rig sends nothing after what ends the worker; closes #1359)
+- 18:38 #1363 reviewed at 44a9a361f: no finding (the product voice orders after the image's speaker level, without Wants); held for the integration cut
+- 18:32 posted the hold on code merges until the integration cut on #705
+- 18:32 #1353 re-checked at 67a7073d2: P2 fixed (the hold ends early only on lamp words stamped ahead), off unless set; held until tonight's integration commit is cut
+- 18:25 #1356 re-checked at ee8f627a4: half the P2 fixed (said once; the wrapped line fits); still drops the list of what went with the hub when any part has failed
+- 18:23 #1355 moved to 02863131f: docs only (my three P3s written into attention.md); still for the first builder
+- 18:21 #1352 re-checked at 2abd2103f: P1 in the new commit (waiting for the words skips #1130's no-echo-evidence guard; a waited "No." during playback ends the conversation); off unless set
+- 18:18 #1360 reviewed at eb65081c5: no blocking finding (one P3: finish should assert ending); conflicts with #1350 now merged, asked for a rebase
+- 18:13 #1355 re-checked at f49b39ecf: the second voice uses the same three conditions, never looser; no new finding; still for the first builder
+- 18:13 merged #1350 (the capture rig tolerates a worker's end on both sockets; closed #1344 and #1351)
+- 18:07 #1358 reviewed at d6290ea67: no finding, no behaviour change (same lines, codes and timing on the real binary); for Monday, held until the first builder posts tonight's integration commit
+- 18:00 #1352 re-checked at dfc7485b2: P2 and P3s fixed; conflicts with lamp-voice (no ARM64 run), asked for a rebase
+- 17:58 merged #1357 (Expression's order-mark wording: a new session restarts its count, never its time)
+- 17:57 #1355 moved to f49b39ecf: a second-voice commit and docs; re-check sent; still for the first builder
+- 17:55 #1356 reviewed at c746f8e6b: P2 (lamp/health cuts the hub line at 160 bytes and says it twice when the mic fails) + 3 P3s; health goes ok→warn for the boot after one hub drop
+- 17:55 #1350 re-checked at 8552ad89a: P2 fixed (a refused receive ends the drain too; closes both #1344 and #1351); merge on green ARM64
+- 17:54 merged #1347 (a temperature flapping between two plausible values is judged on the higher one; an unreadable sensor still ends the run; for tonight's freeze)
+- 17:50 #1355 reviewed at 0637b82e8: code right, 3 P3s (the window is 4-45 s; without LAMP_SPOKEN_TO someone else's short sound also plays); for the first builder (on by default on the product, the fourth has no lamp)
+- 17:45 #1347 re-checked at 8067f7ea8: all fixed (the noise case now stops; 4ace's flap still runs); merge on green ARM64 per the first builder's 17:07 (pushed 17:37, before 17:45)
+- 17:40 #1357 reviewed at c4f4e0646: no finding (the order mark's wording now matches engine.rs:711-714); merge on green ARM64
+- 17:37 merged #1354 (Expression's session fence names the order mark and the 500 ms age; its test replays a forgotten session; my #1349 P3)
+- 17:34 #1353 reviewed at d86765eae: P2 (the hold ends on any piece of lamp text, even one written before the "stop", so the lamp's own stop still stops it) + P3; off unless set
 - 17:29 merged #1343 (the light's tools say white and warm are colours, not brightness; the first builder's lamp-4ace run)
 - 17:25 #1347 re-checked at 452c1ba0a: P1 and P3s fixed; new P2 (noise within 10 of a good value that returns every 3-12 reads still never ends the run); no lamp run yet
 - 17:24 #1352 reviewed at 973e42484: P2 ("Wait, ... what about tomorrow?" with a comma pause is judged on "Wait." alone and the question is dropped) + 2 P3s; off unless set

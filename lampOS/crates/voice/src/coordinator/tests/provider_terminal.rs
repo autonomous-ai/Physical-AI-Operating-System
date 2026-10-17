@@ -255,7 +255,12 @@ fn run_with_notice_policy(
                             // The child exits once its input closes; logical
                             // time does not pass in a shutdown step.
                             if peer.input.take().is_some() {
-                                crate::scenario_clock::wait_child_exited(peer.child_pid, deadline)?;
+                                // Bounded by the scope's own watchdog, not the
+                                // cleanup's real deadline, which a busy host
+                                // can use up first (#1235's review).
+                                let bound =
+                                    crate::scenario_clock::host_deadline().unwrap_or(deadline);
+                                crate::scenario_clock::wait_child_exited(peer.child_pid, bound)?;
                             }
                             break;
                         }

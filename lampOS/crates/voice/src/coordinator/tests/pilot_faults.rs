@@ -530,7 +530,10 @@ impl Peer {
         let closed = input.is_some();
         drop(input);
         if closed && let Some(deadline) = deadline {
-            crate::scenario_clock::wait_child_exited(self.child_pid, deadline)?;
+            // Bounded by the scope's own watchdog, not the cleanup's real
+            // deadline, which a busy host can use up first (#1235's review).
+            let bound = crate::scenario_clock::host_deadline().unwrap_or(deadline);
+            crate::scenario_clock::wait_child_exited(self.child_pid, bound)?;
         }
         Ok(())
     }
@@ -799,10 +802,19 @@ impl Peers {
         }
         let role = self.peers[index].role;
         if role == "speaker" && self.speaker == SpeakerMode::StopOnly {
-            // Consumes control, installs nothing, still sees Stop.
-            if let Ok(Some(Control::Stop)) = self.peers[index].channels.control.receive::<Control>()
-            {
-                self.stop(index, deadline)?;
+            // Consumes control, installs nothing, still sees Stop. What is
+            // queued is read in one step, as the other peers read theirs, so
+            // the cleanup's revocation cannot hold its Stop back a step past
+            // the cleanup's real deadline on a busy host (#1235's review).
+            for _ in 0..16 {
+                match self.peers[index].channels.control.receive::<Control>() {
+                    Ok(Some(Control::Stop)) => {
+                        self.stop(index, deadline)?;
+                        break;
+                    }
+                    Ok(Some(_)) => {}
+                    _ => break,
+                }
             }
             return Ok(());
         }

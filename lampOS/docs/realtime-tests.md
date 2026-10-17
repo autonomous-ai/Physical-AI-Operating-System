@@ -955,6 +955,17 @@ way every time. The peer now waits for the exit against the scope's own
 watchdog, as #1232's `MutePeer` does, so the cleanup finds the child gone;
 with that sleep, all of `hand_controls` passes.
 
+The reviewer found the same wait in three more stepped fixtures (#1235):
+`second_route`'s and `pilot_faults`' `close_input` and `provider_terminal`'s
+Stop. They now wait against the scope's watchdog too. A 400 ms sleep at the
+start of the cleanup then left two `pilot_faults` tests failing:
+`stalled_speaker_during_output_is_bounded_and_never_completes_the_answer` and
+`stalled_speaker_under_vad_only_is_bounded_too`. Their `StopOnly` speaker read
+one control message a step, so the cleanup's revocation held its Stop back a
+step past the real deadline. It now reads what is queued in one step, as the
+other peers do (it still installs nothing). With that sleep, all 74 tests of
+the three modules pass.
+
 Those stepped runs end on the fixture's silent privacy worker, but none
 said so. `a_silent_privacy_worker_ends_the_loop_once_its_freshness_has_passed`
 does (the reviewer on #1222): a quiet lamp, stepped, ends on "physical

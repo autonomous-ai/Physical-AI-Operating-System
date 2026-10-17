@@ -155,8 +155,10 @@ impl From<String> for Told {
 /// the time it was said. The worker's is the Live route's own rule
 /// (`worker::Heeding`, `crate::attention`).
 /// The rule's verdict on a spoken turn: its request, when its line was said,
-/// what was heard, and whether it goes on from the one before (`continues`).
-pub type Heed = Arc<dyn Fn(u64, (u64, u64), &str, bool) -> Option<&'static str> + Send + Sync>;
+/// what was heard, and the request it goes on from (`continues`): the one
+/// begun just before it, in the same session.
+pub type Heed =
+    Arc<dyn Fn(u64, (u64, u64), &str, Option<u64>) -> Option<&'static str> + Send + Sync>;
 /// The lamp's eye for a look: the newest picture, as a JPEG, or why there
 /// is none (`worker::serve` reads the eyes' look file with the Live route's
 /// bounds).
@@ -539,7 +541,11 @@ impl Engine {
                     checked,
                     said.clone(),
                     before,
-                    continues,
+                    continues
+                        .then_some(previous)
+                        .flatten()
+                        .filter(|(_, of)| *of == session)
+                        .map(|(from, _)| from),
                 ));
                 self.turn = Some(Turn {
                     request,
@@ -791,7 +797,7 @@ async fn spoken(
     checked: Option<Arc<AtomicBool>>,
     said: Arc<Mutex<(u64, u64)>>,
     before: Option<String>,
-    continues: bool,
+    continues_from: Option<u64>,
 ) {
     let listener = match shared.services.listen().await {
         Ok(listener) => listener,
@@ -855,7 +861,7 @@ async fn spoken(
     let heeded = match &shared.heed {
         Some(heed) if !empty && !held => {
             let window = said.lock().map_or((0, 0), |said| *said);
-            heed(request, window, &text, continues)
+            heed(request, window, &text, continues_from)
         }
         _ => None,
     };

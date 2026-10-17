@@ -1447,3 +1447,41 @@ async fn a_chat_that_never_begins_says_the_down_line_at_most_once_a_minute() {
     let off = turns(false).await;
     assert!(off[1..].iter().all(|turn| turn == &["complete"]), "{off:?}");
 }
+
+/// The rule is told which request a turn goes on from (`continues`): the one
+/// begun just before it, in its session; in another session, none (the
+/// reviewer on #1226).
+#[tokio::test]
+async fn a_request_going_on_names_the_one_begun_before_it_in_its_session() {
+    let begin = |request, session, continues| ProviderInput::Start {
+        request,
+        session,
+        privacy_generation: 1,
+        continues,
+        continues_cut_off: false,
+        over_the_lamp: false,
+        after_stop: false,
+    };
+    let script = Arc::new(Script {
+        heard: Mutex::new(
+            std::iter::repeat_with(|| Ok("What time is it?".to_owned()))
+                .take(3)
+                .collect(),
+        ),
+        ..Script::default()
+    });
+    let (engine, _, _) = scripted(script);
+    let froms: Arc<Mutex<Vec<Option<u64>>>> = Arc::default();
+    let seen = froms.clone();
+    let mut engine = engine.heeding(Arc::new(move |_, _, _, from| {
+        seen.lock().unwrap().push(from);
+        Some("held for the test")
+    }));
+    for (request, session, continues) in [(1, 1, false), (2, 1, true), (3, 2, true)] {
+        engine.submit(begin(request, session, continues));
+        engine.submit(audio(request, 1));
+        engine.submit(end(request));
+        turn(&mut engine).await;
+    }
+    assert_eq!(*froms.lock().unwrap(), [None, Some(1), None]);
+}

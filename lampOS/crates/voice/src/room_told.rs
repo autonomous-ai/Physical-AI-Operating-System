@@ -107,7 +107,8 @@ const BUSY_ENDS_AFTER_US: u64 = 180_000_000;
 /// unanswered since the lamp last spoke, and a conversation with it is no
 /// longer going on: the people have gone on talking to each other
 /// ([`RoomTold::talked_past_the_lamp`]). One is a person saying "okay" or
-/// thinking aloud between their questions.
+/// thinking aloud between their questions. One line held as another voice
+/// counts as this many ([`RoomTold::another_voice_held`]).
 pub const TALK_ENDS_CONVERSATION: usize = 2;
 /// The room is told only when nothing has been heard or said for this
 /// long: a fact written into a request would be taken for part of it, and
@@ -329,7 +330,8 @@ impl RoomTold {
     /// Whether people have gone on talking to each other since the lamp
     /// last spoke, with [`Self::count_only_talk`] (#829):
     /// [`TALK_ENDS_CONVERSATION`] things said since then and left
-    /// unanswered as talk, not as sounds or held by the lamp's own rule. A
+    /// unanswered as talk, not as sounds or held by the lamp's own rule, or
+    /// one line held as another voice ([`Self::another_voice_held`]). A
     /// conversation with the lamp is then no longer going on, however
     /// lately it spoke. On lamp-4ace on 16 October at 06:07, Daniel asked
     /// the lamp for euros and was answered; Samantha and he each said a
@@ -785,9 +787,9 @@ mod tests {
     }
 
     /// #829, the battery's scene 3 (17 October): one line held as another
-    /// voice ends the conversation, as two lines left alone do, and is
-    /// counted once however its end is learned; the lamp speaking again
-    /// begins afresh. Without the switch it changes nothing.
+    /// voice ends the conversation, as two lines left alone do, still when
+    /// its end is learned later; the lamp speaking again begins afresh, and
+    /// a sound held so ends nothing. Without the switch it changes nothing.
     #[test]
     fn with_the_switch_one_line_held_as_another_voice_ends_the_conversation() {
         let after = |talk_only: bool| {

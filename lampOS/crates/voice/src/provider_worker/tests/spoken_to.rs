@@ -968,8 +968,10 @@ async fn with_the_switch_and_a_voice_check_a_line_held_as_another_voice_counts_a
 /// another voice; and one such line ends the conversation, so A's own remark
 /// to B after it, which the service would answer, is held. With no voice
 /// check every line is played, as all seven of that evening's batteries
-/// played the umbrella line.
-#[tokio::test]
+/// played the umbrella line. On the paused clock, as its sibling above is:
+/// in real time the call's answer and the next line's verdict could fall
+/// the other way (the Seventh on #1415).
+#[tokio::test(start_paused = true)]
 async fn with_the_switch_and_a_voice_check_another_voice_ends_the_conversation() {
     let _clock = logical_clock();
     const CALL: &str = "Hey Lamp, what is the weather like in Hanoi today?";

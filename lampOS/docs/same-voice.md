@@ -137,7 +137,16 @@ to be run. A minute of two real people at the lamp is to set it.
   ends that person's conversation too. Its sharpest form: the lamp asks
   "Shall I start it?", someone else's line comes between, and the asker's
   own "Yes, please start it." is held, since a reply to the lamp's
-  question is only let through while a conversation is going on.
+  question is only let through while a conversation is going on. And it
+  needn't be a second person (the Seventh on #1415): a TV's line of 1.5 s
+  or more, or the asker's own line shouted or whispered, can fall under
+  0.25 too, which was set on synthetic voices at one level. Before, one
+  false "another voice" held one line; now it holds every unnamed line
+  after it until the lamp speaks. **So before `LAMP_SAME_VOICE_MODEL`
+  goes on anywhere,** #829's battery on lamp-4ace gets a TV line and a
+  raised-voice line between a call and its follow-up. If those end the
+  conversation, the fallback is to end it only when the other voice was
+  near the lamp (`set_near`) or a second face is in view.
   - **Off the lamp, on the battery's lines** (made with `say` in its two
     voices, 16 kHz, the real model, `lamp-same-voice pairs`): against
     Daniel's "Hey Lamp, … Hanoi", Samantha's umbrella line (1.58 s) has a

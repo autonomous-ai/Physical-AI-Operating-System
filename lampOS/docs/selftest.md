@@ -89,9 +89,11 @@ It is `--occasion first-boot`: nothing lit, played or moved, every part judged f
 already says. As `lampos` with `CAP_SYSLOG` alone, keeping its runs in `/var/lib/lamp-selftest`.
 The timer is in `lampos.target` and waits for setup's marker; the service has no `[Install]`, so
 nothing else starts it. Exit 3 (a part not checked) counts as the unit's success; 1 does not.
-It never begins inside a turn (`quiet`, the first builder on #812): it waits while
-`voice/state` says listening, thinking or speaking (fresh within 3 s), looking each second for
-at most two minutes, and leaves a turn longer than that for the next run, exit 0, saying so.
+It never begins inside a conversation (`quiet`, the first builder on #812): it waits
+until `voice/state` has said `resting`, or nothing fresh within 3 s, on five looks in a row,
+one a second, since the voice rests for a moment between the lamp's answer and the person's
+next words too (the seventh on #1245). It looks for at most two minutes, and leaves a
+conversation longer than that for the next run, exit 0, saying so.
 A run a person asked for begins at once. Passive, it wakes nothing in sleep hours.
 A passive run that failed a part checks that part again half a minute later
 (`lamp_selftest::again`), and keeps the fail only if it fails twice: a part restarting

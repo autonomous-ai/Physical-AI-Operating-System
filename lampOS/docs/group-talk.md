@@ -197,22 +197,30 @@ set, and the wait is `on`'s alone without the second voice's configuration,
 `LAMP_VOICE_SECOND_CONFIG`). With `on`, a real short "No." or "Wait." is
 let go with the cough (#1130's "most likely wrong"). With `words`,
 everything `on` does, and:
-- while an answer to someone is awaited unheard, a speech-to-text stream
-  is kept ready: the second voice's, as the stop words use it
-  (`RelayEars::for_waits`). One takes 0.6 to 0.8 s to connect. It rests
-  once no answer is awaited and no sound is in hand. It closes with a Stop,
-  the mute or the microphone's privacy.
+- while a new sound may still wait (an answer to someone awaited unheard,
+  within 3 s of the request's end), a speech-to-text stream is kept ready:
+  the second voice's, as the stop words use it (`RelayEars::for_waits`).
+  One takes 0.6 to 0.8 s to connect. It rests once no sound may wait and
+  none is in hand, so a long answer keeps no idle stream open to the relay
+  (`words_awaited`, the seventh's P3). It closes with a Stop, the mute or
+  the microphone's privacy.
 - a waited sound's audio goes to it from its first kept block (its
   pre-roll), each block once, while it waits.
 - its words are asked for once it has been quiet for 100 ms
   (`ASK_AFTER_QUIET_BLOCKS`, as the stop words ask), well before its
   endpoint (600 ms).
-- words back with anything past fillers ("um", "uh", "hmm", "mm-hm" and
-  the like, `FILLERS`): it is decided at once, as a sound that went on is.
-  With nothing playing it takes the turn from its start. Once the answer
-  sounds, the duplex rules decide it, as for a sound still going then. The
-  asker-first rule still applies after it.
-- words back with nothing past fillers: `on` decides it, as before.
+- words back with anything past those that ask nothing: it is decided at
+  once, as a sound that went on is. With nothing playing it takes the turn
+  from its start. Once the answer sounds, the duplex rules decide it, as
+  for a sound still going then. The asker-first rule still applies after
+  it.
+- words back with nothing past those: `on` decides it, as before.
+- those that ask nothing: fillers ("um", "uh", "hmm", `FILLERS`), hums of
+  only m and h ("mm-hm"), laughs of only h, a and e ("haha", "heh"), and
+  acknowledgements ("okay", "yeah", "yes", "right", "alright",
+  `ACKNOWLEDGEMENTS`). So a laugh, or the asker's "Okay.", doesn't cut off
+  the answer it waits for (the seventh's P2). "No", "wait", "stop" and
+  "what" ask, alone or after them ("Okay, stop.").
 - where `on` would let it go and its words aren't back: it waits for them
   while it hasn't ended, up to 100 ms before its deadline, and is then let
   go as with `on`. A sound that has ended is never held. The next sound's
@@ -243,7 +251,10 @@ What it costs:
   covers it no further, and is to be decided for this too before home
   lamps;
 - someone else's short words (a television, a colleague) in the gap take
-  the turn as a follow-up would, where `on` let them go;
+  the turn as a follow-up would, where `on` let them go, unless they only
+  laugh or acknowledge;
+- a short "Yes." or "Okay." meant as an answer in the gap is let go, as
+  with `on`;
 - a sound with a pause of more than 100 ms in it is judged by its words
   before the pause: "Uh, … no" is let go, as with `on`;
 - with no words back, a sound `on` lets go as quiet at its 1 s mark is let
@@ -270,8 +281,9 @@ Tests:
   (`with_waited_words`), on the product's mask, hold, admission and
   detector: `with_words_a_short_no_while_an_answer_waits_takes_the_turn_from_its_start`,
   `with_words_a_cough_a_filler_or_no_words_in_time_are_let_go`,
-  `with_words_a_sound_is_never_held_for_them_past_its_end` and
-  `how_long_the_words_may_take_by_length`.
+  `with_words_a_sound_is_never_held_for_them_past_its_end`,
+  `how_long_the_words_may_take_by_length` and
+  `a_stream_for_words_is_kept_ready_only_while_a_sound_may_wait`.
 
 The real relay is not driven by a test. The lamp check, on lamp-4ace with
 the second voice configured: a question, then in the gap before its answer

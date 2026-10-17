@@ -308,6 +308,18 @@ fn answer_unheard(current: &Reply) -> bool {
         && current.playback.is_none()
 }
 
+/// Whether a new sound may still wait for `current`'s answer at `now_us`,
+/// so a stream for its words is kept ready: the answer is unheard
+/// ([`answer_unheard`]) and the request it answers ended no more than
+/// [`WAIT_KEEPS_WITHIN_US`] ago (`asked_until_us`): past that, or with no
+/// known end, a new sound is decided as before ([`while_answer_waits`]).
+/// A long answer (an agent's, tens of seconds) keeps no idle stream open
+/// to the relay (the seventh's P3 on #1277).
+fn words_awaited(current: Option<&Reply>, asked_until_us: Option<u64>, now_us: u64) -> bool {
+    current.is_some_and(answer_unheard)
+        && asked_until_us.is_some_and(|until| now_us.saturating_sub(until) <= WAIT_KEEPS_WITHIN_US)
+}
+
 /// What a waited sound's words did, for the record (#1123, step 2).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct WordsTold {
@@ -4933,15 +4945,20 @@ fn conversation_with_gate(
                     trace,
                 )?;
             }
-            // A stream for a waited sound's words is kept ready while an
-            // answer is awaited and the microphone is allowed, and what a
+            // A stream for a waited sound's words is kept ready while a
+            // sound may still wait and the microphone is allowed, and what a
             // sound no longer pending heard is dropped (#1123 step 2).
             if let Some(words) = wait_words.as_mut() {
                 let still_pending = words
                     .holds()
                     .is_some_and(|candidate| admission.pending_audio(candidate).is_some());
+                let asked_until_us = speech_ended
+                    .filter(|(turn, _)| {
+                        reply.as_ref().map(|current| current.owner.turn()) == Some(*turn)
+                    })
+                    .map(|(_, at)| at);
                 let awaited = snapshot.microphone_permission() == Permission::Allowed
-                    && reply.as_ref().is_some_and(answer_unheard);
+                    && words_awaited(reply.as_ref(), asked_until_us, monotonic_us());
                 words.follow(awaited, still_pending);
             }
             let step = match update.step {

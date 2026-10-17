@@ -282,10 +282,8 @@ impl Harness {
             let still_pending = words
                 .holds()
                 .is_some_and(|id| self.admission.pending_audio(id).is_some());
-            words.follow(
-                self.reply.as_ref().is_some_and(answer_unheard),
-                still_pending,
-            );
+            let awaited = words_awaited(self.reply.as_ref(), self.wait.asked_until_us, at_us);
+            words.follow(awaited, still_pending);
         }
         if wait && let Some(c) = candidate.as_ref() {
             let state = AnswerWait {
@@ -559,6 +557,37 @@ fn the_wait_is_on_only_with_on_or_words() {
     assert!(wait_hears_words(Some("words")));
 }
 
+/// The seventh's P3 on #1277: a stream for a waited sound's words is kept
+/// ready only while a sound may still wait. That is an answer unheard to a
+/// request that ended no more than 3 s ago: past that, or with no known
+/// end, a new sound is decided as before. A long agent answer keeps no idle
+/// stream open to the relay.
+#[test]
+fn a_stream_for_words_is_kept_ready_only_while_a_sound_may_wait() {
+    let h = Harness::duplex(4_000_000);
+    let asked = Some(h.base);
+    assert!(words_awaited(h.reply.as_ref(), asked, h.base));
+    assert!(words_awaited(
+        h.reply.as_ref(),
+        asked,
+        h.base + WAIT_KEEPS_WITHIN_US
+    ));
+    assert!(!words_awaited(
+        h.reply.as_ref(),
+        asked,
+        h.base + WAIT_KEEPS_WITHIN_US + 1
+    ));
+    assert!(!words_awaited(h.reply.as_ref(), None, h.base));
+    assert!(!words_awaited(None, asked, h.base));
+    let mut heard = Harness::duplex(4_000_000);
+    heard.reply.as_mut().unwrap().had_audio = true;
+    assert!(!words_awaited(
+        heard.reply.as_ref(),
+        Some(heard.base),
+        heard.base
+    ));
+}
+
 /// What a product harness did with a sound and its words (#1123 step 2).
 struct WithWords {
     accepted: Option<Accepted>,
@@ -665,8 +694,8 @@ fn with_words_a_short_no_while_an_answer_waits_takes_the_turn_from_its_start() {
 }
 
 /// #1123 step 2: words that say nothing, or none back in time, leave the
-/// sound to `on`. A cough's empty words or an "Um." let it go when `on`
-/// does; none back lets it go when it ends, as `on` does, or at most 100 ms
+/// sound to `on`. A cough's empty words, an "Um.", a laugh or the asker's
+/// "Okay." (the seventh's P2) let it go when `on` does; none back lets it go when it ends, as `on` does, or at most 100 ms
 /// later for one `on` lets go as quiet at its 1 s mark (0.75 s), which
 /// waits for its words to just short of its deadline.
 #[test]
@@ -674,7 +703,13 @@ fn with_words_a_cough_a_filler_or_no_words_in_time_are_let_go() {
     for blocks in [20, 40, 75] {
         let on = with_words(blocks, false, None);
         assert!(on.accepted.is_none(), "{blocks}");
-        for said in [Some(("", 5)), Some(("Um.", 5)), None] {
+        for said in [
+            Some(("", 5)),
+            Some(("Um.", 5)),
+            Some(("Haha.", 5)),
+            Some(("Okay.", 5)),
+            None,
+        ] {
             let heard = with_words(blocks, true, said);
             assert!(heard.accepted.is_none(), "{blocks} blocks, {said:?}");
             assert_eq!(heard.let_go.len(), 1, "{blocks} blocks, {said:?}");

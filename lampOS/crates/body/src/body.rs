@@ -2048,8 +2048,11 @@ fn wake<P: PortIo, R: Runtime>(
 /// Lower a shoulder found up with its elbow folded onto the folded
 /// shoulder count, eased at both ends at [`ARM_LOWER_SPEED`] at most, the
 /// head, the base and the elbow held at `head` and `elbow`. Every step it
-/// reads all five joints: a changed status byte, the head, the base or
-/// the elbow moving more than `Limits::tracking`, the shoulder over its
+/// reads all five joints: a changed status byte; the head, the base or
+/// the elbow over its load bound (`Limits::load`, the elbow's standing
+/// load) for `Limits::load_steps` steps, or more than `Limits::tracking`
+/// from where it was found for `Limits::tracking_steps` reads in a row (a
+/// single read off is taken as where it was found); the shoulder over its
 /// load for `Limits::load_steps` steps or farther than
 /// `Standing::TRACKING` from its goal for `Standing::TRACKING_STEPS`, or
 /// a wire that fails for half a second ends it. Once its goal is folded
@@ -2076,6 +2079,10 @@ fn lower_shoulder<P: PortIo, R: Runtime>(
     let started = bus.runtime.now();
     let (mut ticks, mut done, mut misses) = (0u32, 0u32, 0u8);
     let (mut written, mut over, mut off, mut still) = (from, 0u8, 0u8, 0u8);
+    // The held joints, judged as the run judges them: steps in a row over
+    // their load bound, and off where they were found by more than
+    // `limits.tracking`.
+    let (mut held_over, mut drifted) = ([0u8; 5], [0u8; 5]);
     let mut closest = u16::MAX;
     let outcome = loop {
         ticks += 1;
@@ -2109,15 +2116,7 @@ fn lower_shoulder<P: PortIo, R: Runtime>(
             }
         };
         misses = 0;
-        report.last = Some(now);
-        if let Some((watch, glimpse)) = watching.as_mut() {
-            report.steps += 1;
-            let template = Glimpse {
-                arm_goals: [written, elbow],
-                ..*glimpse
-            };
-            watch(&glimpse_of(template, report.steps, &now, head));
-        }
+        let mut now = now;
         let mut surprise = None;
         for joint in Joint::ALL {
             let (was, is) = (found[joint.index()], now[joint.index()]);
@@ -2128,13 +2127,53 @@ fn lower_shoulder<P: PortIo, R: Runtime>(
                     now: is.status,
                 });
             }
-            if joint != shoulder && was.position.abs_diff(is.position) > limits.tracking {
-                surprise.get_or_insert(Stop::Drift {
+            if joint == shoulder {
+                continue;
+            }
+            // A hand pressing a held joint without moving it, as the run
+            // takes one: over its bound for `load_steps` steps.
+            let bound = COMMANDED
+                .iter()
+                .position(|held| *held == joint)
+                .map_or(up.load[1], |index| limits.load[index]);
+            let index = joint.index();
+            held_over[index] = if is.load > bound {
+                held_over[index].saturating_add(1)
+            } else {
+                0
+            };
+            if held_over[index] >= limits.load_steps.max(1) {
+                surprise.get_or_insert(Stop::Load {
                     joint: joint.id(),
-                    found: was.position,
-                    now: is.position,
+                    load: is.load,
                 });
             }
+            // Moved, for `tracking_steps` reads in a row: one read off is
+            // not a hand, and is taken as where it was found, so a hold
+            // never asks for it.
+            if was.position.abs_diff(is.position) > limits.tracking {
+                drifted[index] = drifted[index].saturating_add(1);
+                if drifted[index] >= limits.tracking_steps.max(1) {
+                    surprise.get_or_insert(Stop::Drift {
+                        joint: joint.id(),
+                        found: was.position,
+                        now: is.position,
+                    });
+                } else {
+                    now[index].position = was.position;
+                }
+            } else {
+                drifted[index] = 0;
+            }
+        }
+        report.last = Some(now);
+        if let Some((watch, glimpse)) = watching.as_mut() {
+            report.steps += 1;
+            let template = Glimpse {
+                arm_goals: [written, elbow],
+                ..*glimpse
+            };
+            watch(&glimpse_of(template, report.steps, &now, head));
         }
         let is = now[shoulder.index()];
         report.arm_peak_load[0] = report.arm_peak_load[0].max(is.load);

@@ -5126,16 +5126,23 @@ fn let_go_standing(
     elbow_falls: bool,
     shoulder_strain: Option<(f32, f32)>,
 ) -> (Lamp, BodyReport, Vec<(Duration, Glimpse)>) {
-    let_go_standing_turned(by_hand, elbow_falls, shoulder_strain, (3.0, 2_065.0))
+    let_go_standing_turned(
+        by_hand,
+        elbow_falls,
+        shoulder_strain,
+        (3.0, 2_065.0),
+        |_| {},
+    )
 }
 
 /// As `let_go_standing`, the hand turning the base until `hand.0` s,
-/// toward `hand.1`.
+/// toward `hand.1`, and `more` done to the lamp last.
 fn let_go_standing_turned(
     by_hand: bool,
     elbow_falls: bool,
     shoulder_strain: Option<(f32, f32)>,
     hand: (f32, f32),
+    more: fn(&mut Lamp),
 ) -> (Lamp, BodyReport, Vec<(Duration, Glimpse)>) {
     let secs = Duration::from_secs_f32;
     let (mut lamp, mut clock) = folded(secs(215.0));
@@ -5166,6 +5173,7 @@ fn let_go_standing_turned(
     if elbow_falls {
         lamp.event = Some((secs(4.0), 2, Event::Fall(-520.0)));
     }
+    more(&mut lamp);
     let limits = Limits {
         force: Some(600),
         overload_release: !by_hand,
@@ -5327,10 +5335,53 @@ fn a_hand_that_stops_the_shoulder_coming_down_lets_go_again_and_the_arm_stays() 
 /// about 8 s and let the whole lamp go.
 #[test]
 fn a_hand_that_turns_the_base_while_the_shoulder_comes_down_lets_go_again() {
-    let (lamp, report, _) = let_go_standing_turned(true, true, None, (20.0, 3_500.0));
+    let (lamp, report, _) = let_go_standing_turned(true, true, None, (20.0, 3_500.0), |_| {});
     assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
     assert!(report.released.len() >= 2, "{report:?}");
     arm_never_jumps(&lamp, &report, 2);
+}
+
+/// A hand that presses the held base without moving it while the shoulder
+/// comes down (a load of 400 from 10 s to 18 s, the lowering under way from
+/// about 7.5 s): the base is judged as the run judges it, so the lamp lets
+/// go again instead of holding against the hand for the whole lowering.
+#[test]
+fn a_hand_that_presses_the_base_while_the_shoulder_comes_down_lets_go_again() {
+    let (lamp, report, _) = let_go_standing_turned(true, true, None, (3.0, 2_065.0), |lamp| {
+        let secs = Duration::from_secs_f32;
+        lamp.strains.push((secs(10.0), secs(18.0), YAW, 400));
+    });
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.released.len() >= 2, "{report:?}");
+    let second = report.released[1].seconds;
+    assert!((10.0..12.0).contains(&second), "{second}");
+    arm_never_jumps(&lamp, &report, 2);
+}
+
+/// One reading off, under `READ_JUMP`, of the held base, the head's pitch or
+/// the elbow while the shoulder comes down (at 12 s): not a hand. Nothing
+/// happens: no second let-go, the run goes on, and no hold asks for it.
+#[test]
+fn one_reading_off_while_the_shoulder_comes_down_is_not_a_hand() {
+    fn base(lamp: &mut Lamp) {
+        lamp.misreads = vec![(Duration::from_secs(12), YAW, 2_135, 1)];
+    }
+    fn pitch(lamp: &mut Lamp) {
+        lamp.misreads = vec![(Duration::from_secs(12), PITCH, 1_872, 1)];
+    }
+    fn elbow(lamp: &mut Lamp) {
+        lamp.misreads = vec![(Duration::from_secs(12), 2, 2_200, 1)];
+    }
+    for misread in [base as fn(&mut Lamp), pitch, elbow] {
+        let (lamp, report, seen) =
+            let_go_standing_turned(true, true, None, (3.0, 2_065.0), misread);
+        assert!(lamp.misreads.iter().all(|misread| misread.3 == 0));
+        assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+        assert_eq!(report.released.len(), 1, "{report:?}");
+        assert_eq!(report.lowered.clone().unwrap().to, vec![2_053]);
+        arm_never_jumps(&lamp, &report, 2);
+        stood_when_spoken_to(&seen);
+    }
 }
 
 /// The same under overload: a lowering that fails holds the joints where

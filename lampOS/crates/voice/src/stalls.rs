@@ -780,10 +780,12 @@ mod tests {
     #[test]
     fn the_kernels_counters_move_on_linux_and_proc_lines_are_parsed() {
         // Read, and moved by touching fresh memory on Linux (2050 faults for
-        // these 8 MiB on lamp-75c9); never backwards anywhere.
+        // 8 MiB on lamp-75c9); never backwards anywhere. 64 MiB, above
+        // glibc's highest mmap threshold (32 MiB): among the other tests
+        // an 8 MiB block could come back already mapped, and fault nothing.
         let mut kernel = Kernel;
         let before = kernel.thread();
-        let mut touched = vec![0u8; 8 << 20];
+        let mut touched = vec![0u8; 64 << 20];
         for at in (0..touched.len()).step_by(4096) {
             touched[at] = 1;
         }
@@ -800,7 +802,10 @@ mod tests {
         assert!(after.major_faults >= before.major_faults);
         assert!(after.voluntary >= before.voluntary);
         assert!(after.involuntary >= before.involuntary);
-        assert_eq!(touched.iter().filter(|byte| **byte == 1).count(), 2048);
+        assert_eq!(
+            touched.iter().filter(|byte| **byte == 1).count(),
+            touched.len() / 4096
+        );
         let vmstat = "nr_dirty 120\nnr_writeback 8\npgmajfault 4321\n";
         let stat = "cpu  1 2 3\nprocs_running 3\nprocs_blocked 1\n";
         assert_eq!(

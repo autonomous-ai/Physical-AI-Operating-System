@@ -2393,9 +2393,17 @@ fn asking_the_policy_on_the_hosts_clock_gives_up_after_its_wait() {
     assert_eq!(answer.allowed, Some(false), "{answer:?}");
     assert!(answer.why.contains("did not answer"), "{answer:?}");
     assert!(waited >= Duration::from_millis(2_500), "{waited:?}");
-    // The late say_now, sent now, is passed over.
+    // The late say_now, sent now and naming the given-up ask, is passed
+    // over: no answer to it within 400 ms of the host's clock, and nothing
+    // said. Were it acted on, it would be answered and said at once.
     given_up.send(()).unwrap();
-    std::thread::sleep(Duration::from_millis(300));
+    let window = Instant::now() + Duration::from_millis(400);
+    while Instant::now() < window {
+        if let Some(message) = events.recv(Duration::from_millis(50)).unwrap() {
+            let event: SkillEvent = message.parse().unwrap();
+            assert!(event.stage != SkillStage::Answered, "{event:?}");
+        }
+    }
     assert_eq!(said.try_iter().count(), 0);
 }
 

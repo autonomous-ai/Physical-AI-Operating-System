@@ -4,6 +4,38 @@
 
 Newest first. Times from `date` (+07). 00:12 to 01:40: the review agents stopped at a usage limit.
 
+- 22:40 merged #1401 (setup keeps the backend's link root-only, the reset removes it; P3: a null field fails setup)
+- 22:32 merged #1400 (a renewal waits for a request awaiting its response, pinned as a test)
+- 22:32 #1403 reviewed at 239b1b00e: no finding (setup status adds generation lamp-v2); merge on green ARM64
+- 22:32 merged #1398 (the first control message's ages stepped on a clock the test moves)
+- 22:31 #1399 reviewed at 9a1cb0762: 2 P2s (a lost log with two re-tunes passes instead of not_checked; any hung task fails storage as the SD card) + 3 P3s; then waits for a lamp-52e6 run
+- 22:31 #1398 reviewed at 2e6cbf38c: no finding (transport reads the same clock at the same places; the test steps it); merge on green ARM64
+- 22:18 #1380 merged by the first builder at 22:17
+- 22:17 #1397 reviewed at 1525632c1: ready on my side (3 P3s; off unless set; #1393's P3s fixed); Nine's peer review still asks for a barrier test and a fold
+- 22:17 #1400 reviewed at 8ac927e54: no finding, test only (a renewal waits for an owed answer, pinned); merge on green ARM64
+- 22:14 #1378 moved to 183ea0f9c: rebased (switches.md count resolved) and my P3 taken; ready on review, waits on the first builder's yes
+- 22:06 #1394 reviewed at f18782f0a: 2 P2s (a file setting only no_reply_after_ms >= 12 s stops the voice starting with the switch; the 8 s evidence is cut by lamp-4ace's own 4 s wait) + 4 P3s; then lamp evidence (lamp-4ace battery or a cb94 night)
+- 22:06 #1395 re-checked at 715a5f4db: P1 and P2s fixed, now off by default (--close-told); new P2 (the close check compares with the newest saved turn, which can be the person's own follow-up, so their harness is closed)
+- 21:58 #1388 moved to aadfff0e6: a 6-line provider_worker.rs touch (likely the doc-comment P3); still for the first builder
+- 21:53 #1388 re-checked at a5cc6f91f: both P3s fixed; new P3s (a misplaced doc comment; the new test stays green with the seeding removed); for the first builder
+- 21:52 #1378 re-checked at d1690b67b: narrowing (a) in, colleagues at 120 s held; one comment fix left; product change, waits on the first builder's yes
+- 21:50 #1380 moved to 80d43ffe4: a log line and the stray doc comment only (my nit); code ready, for the first builder
+- 21:50 merged #1385 (eyes judge per face whether its mouth is speaking; off unless set)
+- 21:45 #1355 merged by the first builder at 21:43
+- 21:44 #1395 reviewed at 3ceaf84fd: P1 (can close a harness the person took over: exit 1 'working' is retried 60 s later) + 3 P2s (ask is the lamp's own text, so nothing closes at once; a reboot closes up to 16 old harnesses; --harness-as-person skips Harness's own guard); then for the first builder (Harness only on lamp-4ace's office Mac)
+- 21:40 merged #1393 (a write_timeout drop names its write, size and bound; a diagnostic)
+- 21:39 #1385 re-checked at b1144b698: both P2s fixed (95-100% right at the real pace; a silent tilted nodding face reads still); off unless set; merge on green ARM64
+- 21:36 #1380 re-checked at 744735e8c: P3 fixed (only a real zone file is written); code ready; for the first builder
+- 21:36 merged #1392 (air.md gives the base strip's per-sample time after #1374; docs only)
+- 21:29 merged #1387 (the image pins the lamp's journal at the base's 20M; Monday's image)
+- 21:24 #1388 reviewed at dd1a0cbbd: code right, 2 P3s (the loop's Presence should take at_start's reading); for the first builder (on where memory and known faces are set, the sixth has no lamp)
+- 21:21 #1376 merged by the first builder at 21:20 (only changes what the voice reports)
+- 21:21 #1392 reviewed at f495211a5: no finding (air.md's strip figures match controls.md); docs only, merge on green ARM64
+- 21:12 #1385 reviewed at 530bf996d: 2 P2s (at the eyes' real 250-500 ms judging rate most looks are unknown, so the >=90% doesn't hold; a silent tilted nodding face reads yes) + 3 P3s; off unless set, msgs additive
+- 21:12 merged #1381 (lamp-skills' two host-clock tests shortened, the late say_now check can fail; tests only)
+- 21:12 #1374 merged by the first builder at 21:11 (no lamp reads the base yet)
+- 21:11 #1387 re-checked at 978841d1a: the base's 20M pinned, my P3 taken, lamp-75c9 read-only check; merge on green ARM64 per the first builder's 21:00 yes
+- 21:10 #1380 re-checked at 9ad5669b6: code ready (install rewrites zone.env from a saved zone; setup's never overwritten); P3 (a garbage /etc/timezone now reaches update and stops schedule); for the first builder
 - 21:09 merged #1382 (the short hub line names the C-Media as speaker/room mic)
 - 21:08 merged #1366 (lamp-air reads 0x7FFF CO2 as not known, decodes filler and starts a sensor whose name fails, as guards; on the first builder's 20:44 lamp run)
 - 21:02 #1378 reviewed at c8e21a520: code right, but the first builder's 20:41 narrowing (a) with its test isn't in yet; the second's P2 (colleagues 45-180 s after the news answered) holds; CHANGES

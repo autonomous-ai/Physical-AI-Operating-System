@@ -137,3 +137,20 @@ fn the_unit_stops_v1s_os_server_only_from_the_drop_in_that_turns_it_on() {
     assert!(UNIT.contains("#   Conflicts=os-server.service\n"));
     assert!(UNIT.contains("#   Environment=LAMP_CLOUD=on\n"));
 }
+
+#[test]
+fn lamp_4aces_cloud_on_writes_the_units_whole_drop_in() {
+    // lamp-4ace's own installer (#1420) writes the same drop-in the unit's
+    // header gives, the conflict with it, so the two can't drift.
+    const CLOUD_ON: &str = include_str!("../../../deploy/lamp-4ace/cloud-on.sh");
+    let line = CLOUD_ON
+        .lines()
+        .find(|line| line.contains("> '$DROPIN'"))
+        .expect("cloud-on.sh writes the drop-in");
+    assert!(
+        line.contains(
+            r"[Unit]\nConflicts=os-server.service\n[Service]\nEnvironment=LAMP_CLOUD=on\n"
+        ),
+        "{line}"
+    );
+}

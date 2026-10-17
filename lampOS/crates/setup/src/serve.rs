@@ -272,33 +272,55 @@ impl fmt::Debug for Backend {
     }
 }
 
-/// The link, when the request carries a whole one: an endpoint, a port and
-/// both channels, every field at most 512 bytes with no control or space
-/// character (the password may hold spaces). A missing or broken link is none,
-/// and never fails setup: the lamp joins the Wi-Fi and talks without it, and
-/// only its place in the app waits for a later setup.
-fn backend_link(request: &SetupRequest) -> Option<Backend> {
-    let plain = |field: &str| {
+/// The link, when the request names one (an `mqtt_endpoint`) and it is whole:
+/// the device's id, a port and both channels too, every field at most 512
+/// bytes with no space or control character (the password may hold spaces;
+/// `llm_base_url`, the username and the password may be empty, for an
+/// anonymous broker). `Err` names the fields that are missing or not valid,
+/// never their values; an empty list means no link was named, as from V1's
+/// page or this crate's own. Either way setup goes on: the lamp joins the
+/// Wi-Fi and talks without it, and only its place in the app waits.
+pub fn backend_link(request: &SetupRequest) -> Result<Backend, Vec<&'static str>> {
+    if request.mqtt_endpoint.trim().is_empty() {
+        return Err(vec![]);
+    }
+    let mut bad = vec![];
+    let mut plain = |name: &'static str, field: &str, needed: bool| {
         let field = field.trim();
-        (field.len() <= 512 && field.bytes().all(|b| b.is_ascii_graphic()))
-            .then(|| field.to_owned())
+        if field.len() > 512
+            || !field.bytes().all(|b| b.is_ascii_graphic())
+            || (needed && field.is_empty())
+        {
+            bad.push(name);
+        }
+        field.to_owned()
     };
+    let device_id = plain("device_id", &request.device_id, true);
+    let llm_base_url = plain("llm_base_url", &request.llm_base_url, false);
+    let mqtt_endpoint = plain("mqtt_endpoint", &request.mqtt_endpoint, true);
+    let mqtt_username = plain("mqtt_username", &request.mqtt_username, false);
+    let fa_channel = plain("fa_channel", &request.fa_channel, true);
+    let fd_channel = plain("fd_channel", &request.fd_channel, true);
     let secret = &request.mqtt_password;
     if secret.len() > 512 || secret.chars().any(char::is_control) {
-        return None;
+        bad.push("mqtt_password");
     }
-    let link = Backend {
-        device_id: plain(&request.device_id)?,
-        llm_base_url: plain(&request.llm_base_url)?,
-        mqtt_endpoint: plain(&request.mqtt_endpoint)?,
-        mqtt_port: request.mqtt_port?,
-        mqtt_username: plain(&request.mqtt_username)?,
+    if request.mqtt_port.is_none() {
+        bad.push("mqtt_port");
+    }
+    if !bad.is_empty() {
+        return Err(bad);
+    }
+    Ok(Backend {
+        device_id,
+        llm_base_url,
+        mqtt_endpoint,
+        mqtt_port: request.mqtt_port.unwrap_or_default(),
+        mqtt_username,
         mqtt_password: secret.clone(),
-        fa_channel: plain(&request.fa_channel)?,
-        fd_channel: plain(&request.fd_channel)?,
-    };
-    (!link.mqtt_endpoint.is_empty() && !link.fa_channel.is_empty() && !link.fd_channel.is_empty())
-        .then_some(link)
+        fa_channel,
+        fd_channel,
+    })
 }
 
 /// A request that passed every check, ready to act on.
@@ -391,7 +413,7 @@ pub fn check(request: &SetupRequest, config: &Config) -> Result<Accepted, String
         credential: (!credential.is_empty()).then(|| credential.to_owned()),
         name: (!name.is_empty()).then(|| name.to_owned()),
         timezone: zone_known(timezone, &config.zoneinfo).then(|| timezone.to_owned()),
-        backend: backend_link(request),
+        backend: backend_link(request).ok(),
     })
 }
 
@@ -682,9 +704,16 @@ pub fn run(
                 Some(zone) => save.timezone(zone),
                 None => Ok(()),
             })
-            .and_then(|()| match &accepted.backend {
-                Some(link) => save.backend(link),
-                None => Ok(()),
+            .map(|()| {
+                // Best effort (Third on #1401): the lamp works without the
+                // link, and only its place in the app waits for a later setup.
+                if let Some(link) = &accepted.backend
+                    && let Err(why) = save.backend(link)
+                {
+                    eprintln!(
+                        "lamp-setup: the backend's link could not be saved ({why}); setup goes on without it"
+                    );
+                }
             })
             .and_then(|()| match &accepted.credential {
                 Some(key) => save.credential(key),

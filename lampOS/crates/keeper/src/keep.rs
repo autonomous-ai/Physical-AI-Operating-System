@@ -38,6 +38,10 @@ impl PartState {
 
 /// The part that is never restarted while someone speaks to the lamp.
 pub const VOICE: &str = "voice";
+/// The self-test's newest run, as `lamp-health` carries it (#812): a
+/// result, not a part that runs. A failed run is never restarted, and a
+/// run under way is never cut short.
+pub const SELFTEST: &str = "selftest";
 /// The keeper's own name on the bus. It does not restart itself.
 pub const NAME: &str = "keeper";
 /// The window in which restarts are counted.
@@ -158,7 +162,7 @@ impl Keeper {
         let rules = self.rules;
         let mut done = Vec::new();
         for item in &health.items {
-            if item.name == NAME {
+            if item.name == NAME || item.name == SELFTEST {
                 continue;
             }
             let kept = self.parts.entry(item.name.clone()).or_default();
@@ -276,6 +280,29 @@ mod tests {
     }
 
     const S: Duration = Duration::from_secs(1);
+
+    /// #812: a self-test that failed a part is in the lamp's health as an
+    /// error for as long as no run passes. It is no part the keeper can
+    /// restart, so it is passed over and never said.
+    #[test]
+    fn a_failed_selftest_is_never_restarted() {
+        let (mut keeper, mut systemd, start) = (acting(), Stand::default(), Instant::now());
+        let failed = health(&[(SELFTEST, Level::Error), ("eyes", Level::Ok)]);
+        for at in [0, 30, 60, 600] {
+            assert!(
+                keeper
+                    .look(&failed, true, start + at * S, &mut systemd)
+                    .is_empty()
+            );
+        }
+        assert!(systemd.commands.is_empty());
+        let mut watching = Keeper::new(Rules::default());
+        assert!(
+            watching
+                .look(&failed, true, start + 600 * S, &mut systemd)
+                .is_empty()
+        );
+    }
 
     #[test]
     fn a_part_unwell_for_the_delay_is_restarted_and_not_before() {

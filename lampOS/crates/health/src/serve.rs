@@ -18,7 +18,7 @@ use crate::{
     parts::{self, Parts, Taken},
 };
 use lamp_bus::{Bus, Declaration, Publisher, Subscriber};
-use lamp_msgs::{BoardState, Diagnostic, Health, Level, Online};
+use lamp_msgs::{BoardState, Diagnostic, Health, Level, Online, SelfTest};
 use serde::Serialize;
 use std::{
     fmt, io,
@@ -135,6 +135,13 @@ pub enum Note {
     Receiving,
     /// A report came from a part not heard before, and 64 are kept.
     TooManyParts,
+    /// The self-test's runs cannot be heard: the lamp's health goes on
+    /// without its item (#812).
+    NoSelfTest {
+        kind: io::ErrorKind,
+    },
+    /// A message on `lamp/selftest` was no run, or not a whole one.
+    SelfTestUnreadable,
 }
 
 impl fmt::Display for Note {
@@ -178,6 +185,16 @@ impl fmt::Display for Note {
                 f,
                 "more than {} parts report: the newcomers are not kept",
                 parts::MOST_PARTS
+            ),
+            Self::NoSelfTest { kind } => write!(
+                f,
+                "{} cannot be received from ({kind}): the health goes on without it",
+                SelfTest::TOPIC
+            ),
+            Self::SelfTestUnreadable => write!(
+                f,
+                "a message on {} is not a whole run: it is passed over",
+                SelfTest::TOPIC
             ),
         }
     }
@@ -311,6 +328,8 @@ struct Serve<'a> {
     passed_over: u64,
     full: bool,
     totals: Totals,
+    /// The self-test's newest run, if one was heard (#812).
+    selftest: Option<SelfTest>,
 }
 
 impl Serve<'_> {
@@ -454,6 +473,21 @@ impl Serve<'_> {
         kept
     }
 
+    /// Take the self-test's newest run, if one came: true if it did.
+    fn hear_selftest(&mut self, tests: &mut Subscriber) -> bool {
+        let mut heard = false;
+        while let Ok(Some(message)) = tests.recv(Duration::ZERO) {
+            match message.parse::<SelfTest>() {
+                Ok(test) if test.check().is_ok() => {
+                    self.selftest = Some(test);
+                    heard = true;
+                }
+                _ => (self.say)(Note::SelfTestUnreadable),
+            }
+        }
+        heard
+    }
+
     /// Work the lamp's health out, say so if its level is another, and
     /// publish it if it is news or its time has come.
     fn work_out(&mut self, now: Instant) {
@@ -472,6 +506,9 @@ impl Serve<'_> {
             .collect();
         let mut health = parts::health(self.parts.reports(), now, &expected, options.stale_after);
         parts::mark_off(&mut health, &off);
+        if let Some(test) = &self.selftest {
+            parts::mark_selftest(&mut health, parts::selftest_item(test, unix_now()));
+        }
         if self.level != Some(health.level) {
             (self.say)(Note::Health {
                 from: self.level,
@@ -500,6 +537,13 @@ impl Serve<'_> {
     }
 }
 
+/// The wall clock's seconds since the Unix epoch, as a run's `started` is.
+fn unix_now() -> f64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0.0, |since| since.as_secs_f64())
+}
+
 /// Whether something done every `every` is due at `now`.
 fn due(last: Option<Instant>, every: Duration, now: Instant) -> bool {
     last.is_none_or(|at| now.saturating_duration_since(at) >= every)
@@ -526,6 +570,13 @@ pub fn run(
     say: &mut dyn FnMut(Note),
 ) -> io::Result<Totals> {
     let mut ear = bus.subscribe_typed(Diagnostic::TOPIC, NAME, Diagnostic::TYPE)?;
+    // The self-test's runs, the newest first as the topic keeps it. Not
+    // being able to hear them costs only their item, never the health: it
+    // is said once and tried again each report's time.
+    let mut tests = bus
+        .subscribe_typed(SelfTest::TOPIC, NAME, SelfTest::TYPE)
+        .map_err(|error| say(Note::NoSelfTest { kind: error.kind() }))
+        .ok();
     let times = options.times;
     let mut serve = Serve {
         options,
@@ -547,6 +598,7 @@ pub fn run(
         passed_over: 0,
         full: false,
         totals: Totals::default(),
+        selftest: None,
     };
     let (mut board_read, mut reported): (Option<Instant>, Option<Instant>) = (None, None);
     while !stop.load(Ordering::Relaxed) {
@@ -571,6 +623,11 @@ pub fn run(
             serve.read_board(read);
         }
         if due(reported, times.report_every, now) {
+            if tests.is_none() {
+                tests = bus
+                    .subscribe_typed(SelfTest::TOPIC, NAME, SelfTest::TYPE)
+                    .ok();
+            }
             reported = Some(now);
             serve.report_board(now);
             serve.report_online(now);
@@ -585,6 +642,9 @@ pub fn run(
             .min(until(reported, times.report_every, now))
             .min(serve.health_due.saturating_duration_since(now));
         work_out |= serve.listen(&mut ear, wait);
+        if let Some(tests) = tests.as_mut() {
+            work_out |= serve.hear_selftest(tests);
+        }
         let now = Instant::now();
         serve.only_reports(now);
         if work_out || now >= serve.health_due {

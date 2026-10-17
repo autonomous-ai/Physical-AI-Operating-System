@@ -68,7 +68,6 @@ impl Drop for Root {
 #[derive(Debug, Default)]
 struct Production {
     samples: u64,
-    max_gap_us: u64,
     dropped: u64,
 }
 
@@ -108,7 +107,6 @@ impl Producer {
         source.thread = Some(thread::spawn(move || {
             let deadline = Instant::now() + Duration::from_secs(10);
             let mut result = Production::default();
-            let mut previous = None;
             while !stop.load(Ordering::Acquire) {
                 if Instant::now() >= deadline {
                     return Err(io::Error::other(
@@ -117,10 +115,6 @@ impl Producer {
                 }
                 let began = Instant::now();
                 let at_us = monotonic_us();
-                if let Some(previous) = previous {
-                    result.max_gap_us = result.max_gap_us.max(at_us - previous);
-                }
-                previous = Some(at_us);
                 result.samples += 1;
                 let muted = muted.load(Ordering::Acquire);
                 if muted {
@@ -411,7 +405,12 @@ impl Drop for Rig {
 fn selected_worker_requires_authority_latches_low_and_recovers_only_after_verified_stop() {
     let mut rig = Rig::start(Permission::Denied);
     rig.until(|value| value.physical_muted == Some(false));
-    rig.observe(Duration::from_millis(80), |value| assert!(!value.permitted));
+    // Refused by the missing authority, not by evidence gone stale: the
+    // worker still reads the switch as fresh and HIGH (#1241).
+    rig.observe(Duration::from_millis(80), |value| {
+        assert!(!value.permitted);
+        assert_eq!(value.physical_muted, Some(false));
+    });
     rig.permission(Permission::Allowed);
     let allowed = rig.until(|value| value.permitted);
     assert!(allowed.stamp.at_us - rig.first_high.unwrap() >= REOPEN_STABLE_US);
@@ -437,8 +436,10 @@ fn selected_worker_requires_authority_latches_low_and_recovers_only_after_verifi
         rig.last_low_event.is_some(),
         "LOW must reach the private owner channel"
     );
+    // Refused by the latch, not by evidence gone stale (#1241).
     rig.observe(Duration::from_millis(100), |value| {
         assert!(!value.permitted);
+        assert_eq!(value.physical_muted, Some(false));
         assert_eq!(value.microphone_generation, allowed.microphone_generation);
     });
     rig.restart_verified();
@@ -449,10 +450,6 @@ fn selected_worker_requires_authority_latches_low_and_recovers_only_after_verifi
     let produced = rig.producer.finish();
     eprintln!("synthetic Controls production including verified replacement: {produced:?}");
     assert!(produced.samples > 20);
-    assert!(
-        produced.max_gap_us <= 20_000,
-        "synthetic sample cadence: {produced:?}"
-    );
 }
 
 /// Losing Controls is a switch that cannot be read, not a crash (#795): the
@@ -466,7 +463,7 @@ fn selected_worker_requires_authority_latches_low_and_recovers_only_after_verifi
 fn losing_controls_ends_the_real_worker_cleanly_and_expires_its_lease() {
     let mut rig = Rig::start(Permission::Allowed);
     rig.until(|value| value.permitted);
-    let produced = rig.producer.finish();
+    rig.producer.finish();
     let last_acquired = rig.producer.last_us.load(Ordering::Acquire);
     let deadline = Instant::now() + WAIT;
     let unreadable_only = |text: &str| {
@@ -533,8 +530,4 @@ fn losing_controls_ends_the_real_worker_cleanly_and_expires_its_lease() {
     retained.check().unwrap();
     assert!(retained.expires_at_us <= last_acquired + MICROPHONE_PRIVACY_FRESH_US);
     assert!(!retained.fresh_at(&rig.clock, monotonic_us()));
-    assert!(
-        produced.max_gap_us <= 20_000,
-        "synthetic sample cadence: {produced:?}"
-    );
 }

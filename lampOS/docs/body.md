@@ -978,7 +978,9 @@ asked while the lean is still easing in, the arm ends the gesture where
 it began. The head's goal goes 50 or more counts above the reading pitch
 and 180 or more below it for `curious`. No arm goal moves more than 50 a
 write, no `Window` stop, nothing refused or cut by the anti-tip rule, no
-pose past 22 mm.
+pose past 22 mm. Speaking, the same `acknowledge` still lets the lean go:
+the elbow is back at its stand pose (2,602) once it is over, then leans in
+again (`a_speaking_lamp_still_lets_its_lean_go_for_a_gesture`).
 
 **On lamp-52e6, 2026-10-16, 11:51**, body `92634401`, unit flags
 unchanged, `reading` sent every half second for 14 s by a small script on

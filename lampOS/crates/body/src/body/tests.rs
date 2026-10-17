@@ -8504,12 +8504,13 @@ fn a_slump_during_an_ease_back_leaves_no_offset_after_the_take_up() {
 type ReadingStep = (Duration, Option<&'static str>, [u16; 3], [u16; 2]);
 
 /// A lamp with these flags, found folded, talked to from 1 to 3 s and
-/// reading from then on (a skill saying it again and again), as its unit
+/// in `mood` from then on (a skill saying it again and again), as its unit
 /// runs it, asked `clip` at `ask_at`. The run's report, each step, and
 /// every arm goal write, shoulder and elbow.
 fn reading_session(
     flags: &Flags,
     seconds: u64,
+    mood: Mood,
     clip: &'static Clip,
     ask_at: Duration,
 ) -> (BodyReport, Vec<ReadingStep>, Vec<[u16; 2]>) {
@@ -8540,7 +8541,7 @@ fn reading_session(
         Some(if time.get() < Duration::from_secs(3) {
             (Mood::Listening, 100)
         } else {
-            (Mood::Reading, 100)
+            (mood, 100)
         })
     };
     let asked_at = clock.time.clone();
@@ -8626,8 +8627,13 @@ fn assert_reading_gesture_safe(
 fn a_reading_lamp_keeps_its_lean_through_a_gesture() {
     let ms = Duration::from_millis;
     for (name, flags) in [("lamp-4ace", &LAMP_4ACE), ("lamp-52e6", &LAMP_52E6)] {
-        let (report, steps, arm) =
-            reading_session(flags, 20, &crate::clips::ACKNOWLEDGE, ms(12_000));
+        let (report, steps, arm) = reading_session(
+            flags,
+            20,
+            Mood::Reading,
+            &crate::clips::ACKNOWLEDGE,
+            ms(12_000),
+        );
         assert_reading_gesture_safe(name, &report, &steps, &arm);
         let lean: [u16; 2] = std::array::from_fn(|index| {
             (f32::from(flags.stand[3 + index]) + LEAN[index]).round() as u16
@@ -8658,6 +8664,37 @@ fn a_reading_lamp_keeps_its_lean_through_a_gesture() {
     }
 }
 
+/// #1265 review, 10:13: speaking is unchanged. The same `acknowledge`
+/// while it speaks lets the lean go: once the gesture is over the elbow is
+/// back at its stand pose (the lean's 60 counts above where reading keeps
+/// it) before it leans in again. With each lamp's flags.
+#[test]
+fn a_speaking_lamp_still_lets_its_lean_go_for_a_gesture() {
+    let ms = Duration::from_millis;
+    for (name, flags) in [("lamp-4ace", &LAMP_4ACE), ("lamp-52e6", &LAMP_52E6)] {
+        let (report, steps, arm) = reading_session(
+            flags,
+            20,
+            Mood::Speaking,
+            &crate::clips::ACKNOWLEDGE,
+            ms(12_000),
+        );
+        assert_reading_gesture_safe(name, &report, &steps, &arm);
+        let over = steps.iter().rfind(|step| step.1.is_some()).unwrap().0;
+        let top = steps
+            .iter()
+            .filter(|step| (over..over + ms(500)).contains(&step.0))
+            .map(|step| step.3[1])
+            .max()
+            .unwrap();
+        assert!(
+            top.abs_diff(flags.stand[4]) <= 3,
+            "{name}: elbow at {top} after the gesture, stand pose {}",
+            flags.stand[4]
+        );
+    }
+}
+
 /// Asked while the reading lean is still easing in, the gesture is laid
 /// over the lean as it was then, which is held while it plays: the pose
 /// the anti-tip rule checked it over is the pose it plays over, and it
@@ -8666,8 +8703,13 @@ fn a_reading_lamp_keeps_its_lean_through_a_gesture() {
 fn a_gesture_asked_as_the_reading_lean_eases_in_holds_it_where_it_was() {
     let ms = Duration::from_millis;
     for (name, flags) in [("lamp-4ace", &LAMP_4ACE), ("lamp-52e6", &LAMP_52E6)] {
-        let (report, steps, arm) =
-            reading_session(flags, 16, &crate::clips::ACKNOWLEDGE, ms(7_300));
+        let (report, steps, arm) = reading_session(
+            flags,
+            16,
+            Mood::Reading,
+            &crate::clips::ACKNOWLEDGE,
+            ms(7_300),
+        );
         assert_reading_gesture_safe(name, &report, &steps, &arm);
         let first = steps.iter().position(|step| step.1.is_some()).unwrap();
         let began = steps[first - 1].3;
@@ -8703,7 +8745,7 @@ fn a_reading_lamp_makes_the_whole_of_a_gestures_pitch() {
             (&crate::clips::CURIOUS, 50, 180),
             (&crate::clips::ACKNOWLEDGE, 24, 0),
         ] {
-            let (report, steps, arm) = reading_session(flags, 20, clip, ms(12_000));
+            let (report, steps, arm) = reading_session(flags, 20, Mood::Reading, clip, ms(12_000));
             assert_reading_gesture_safe(name, &report, &steps, &arm);
             let reading = steps.iter().rfind(|step| step.0 < ms(12_000)).unwrap().2[0];
             let during = steps.iter().filter(|step| step.1.is_some());

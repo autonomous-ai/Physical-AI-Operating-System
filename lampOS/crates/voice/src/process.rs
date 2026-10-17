@@ -868,13 +868,6 @@ mod tests {
         }
     }
 
-    /// The reviewer on #1158: the switches reach a worker through the real
-    /// command it is started with. A script in the worker's place writes
-    /// the environment it got: the provider has the memory's two switches
-    /// and the clock, the second route the memory's days and the clock, and
-    /// capture the quiet evidence switch (#1285). With every other variable
-    /// set to a secret, nothing else reaches any of them but the shell's
-    /// own.
     /// The typed name's file goes to the provider and second workers only,
     /// and only as an absolute path (#806, Fourth on #1323).
     #[test]
@@ -905,6 +898,13 @@ mod tests {
         }
     }
 
+    /// The reviewer on #1158: the switches reach a worker through the real
+    /// command it is started with. A script in the worker's place writes
+    /// the environment it got: the provider has the memory's two switches,
+    /// the clock and the typed name's file, the second route the memory's
+    /// days, the clock and the name's file (#1323), and capture the quiet
+    /// evidence switch (#1285). With every other variable set to a secret,
+    /// nothing else reaches any of them but the shell's own.
     #[test]
     fn a_started_worker_gets_its_roles_switches_and_nothing_else() {
         use std::os::unix::fs::PermissionsExt;

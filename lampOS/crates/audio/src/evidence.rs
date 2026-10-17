@@ -247,9 +247,10 @@ pub struct EchoObserver {
     /// Skip the search while the render it would read is all zeros
     /// ([`EchoObserver::skip_while_render_silent`]).
     skip_silent: bool,
-    /// Blocks it skipped.
-    #[cfg(test)]
-    skipped: u32,
+    /// Capture blocks observed, and of them skipped, since construction:
+    /// kept through a reset, so a run can say how often the skip applied.
+    observed: u64,
+    skipped: u64,
     latest: Option<EchoEvidence>,
     /// The held alignment's age when the render at it is silent this block
     /// ([`EchoEvidence::silent_at_echo`]).
@@ -313,18 +314,24 @@ impl EchoObserver {
             sweep: 0,
             rival: 0,
             skip_silent: false,
-            #[cfg(test)]
+            observed: 0,
             skipped: 0,
             latest: None,
             silent_at: None,
         }
     }
-    /// Forget everything but [`Self::skip_while_render_silent`]. Call
-    /// wherever the echo canceller is reset.
+    /// Forget everything but [`Self::skip_while_render_silent`] and the
+    /// counts of [`Self::skipped`]. Call wherever the echo canceller is reset.
     pub fn reset(&mut self) {
-        let skip_silent = self.skip_silent;
+        let (skip_silent, observed, skipped) = (self.skip_silent, self.observed, self.skipped);
         *self = Self::new();
-        self.skip_silent = skip_silent;
+        (self.skip_silent, self.observed, self.skipped) = (skip_silent, observed, skipped);
+    }
+
+    /// Capture blocks observed since construction, and how many of them the
+    /// search was skipped on ([`Self::skip_while_render_silent`]).
+    pub fn skipped(&self) -> (u64, u64) {
+        (self.observed, self.skipped)
     }
 
     /// While every render sample any alignment would read is zero (the
@@ -377,6 +384,7 @@ impl EchoObserver {
 
     /// One microphone block before and after cancellation.
     pub fn capture(&mut self, raw: &CaptureBlock, clean: &CaptureBlock) -> EchoEvidence {
+        self.observed += 1;
         let reduce = |reducer: &mut Reducer, block: &CaptureBlock| -> [i16; BLOCK] {
             let mut reduced = [0; BLOCK];
             for (target, group) in reduced
@@ -611,10 +619,7 @@ impl EchoObserver {
                 .alignment
                 .as_ref()
                 .map(|alignment| alignment.age_blocks);
-            #[cfg(test)]
-            {
-                self.skipped += 1;
-            }
+            self.skipped += 1;
             return None;
         }
         let mut fitted = None;
@@ -791,7 +796,6 @@ mod tests {
         let mut skipping = EchoObserver::new();
         skipping.skip_while_render_silent(true);
         let mut matched = 0;
-        let mut skipped = 0;
         for block in 0..600u64 {
             let render: RenderBlock = std::array::from_fn(|index| {
                 lamp((block * RENDER_SAMPLES as u64 + index as u64) as f64 / 24_000.0) as i16
@@ -815,8 +819,7 @@ mod tests {
                 .round() as i16
             });
             if block == 300 {
-                // A reset keeps the switch.
-                skipped += skipping.skipped;
+                // A reset keeps the switch, and the counts.
                 searching.reset();
                 skipping.reset();
             }
@@ -839,8 +842,7 @@ mod tests {
         assert!(matched > 50, "the echo was matched {matched} times");
         // The silences, each less the render's 520 ms reach (none after the
         // reset, or before the lamp first spoke): 324 of 600 blocks.
-        skipped += skipping.skipped;
-        assert_eq!(skipped, 324);
-        assert_eq!(searching.skipped, 0);
+        assert_eq!(skipping.skipped(), (600, 324));
+        assert_eq!(searching.skipped(), (600, 0));
     }
 }

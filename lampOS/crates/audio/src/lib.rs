@@ -171,6 +171,12 @@ impl EchoProcessor {
         self.observer.skip_while_render_silent(on);
     }
 
+    /// Capture blocks processed since construction, and how many of them the
+    /// echo evidence's search was skipped on.
+    pub fn evidence_skipped(&self) -> (u64, u64) {
+        self.observer.skipped()
+    }
+
     /// What the render explains of the capture block just processed, before
     /// and after cancellation. `None` until a capture has run since the last
     /// reset. These are measurements for an admission decision made

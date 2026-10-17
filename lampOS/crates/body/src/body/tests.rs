@@ -7231,18 +7231,60 @@ fn two_first_reads_of_150_then_45_start_as_usual_standing() {
     assert_eq!((lamp.servos[1].torque, lamp.servos[2].torque), (1, 1));
 }
 
-/// 150 on every first read is a temperature that cannot be read: refused
-/// with nothing written, so a lamp found standing keeps its arm held.
+/// The reviewer's 12:36 P3 on #1281: a lamp found standing whose start is
+/// refused with nothing written (head pitch 150 on every read, or its torque
+/// off) was left up, held, by every restart. It folds down first, a step at
+/// a time, then is let go and the run ends on the refusal. Started again
+/// 15 s later, it is refused folded and nothing is left powered.
 #[test]
-fn every_first_read_over_100_is_refused_as_unreadable_holding_the_arm() {
-    let (report, lamp) = found_standing_with_first_reads(vec![Some(150); 4]);
-    assert!(
-        matches!(&report.stop, Stop::Refused { why }
-            if why == "temperature unreadable at start: wrist_pitch reads 150"),
-        "{report:?}"
-    );
-    assert!(lamp.nothing_was_written(), "{:?}", lamp.registers);
-    assert!(lamp.servos.iter().all(|servo| servo.torque == 1));
+fn a_lamp_found_standing_whose_start_is_refused_folds_then_lets_go() {
+    let cases: [(Option<u8>, u8, &str); 2] = [
+        (
+            Some(150),
+            1,
+            "temperature unreadable at start: wrist_pitch reads 150",
+        ),
+        (None, 0, "wrist_pitch torque is not on"),
+    ];
+    for (read, torque, why_wanted) in cases {
+        let (mut lamp, mut clock) = folded(Duration::from_secs(20));
+        lamp.arm_moves = true;
+        for (index, at) in [(1usize, 2_650.0f32), (2, 2_600.0), (PITCH, 1_900.0)] {
+            lamp.servos[index].position = at;
+            lamp.servos[index].goal = at as u16;
+            lamp.servos[index].status = 0;
+        }
+        lamp.servos[PITCH].torque = torque;
+        lamp.may_take_hold = torque == 0;
+        lamp.flicker = Some((Duration::ZERO, PITCH, vec![read; 100_000], 0));
+        let run = |lamp: &mut Lamp, clock: &mut Clock| {
+            run_standing(
+                lamp,
+                clock,
+                Limits::FOLDED,
+                Some(HOME),
+                Some(standing(100, 60)),
+                || Some((Mood::Resting, 0)),
+                |_| {},
+            )
+        };
+        let report = run(&mut lamp, &mut clock);
+        assert!(
+            matches!(&report.stop, Stop::Refused { why } if why == why_wanted),
+            "{report:?}"
+        );
+        assert_folded_then_let_go(&lamp);
+
+        let again = lamp.time.get() + Duration::from_secs(15);
+        lamp.time.set(again);
+        let mut clock = Clock {
+            time: lamp.time.clone(),
+            cancel_at: again + Duration::from_secs(20),
+        };
+        let report = run(&mut lamp, &mut clock);
+        assert!(matches!(report.stop, Stop::Refused { .. }), "{report:?}");
+        assert!(lamp.servos.iter().all(|servo| servo.torque == 0));
+    }
 }
 
 /// A first read at the limit with a cool read agreeing after it is not

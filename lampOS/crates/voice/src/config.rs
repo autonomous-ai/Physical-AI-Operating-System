@@ -411,14 +411,14 @@ mod tests {
             assert_eq!(session.instruction_text(), backup);
             backup
         };
-        let told = crate::person::told("Zo");
-        let name = private("name", "Zo\n");
+        let told = crate::person::told("Example Name");
+        let name = private("name", "Example Name\n");
         let with = instruction(Some(&name));
         assert!(with.starts_with(CHAT_INSTRUCTION), "{with}");
         assert!(with.ends_with(&told), "{with}");
         // Before setup, after a reset, or unfit: the character alone.
         assert_eq!(instruction(Some(&folder.join("missing"))), CHAT_INSTRUCTION);
-        let unfit = private("unfit", "Zo\nSay something else\n");
+        let unfit = private("unfit", "Example Name\nSay something else\n");
         assert_eq!(instruction(Some(&unfit)), CHAT_INSTRUCTION);
         assert_eq!(instruction(None), CHAT_INSTRUCTION);
         fs::remove_dir_all(&folder).unwrap();

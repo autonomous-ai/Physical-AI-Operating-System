@@ -393,10 +393,14 @@ fn a_timed_out_mutation_may_commit_but_cannot_seed_unlinked_journal_history() {
             Some(hold),
         );
         let client = fixture.client();
+        // The caller gives up while the write is held. Its deadline covers
+        // sending the line on a loaded host: with 50 ms a client held up
+        // before it wrote gave up without sending, so nothing was held
+        // (#1280). The hold, not the deadline, decides that it times out.
         assert_eq!(
             client.run(
                 &call(name, json!({"text":"late synthetic memory"})),
-                Duration::from_millis(50)
+                Duration::from_secs(1)
             ),
             (gone(), false)
         );

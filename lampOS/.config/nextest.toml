@@ -1,17 +1,18 @@
 # cargo-nextest configuration for the lampOS workspace.
 #
-# The realtime group: tests that wait on the real clock (real-speed fake
-# playback, sleeps, deadlines and report periods measured in seconds). On the
-# 2026-10-15 ARM64 runs (38715042828, 38715014248) these 123 tests took 977 s
-# of the 1,191 s spent on all 4,507 tests. Until each has an injectable clock
-# or a shorter fixture, pull requests skip them (profile `pr`); every push to
-# lamp-voice runs every test (profile `default`). Run them alone with profile
-# `realtime`. The group also holds tests whose real-clock bound a loaded
-# runner misses (they failed under one-test-per-core pull request runs).
-# See docs/realtime-tests.md.
+# The realtime group: tests that wait on the real clock for seconds by design
+# (the production capture loop played in real time, a program's real report
+# period against the bus's real lease, a real grace before a kill). On
+# 2026-10-15 the group had 123 tests, 977 s of the 1,191 s spent on all 4,507
+# tests, so pull requests skipped it. Most have since moved onto test clocks
+# (#823). The 8 left took 35.4 s one after another on ARM64 on 2026-10-17,
+# and held their bounds beside a full core load in five runs (#1292), so
+# every run now runs them: one at a time (the group) and started first (its
+# priority), beside the rest. Run them alone with profile `realtime`. See
+# docs/realtime-tests.md.
 #
-# The same filterset appears three times below (the group override, `pr`'s
-# exclusion and `realtime`'s selection). Keep all three identical.
+# The same filterset appears twice below (the group override and
+# `realtime`'s selection). Keep both identical.
 
 [test-groups]
 # One at a time: these tests measure real time and must not compete.
@@ -24,18 +25,15 @@ filter = '''
   | (binary_id(lamp-health::program) & test(=between_two_healths_five_seconds_apart_the_program_is_not_taken_for_gone))
 '''
 test-group = 'realtime'
+# Started first, so that its one-at-a-time chain runs beside the rest rather
+# than after it.
+priority = 100
 
-# Pull requests on GitHub Actions (.github/workflows/lampos-arm64.yml):
-# everything except the realtime group. A filter given on the command line is
-# intersected with this.
+# Pull requests and pushes to lamp-voice on GitHub Actions
+# (.github/workflows/lampos-arm64.yml): every test, the realtime group
+# included. A filter given on the command line is intersected with this.
 [profile.pr]
-default-filter = '''
-not (
-    binary_id(lamp-voice::capture_hold_worker)
-  | (binary_id(lamp-voice) & test(=coordinator::tests::endpoint_session::endpoint_fixture_reaps_on_panic_before_and_after_handoff))
-  | (binary_id(lamp-health::program) & test(=between_two_healths_five_seconds_apart_the_program_is_not_taken_for_gone))
-)
-'''
+default-filter = 'all()'
 
 # By hand: only the realtime group, e.g.
 #   cargo nextest run --release --workspace --profile realtime -j 1

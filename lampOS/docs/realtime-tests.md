@@ -1,14 +1,16 @@
-# Realtime tests (skipped on pull requests)
+# Realtime tests
 
 **Status: temporary, to be reviewed.** Since 2026-10-15 the tests that wait
 on the real clock form the nextest test group `realtime`
-([`.config/nextest.toml`](../.config/nextest.toml)). In the ARM64 run
+([`.config/nextest.toml`](../.config/nextest.toml)). Until 2026-10-17 pull
+requests skipped it. Since then every run runs it, one test at a time and
+started first, beside the rest (below). In the ARM64 run
 (`.github/workflows/lampos-arm64.yml`):
 
 | Run | Runners | nextest profile | Tests at once | Realtime group |
 |---|---|---|---|---|
-| Pull request into `lamp-voice`, manual run | 1 | `pr` | one per core | skipped |
-| Push to `lamp-voice` (every merge; its binaries are what [updates](updates.md) downloads) | 1 | `pr` | one per core | skipped |
+| Pull request into `lamp-voice`, manual run | 1 | `pr` | one per core | run, one at a time, started first |
+| Push to `lamp-voice` (every merge; its binaries are what [updates](updates.md) downloads) | 1 | `pr` | one per core | run, one at a time, started first |
 | Full run: nightly, or manual with `full` | 4 | `default` | one, as before | run |
 
 The nightly full run starts at 19:00 UTC (02:00 in Vietnam) from
@@ -24,7 +26,8 @@ changed. The runners are unchanged (`ubuntu-22.04-arm`): larger runners cost
 too much.
 
 Each runner compiles every test binary again (about 5 of its 10 minutes), so
-one runner is used where the realtime group is skipped; those tests take
+pull requests and merges use one runner, where the realtime group was
+skipped until 2026-10-17; those tests took
 about a minute in parallel (run 38721013037: 4,399 tests, 55 s, 4 cores).
 A merge costs one runner for about 11 minutes; until 2026-10-15 it cost four
 for about 15.
@@ -49,9 +52,10 @@ conversations, so the nightly full run still runs them.
 
 ## What is in the group
 
-The group is a nextest filterset, written three times in
-`.config/nextest.toml` (group override, `pr` exclusion, `realtime`
-selection), which must stay identical:
+The group is a nextest filterset, written twice in `.config/nextest.toml`
+(the group override and the `realtime` selection), which must stay
+identical. Until 2026-10-17 it was written a third time, as the `pr`
+profile's exclusion:
 
 - the whole test binary `lamp-voice::capture_hold_worker` (the evaluator's
   four, `serve_session`, `physical_loopback`, `serve_relay` and
@@ -77,8 +81,9 @@ selection), which must stay identical:
   #988, #1004), so pull requests run it again.
 
 Because whole binaries and modules are matched, a new test added to one of
-them is also skipped on pull requests and merges, and is first run by the
-nightly full run after it is merged.
+them joins the group: it runs one at a time, on pull requests too. Until
+2026-10-17 it was skipped on pull requests and merges and first ran on the
+night after it was merged.
 
 ## Running it
 
@@ -88,9 +93,47 @@ From `lampOS/`, the group alone, one test at a time as on the runner:
 cargo nextest run --release --workspace --profile realtime -j 1
 ```
 
-What a pull request runs: `--profile pr`. Everything, as the full run:
+What a pull request runs: `--profile pr`, every test, the group one at a
+time. Everything one test at a time, as the full run:
 `cargo nextest run --release --workspace -j 1`. `cargo test` is unaffected
 and runs everything.
+
+## Every run runs the group (#823)
+
+Once most of the group had moved onto test clocks, 9 tests were left, and 8
+once memory's env-alone test leaves too (#1283). They wait on the real clock
+by design: `capture_hold_worker` plays the production capture loop in real
+10 ms ticks, `lamp-health::program`'s test runs the real program's 5 s
+period against the bus's real 3 s lease, and `endpoint_fixture_reaps` needs
+the real 1.5 s grace before a kill. A test clock in the capture loop was
+rejected: it is the lamp's most sensitive path, for about 18 s a night (the
+first builder on #823, 12:21). But while the group was skipped, a pull
+request that changed the capture loop never ran these tests.
+
+So the experiment #1292 (not merged) let pull requests run the group too, one
+at a time beside the rest, to see whether the real-time bounds hold beside a
+full core load. Five ARM64 runs, all green, every group test passing each
+time, with the same times within 30 ms:
+
+| Run | Group started | Tests | Test phase |
+|---|---|---|---|
+| 39005954204 | where nextest's order puts it | 6,379 | 128.7 s |
+| 39006507964 (by hand) | where nextest's order puts it | 6,379 | 129.1 s |
+| 39005954204, re-run | where nextest's order puts it | 6,379 | 130.2 s |
+| 39008360397 | first (`priority = 100`) | 6,407 | 133.7 s |
+| 39008376363 (by hand) | first (`priority = 100`) | 6,379 | 125.8 s |
+
+The group's 9 tests took 39.9 s one after another (the 8 that stay, 35.4 s).
+The other runs that day took 116 to 118 s for about 6,370 tests without the
+group. In nextest's own order `capture_hold_worker` came last, from test
+5,745 of 6,379 on, and ended the run. With `priority = 100` (nextest 0.9.91
+on; the runner had 0.9.148) the group starts first and was done by about test
+2,770. The rest of what it costs is the core it holds while it waits, about
+10 s of a 10 to 16 minute job.
+
+Since 2026-10-17 the `pr` profile's filter is `all()`, and the group's
+override has `priority = 100`. The workflow's table (DevOps' file) still says
+pull requests skip the group until DevOps changes it.
 
 ## Slow-transport wait entry point (#823)
 
@@ -131,10 +174,10 @@ and assertion bounds must remain unchanged.
 
 A test leaves the group when it no longer waits on the real clock: an
 injectable clock, a paused tokio clock, a time scale on a fake, or a shorter
-fixture, without weakening what it asserts. Remove it from all three
-filtersets in the same pull request, and update this list. When the group is
-empty, delete it, the `pr` and `realtime` profiles, the `full` input and the
-nightly workflow, and this page.
+fixture, without weakening what it asserts. Remove it from both filtersets
+in the same pull request, and update this list. When the group is empty,
+delete it, the `realtime` profile, the `full` input and the nightly
+workflow, and this page.
 
 Review points:
 
@@ -142,10 +185,11 @@ Review points:
   until it is fixed? A failure names a day's merges, not one pull request.
 - Who decides that a red full run holds the next merge? The workflow only
   opens the issue; it does not block merging.
-- Does a pull request's run list the expected number of tests? As of
-  2026-10-17 nextest says "including 2 tests and 1 binary via
-  profile.pr.default-filter": the named single test, the named
-  `endpoint_session` test, and `capture_hold_worker` as one binary.
+- Does a pull request's run list the expected number of tests? Since
+  2026-10-17 the `pr` profile skips nothing: nextest's "skipped" line no
+  longer says "via profile.pr.default-filter". Before, it said "including 2
+  tests and 1 binary": the named single test, the named `endpoint_session`
+  test, and `capture_hold_worker` as one binary.
 
 ## The measured list
 

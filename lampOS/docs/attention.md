@@ -1226,10 +1226,27 @@ lamp, the name alone counts as the busy form has it: heard surely
 (`SURE_SCORE`, 0.999), or at `NEAR_SCORE` (0.95) with the room microphone
 `NEAR_RISE_DB` (18 dB) over its quiet. With a face turned, in a room not
 known to be busy, or at night, a hearing at `lamp-name`'s 0.9 floor still
-counts. Of that day's four played calls, the one at 0.949 is held now
-whatever its rise. The other three (0.995 to 0.998) are played only if
-they came close. Their rises weren't recorded then; the journal lines now
-give them (above, under the near rule's switch).
+counts.
+
+Close is not enough by day either (the first builder at 17:09 on 16
+October). Request 169 on lamp-4ace at 17:08 played on the near rule
+(`NAMED_NEAR`: 0.95 or more and the room microphone 18 dB up), and the
+lamp answered colleagues talking about eye drops beside it. So with the
+switch, by day, a name heard close to the lamp also needs a face turned
+to it or its own words calling it by name (`called_by_name`); both of
+those let an answer out anyway, so by day the near rule no longer counts
+on its own. The voice journals no transcripts, so "its words" is read as
+the lamp's name said to it in them. At night, or without the switch, the
+near rule stands as it was. Of that day's four played calls, the one at
+0.949 is held now by day. The other three (0.995 to 0.998) are played by
+day only with a face or the name in their words.
+
+**The 18 dB is not yet set from the lamp's own rises.** The journal held
+two busy-room rises from 16 October 00:00 to 17 October 07:10 (22.2 and
+21.9 dB, requests 13 and 14, both "nobody is turned"), and nothing says
+whose they were. Both sit above 18 dB. The bar stands as it was, from the
+room microphone's rises in [ears.md](ears.md), until a weekday of rises
+for calls known to be the owner's, and talk known not to be, sets it.
 
 And one from 04:58 (#829, 05:02): in the two-person scene, Samantha asked
 "Daniel, are you coming to the meeting at two?" and Daniel answered her

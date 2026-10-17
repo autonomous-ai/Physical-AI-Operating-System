@@ -57,8 +57,9 @@ run on a lamp.
   over 100 (`TEMPERATURE_MAX`) is a glitch: never heat and never agreeing,
   so 150, 150, then 45 and 45 starts as usual. Over 100 on every read is a
   temperature that cannot be read: the run is refused with nothing written
-  and nothing let go, so a standing arm stays held (`would not start:
-  temperature unreadable at start: wrist_pitch reads 150`). The reads again
+  and nothing let go (`would not start: temperature unreadable at start:
+  wrist_pitch reads 150`). Only the arm of a lamp given `--stand` over 100
+  on every read is judged too warm (below). The reads again
   are in the end report (`hot_rereads`, per joint). Heat that is acted on is
   let go as before, where the lamp stands, arm up or not.
 - With `--torque on` (off unless given) it first takes hold of a joint it
@@ -117,9 +118,9 @@ the hold where there is one. Every way a run ends passes through one place
 (`run_alive`) that does this. It is not done when the body is asked to
 stop, on a refusal to start (one for a hot or loaded joint has let go
 already), or under `--overload release`, where torque is already off. A
-shoulder or an elbow whose temperature cannot be read (`Stop::BadTemperature`,
-below) lets go of the head and the base only: the arm is held where it was,
-torque on, since letting go of a standing arm drops the lamp.
+standing lamp whose shoulder or elbow cannot be read (`Stop::BadTemperature`,
+below), or is found too warm, is not let go up, where it falls, nor left up
+held, where it may heat on: it folds down first, then is let go.
 
 A load over its bound for six steps does not by itself end the run. The
 joint gives way: its goal becomes where it is, and nothing is asked of it for
@@ -315,12 +316,18 @@ positions do, naming the joint (`stopped: head_pitch temperature unreadable
 starting the count again, so 49 bad and one good, again and again, still
 ends it within about a second more, where starting again took 44.7 s, and
 one bad read in 27 never adds up (ten simulated minutes at that rate, at
-random, run on). The run ends there; for the shoulder or the elbow the arm
-is held, torque on, and only the head and the base are let go, folded or
-standing (`a_standing_lamp_whose_elbow_temperature_is_unreadable_stops_holding_the_arm`,
-`a_folded_lamp_whose_elbow_temperature_is_unreadable_stops_holding_the_arm`);
-for the head or the base the whole lamp is let go, as for any surprise. The
-stop in the report:
+random, run on). For the head or the base the run ends there and the
+whole lamp is let go, as for any surprise. For the shoulder or the elbow of
+a lamp that may stand, it first folds down as when asked to stop, at its
+own pace and its arm goals at most 50 counts a write, that joint's
+temperature no longer judged; once folded (or after the time a stop
+allows) the run ends on `BadTemperature` and the whole lamp is let go,
+folded. Started again with the elbow still unreadable, the arm is down and
+let go, never left up with torque on
+(`a_standing_lamp_whose_elbow_temperature_is_unreadable_folds_then_lets_go`;
+folded, it is let go at once,
+`a_folded_lamp_whose_elbow_temperature_is_unreadable_lets_go`). The stop
+in the report:
 
 ```text
 "stop":{"kind":"bad_temperature","joint":5,"temperature":5,"from":41}
@@ -706,7 +713,11 @@ the shoulder (servo 2) and the elbow (servo 3):
   either joint has torque off, another flag, or is at 62 or warmer, or when
   the two are not found within 80 counts of one point on the way between
   folded and stood up. Found part of the way up, on that way, it takes the
-  lamp as it is and stays up as if it had just been spoken to.
+  lamp as it is and stays up as if it had just been spoken to; but found
+  up with only an arm at 62 or warmer (or over 100 on every first read),
+  it folds down first, as when asked to stop, and is let go folded, on
+  `Stop::Temperature`
+  (`a_lamp_found_standing_with_a_warm_or_unreadable_elbow_folds_then_lets_go`).
 
 A shoulder or an elbow that reads over its load bound (`--arm-load`, 950
 and 950 without it) for six steps, is more than 160 counts from its goal for

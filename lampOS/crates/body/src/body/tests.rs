@@ -2470,7 +2470,7 @@ fn held_lean_run(
 }
 
 /// The most any arm goal moves in one step from `from` until `until`.
-fn largest_arm_step(seen: &[(Duration, Glimpse)], from: Duration, until: Duration) -> u16 {
+fn largest_arm_step_between(seen: &[(Duration, Glimpse)], from: Duration, until: Duration) -> u16 {
     seen.windows(2)
         .filter(|pair| pair[0].0 >= from && pair[1].0 < until)
         .flat_map(|pair| {
@@ -2499,7 +2499,7 @@ fn eased_out_from_a_hand(servo: usize, at: f32, until: Duration) {
         .unwrap();
     let held = seen[stalled].1.arm_goals[arm];
     // About 1.2 counts a step at `--speed` 120, rounded.
-    let largest = largest_arm_step(&seen, ms(12_000), ms(18_000));
+    let largest = largest_arm_step_between(&seen, ms(12_000), ms(18_000));
     assert!(largest <= 2, "moved {largest} in a step");
     // `LEAN` is down for both: past the held place is below it.
     for step in seen[stalled..].iter().filter(|step| step.0 < until) {
@@ -2552,23 +2552,23 @@ fn a_held_lean_folds_with_the_arm_without_a_jump() {
     };
     // Asked to stop at 11 s, the hand gone soon after or still there.
     let (_, bare) = held_lean_run(ms(11_000), &[(6_000, 12_000)], |_| {});
-    let unheld = largest_arm_step(&bare, ms(10_000), Duration::MAX);
+    let unheld = largest_arm_step_between(&bare, ms(10_000), Duration::MAX);
     for until in [ms(11_500), ms(15_000)] {
         let (report, seen) = held_lean_run(ms(11_000), &[(6_000, 12_000)], elbow(until, false));
         assert_eq!(report.stalls[4], 1, "{report:?}");
-        let largest = largest_arm_step(&seen, ms(10_000), Duration::MAX);
+        let largest = largest_arm_step_between(&seen, ms(10_000), Duration::MAX);
         assert!(largest <= unheld, "{largest} against {unheld} with no hand");
     }
     // Pushed hard enough to retreat, the hand gone at 9.3 s.
     let (_, bare) = held_lean_run(ms(18_000), &[(6_000, 12_000)], |lamp| {
         lamp.strains = vec![(ms(9_000), ms(9_300), 2, 1_000)];
     });
-    let unheld = largest_arm_step(&bare, ms(8_000), ms(18_000));
+    let unheld = largest_arm_step_between(&bare, ms(8_000), ms(18_000));
     let (report, seen) = held_lean_run(ms(18_000), &[(6_000, 12_000)], elbow(ms(9_300), true));
     assert_eq!(report.retreats.len(), 1, "{report:?}");
     // From the stall on: the stall itself only stops the goal where the elbow is.
     let stalled = seen.iter().find(|step| step.1.stalls[4] == 1).unwrap().0;
-    let largest = largest_arm_step(&seen, stalled, ms(18_000));
+    let largest = largest_arm_step_between(&seen, stalled, ms(18_000));
     assert!(largest <= unheld, "{largest} against {unheld} with no hand");
 }
 
@@ -2589,7 +2589,7 @@ fn a_hand_gone_does_not_keep_the_next_answer_from_leaning() {
         assert_eq!(before.arm_goals, [2_650, 2_600], "{at}: {before:?}");
         let leant = seen.iter().rfind(|step| step.0 < ms(23_000)).unwrap().1;
         assert_eq!(leant.arm_goals, [2_605, 2_540], "{at}: {leant:?}");
-        let largest = largest_arm_step(&seen, ms(11_000), ms(25_000));
+        let largest = largest_arm_step_between(&seen, ms(11_000), ms(25_000));
         assert!(largest <= 2, "{at}: moved {largest} in a step");
     }
 }
@@ -2606,7 +2606,7 @@ fn a_hold_from_before_the_answer_does_not_keep_it_from_leaning() {
     assert_eq!(report.stalls[4], 1, "{report:?}");
     let leant = seen.iter().rfind(|step| step.0 < ms(12_000)).unwrap().1;
     assert_eq!(leant.arm_goals, [2_605, 2_540], "{leant:?}");
-    let largest = largest_arm_step(&seen, ms(7_000), ms(14_000));
+    let largest = largest_arm_step_between(&seen, ms(7_000), ms(14_000));
     assert!(largest <= 2, "moved {largest} in a step");
 }
 

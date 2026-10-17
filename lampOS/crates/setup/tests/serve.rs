@@ -1038,6 +1038,11 @@ fn a_broken_or_partial_link_is_none_and_never_fails_setup() {
     }
 }
 
+/// The whole order is pinned, not only the link's place: `lamp-cloud` relies on
+/// it (#1418). The marker starts `lampos.target`, and `lamp-cloud`'s unit
+/// needs setup's `backend.json` by then, so the link is saved before the
+/// marker; the key stays last before the marker (#1120). The link saved after
+/// the marker, or after the key, fails here.
 #[test]
 fn the_link_is_saved_after_the_zone_and_before_the_key_and_the_marker() {
     let status = Arc::new(Mutex::new(Status::new("lamp-4ace".into())));

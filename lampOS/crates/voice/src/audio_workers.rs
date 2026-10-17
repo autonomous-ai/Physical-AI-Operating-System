@@ -123,6 +123,21 @@ impl OpenAtStart {
     }
 }
 
+/// With `LAMP_QUIET_EVIDENCE=on`, how often capture says in the journal how
+/// many blocks the echo evidence's search was skipped on (#705), so a run
+/// with the switch can say how often it applied.
+const EVIDENCE_SAID_EVERY: Duration = Duration::from_secs(60);
+
+/// The journal's line for [`EVIDENCE_SAID_EVERY`]: the blocks processed and
+/// skipped since the last line, from the processor's counts now and then.
+fn evidence_line(now: (u64, u64), then: (u64, u64), over: Duration) -> String {
+    let (blocks, skipped) = (now.0.saturating_sub(then.0), now.1.saturating_sub(then.1));
+    format!(
+        "lamp-voice: capture: the echo search was skipped on {skipped} of {blocks} blocks in the last {} s (LAMP_QUIET_EVIDENCE=on)",
+        over.as_secs()
+    )
+}
+
 /// How long a microphone closed by a stall may stay closed before the
 /// worker gives up: the coordinator's own bound on a capture gap (#784).
 const REOPEN_US: u64 = 1_500_000;
@@ -494,7 +509,9 @@ fn capture_loop<D: CaptureDevice>(
         }
     };
     let mut echo = EchoProcessor::with_reference(noise_suppression.enabled(), echo_reference);
-    echo.skip_evidence_while_render_silent(crate::quiet_pace::evidence_skipped());
+    let evidence_skip = crate::quiet_pace::evidence_skipped();
+    echo.skip_evidence_while_render_silent(evidence_skip);
+    let mut evidence_said = (Instant::now(), echo.evidence_skipped());
     let mut speech = SpeechProbability::default();
     let mut dsp_epoch = 1u64;
     let mut last_diagnostic = 0;
@@ -901,6 +918,14 @@ fn capture_loop<D: CaptureDevice>(
                     .control
                     .send(WorkerEvent::ReferenceClock { timing })?;
                 last_diagnostic = monotonic_us();
+            }
+            if evidence_skip && evidence_said.0.elapsed() >= EVIDENCE_SAID_EVERY {
+                let counts = echo.evidence_skipped();
+                eprintln!(
+                    "{}",
+                    evidence_line(counts, evidence_said.1, evidence_said.0.elapsed())
+                );
+                evidence_said = (Instant::now(), counts);
             }
         }
         // A change of trust found while draining reference is not kept
@@ -1879,6 +1904,19 @@ fn old_interaction_error(error: &(dyn std::error::Error + Send + Sync + 'static)
 fn finish_tick(started: Instant) {
     if let Some(remaining) = TICK.checked_sub(started.elapsed()) {
         std::thread::sleep(remaining);
+    }
+}
+
+#[cfg(test)]
+mod evidence_line_tests {
+    use super::*;
+
+    #[test]
+    fn the_journal_says_the_blocks_skipped_since_its_last_line() {
+        assert_eq!(
+            evidence_line((7_000, 6_100), (1_000, 400), Duration::from_millis(60_400)),
+            "lamp-voice: capture: the echo search was skipped on 5700 of 6000 blocks in the last 60 s (LAMP_QUIET_EVIDENCE=on)"
+        );
     }
 }
 

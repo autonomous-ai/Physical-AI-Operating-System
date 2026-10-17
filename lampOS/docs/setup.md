@@ -373,7 +373,9 @@ the same way), the light ends with black. The stop is listened for before
 the light starts: one during the first network look ends setup before the
 hotspot, and one while the hotspot comes up ends serving as soon as it has
 begun, so a stop in the first seconds also ends in black (the reviewer on
-#1325).
+#1325). systemd's stop reaches the whole unit, so it also ends the hotspot
+script; setup then says it was asked to stop and exits cleanly, and the
+unit does not read failed (the reviewer on #1336).
 
 It is painted by `lamp_setup::light` from a thread of `lamp-setup`, through
 `lamp_ring::setup::SetupRing`, a writer like the asleep face's that needs no

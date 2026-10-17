@@ -1434,6 +1434,10 @@ stamps `skill:<name>` and `skill` ([skills.md](skills.md)).
   begins once they are back at nothing. Asked at the same priority or
   lower, it is dropped, naming who holds the body (`dropped: busy,
   conversation`). The body's own turn to a call is the conversation's.
+- Of several gestures read in one step (the socket is read up to 32
+  datagrams a step), the body is handed the highest priority, the newest
+  on a tie, and each other one is said `lamp-body: gesture NAME dropped:
+  busy, person` (who holds it). Off, the newest, as before.
 - The same holds for one waiting for the lamp to stand: a gesture asked
   lower than the one waiting is dropped; one asked as high or higher takes
   its place, as before.

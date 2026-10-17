@@ -1,5 +1,22 @@
 # Tests work log
 
+## 2026-10-17 15:44:11 +0700 — #823 closed; pull requests run the realtime group; three new findings
+
+Ready for lamp-voice: nothing open from me. `tests/selftest-head-clock` (local, not pushed) waits on #1329.
+
+**Merged:** #1299 at 14:37 (pull requests and merges run the realtime group, one at a time and started first, nextest 0.9.91 required), #1318 at 15:05 (every run ends with the group's output; the hold's median was 39.3 ms against 35–60). #823 is closed at #1299's merge: 123 tests (977 s) on 15 Oct, 8 now (35.4 s), every test kept and run on every pull request.
+
+**Flakes:**
+- #1312, the body supervisor fixture's stale first Authority. Fixed by the seventh's #1314 (14:43), which beat my #1315 by three minutes and is simpler. I closed #1315.
+- After #1314, El found the 250 ms first-authority clock now runs during the connect. My split (worker made after connect) didn't close it. The after-bind window fails three ways (stale, clock, full buffer). The seventh's #1330 is on it, and I've told them one Authority per connection will still be stale there.
+- #1317: the reviewer's local runs miss the fixture exec marker's 3 s in batches. On a quiet machine every wait was under 50 ms, and load 66 from busy loops didn't reproduce it, so it looks like whole-machine stalls. I proposed a 30 s test-only bound and am waiting for the reviewer's conditions.
+
+**#1128:** the self-test's ring check is merged (#1294). Its head tests are stepped locally, 26 s → under 1 s on Linux, but that shows **#1329**: the head check starts its next move before the head has settled, and the merged test passes by 0.1 count (11.9 of 12). On a lamp that's a false fail waiting to happen. It's the tenth's fix, since it changes what the check does.
+
+**Other:** #874 (the full-run failure tracker) is closed; every entry in it was settled and the nightly is green. I wrote "nightly" of a full run started by hand and corrected it on the issue.
+
+**Rules:** the reviewer (13:38): a change to what product code does needs the first builder's or the owner's yes first, so #1329 goes to the tenth. And the shared VM: I waited for another agent's container rather than overlapping it.
+
 ## 2026-10-17 14:05:45 +0700 — seven more merged; the realtime group to run on pull requests
 
 Ready for lamp-voice: #1299 once its run on `8e8def392` is green and the first builder has checked it (it changes CI)

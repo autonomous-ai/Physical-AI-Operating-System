@@ -191,6 +191,18 @@ pub struct News {
     pub also: Vec<String>,
 }
 
+impl News {
+    /// The task it is news of, from its key (`<store>:<task>:<what>`): a
+    /// skill's ask for that task takes it (`say::Says::take_from`).
+    pub fn task(&self) -> Option<u64> {
+        let mut fields = self.key.rsplitn(3, ':');
+        fields.next()?;
+        let task = fields.next()?;
+        fields.next()?;
+        task.parse().ok()
+    }
+}
+
 /// What a finished task's news is made of.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Finished {
@@ -2101,6 +2113,30 @@ mod tests {
         assert_eq!(news.waiting(), Some(&two));
         told_already.lock().unwrap().insert("s:2:1".into());
         assert!(news.waiting().is_none());
+    }
+
+    /// The task a piece of news is of, from its key, as each kind is made:
+    /// a settled observation, a failed hand-over, and progress; a store
+    /// with a colon in it is read from the right.
+    #[test]
+    fn news_names_its_task_from_its_key() {
+        let of = |key: &str| {
+            News {
+                key: key.into(),
+                note: String::new(),
+                until: None,
+                progress: None,
+                finished: None,
+                also: Vec::new(),
+            }
+            .task()
+        };
+        assert_eq!(of("s:12:34"), Some(12));
+        assert_eq!(of("s:5:hand-over"), Some(5));
+        assert_eq!(of("s:3:progress-7-4"), Some(3));
+        assert_eq!(of("a:b:9:1"), Some(9));
+        assert_eq!(of("s:x:1"), None);
+        assert_eq!(of("s:1"), None);
     }
 
     /// News waiting to be told, with nothing behind it: its channels.

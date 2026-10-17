@@ -320,6 +320,7 @@ fn a_due_reminder_or_news_waits_for_a_skill_at_most_its_time() {
             Source::Schedule,
             false,
             "s/1/1",
+            None,
             &mut held,
             0
         ),
@@ -328,13 +329,13 @@ fn a_due_reminder_or_news_waits_for_a_skill_at_most_its_time() {
     // With no say service nothing can ask: said at once, switch or not
     // (Fourth on #1038).
     assert!(matches!(
-        for_skill(None, Source::Schedule, true, "s/1/1", &mut held, 0),
+        for_skill(None, Source::Schedule, true, "s/1/1", None, &mut held, 0),
         Some(None)
     ));
     assert_eq!(held, None);
     // With it and nobody asking: held, and said by the voice at 10 s.
     let mut wait = |key: &str, at: u64, held: &mut Option<(String, u64)>| {
-        for_skill(Some(&mut idle), Source::Schedule, true, key, held, at)
+        for_skill(Some(&mut idle), Source::Schedule, true, key, None, held, at)
     };
     assert!(wait("s/1/1", 1_000, &mut held).is_none());
     assert!(wait("s/1/1", SKILL_WAITS_US, &mut held).is_none());
@@ -353,6 +354,7 @@ fn a_due_reminder_or_news_waits_for_a_skill_at_most_its_time() {
         Source::Schedule,
         false,
         "s/3/1",
+        None,
         &mut held,
         2_000,
     )
@@ -368,6 +370,7 @@ fn a_due_reminder_or_news_waits_for_a_skill_at_most_its_time() {
             Source::Schedule,
             true,
             "s/4/1",
+            None,
             &mut held,
             2_000
         )
@@ -378,6 +381,7 @@ fn a_due_reminder_or_news_waits_for_a_skill_at_most_its_time() {
         Source::Tasks,
         true,
         "t/7",
+        None,
         &mut held,
         2_000,
     );
@@ -387,6 +391,44 @@ fn a_due_reminder_or_news_waits_for_a_skill_at_most_its_time() {
     ticket.answer(Outcome::Spoken);
     assert_eq!(answered.try_recv(), Ok(Answer::Done(Outcome::Spoken)));
     assert_eq!(says.waiting(), 0);
+}
+
+/// The reviewer on #1042: news of task 9 is first in line, and the Task
+/// news skill asks for task 10. With `LAMP_TASK_NEWS=skill` 9's news does
+/// not take 10's ask: it waits its 10 s for an ask of its own, then the
+/// voice says it, and 10's ask is still there for 10's news.
+#[test]
+fn news_takes_only_an_ask_for_its_own_task() {
+    use crate::say::{SKILL_WAITS_US, Says, Source};
+    let (mut says, answered) =
+        Says::asking_for_task_test(Source::Tasks, "task-news", Some(10), 60_000_000);
+    let mut held = None;
+    let mut nine = |now_us| {
+        for_skill(
+            Some(&mut says),
+            Source::Tasks,
+            true,
+            "s:9:1",
+            Some(9),
+            &mut held,
+            now_us,
+        )
+    };
+    assert!(nine(1_000).is_none(), "9 waits for its own ask");
+    assert!(matches!(nine(1_000 + SKILL_WAITS_US), Some(None)));
+    let ticket = for_skill(
+        Some(&mut says),
+        Source::Tasks,
+        true,
+        "s:10:1",
+        Some(10),
+        &mut held,
+        2_000 + SKILL_WAITS_US,
+    )
+    .flatten()
+    .expect("10's ask, for 10's news");
+    ticket.answer(Outcome::Spoken);
+    assert_eq!(answered.try_recv(), Ok(Answer::Done(Outcome::Spoken)));
 }
 
 /// #938: an owner with nothing under way and listening ready, as at rest.

@@ -211,6 +211,10 @@ pub struct Request {
     pub words: Words,
     pub priority: u8,
     pub expires_in_ms: u64,
+    /// For a `from: tasks` ask, the task whose news it is for: it is
+    /// given that task's news and no other, so that the skill's moves go
+    /// with its own task (the reviewer on #1042). None: any news.
+    pub task: Option<u64>,
 }
 
 #[derive(Deserialize)]
@@ -223,6 +227,8 @@ struct Wire {
     text: Option<String>,
     #[serde(default)]
     from: Option<String>,
+    #[serde(default)]
+    task: Option<u64>,
     #[serde(default)]
     sound: Option<String>,
     #[serde(default)]
@@ -268,6 +274,9 @@ pub fn parse(line: &str) -> Result<Request, String> {
             "note or text is 1 to {MOST_WORDS_BYTES} bytes, with no control characters"
         ));
     }
+    if wire.task.is_some() && words != Words::From(Source::Tasks) {
+        return Err("task goes only with from tasks".into());
+    }
     let priority = wire.priority.unwrap_or(NORMAL_PRIORITY);
     if priority > 9 {
         return Err("priority is 0 to 9".into());
@@ -280,6 +289,7 @@ pub fn parse(line: &str) -> Result<Request, String> {
         words,
         priority,
         expires_in_ms: wire.expires_in_ms,
+        task: wire.task,
     })
 }
 
@@ -436,6 +446,17 @@ impl Says {
         skill: &str,
         expires_at_us: u64,
     ) -> (Self, mpsc::Receiver<Answer>) {
+        Self::asking_for_task_test(source, skill, None, expires_at_us)
+    }
+
+    /// [`Self::asking_for_test`], the ask naming `task`.
+    #[cfg(test)]
+    pub(crate) fn asking_for_task_test(
+        source: Source,
+        skill: &str,
+        task: Option<u64>,
+        expires_at_us: u64,
+    ) -> (Self, mpsc::Receiver<Answer>) {
         let (mut says, ask) = Self::by_hand();
         let (answer, answered) = mpsc::channel();
         ask.send(Asked {
@@ -444,6 +465,7 @@ impl Says {
                 words: Words::From(source),
                 priority: NORMAL_PRIORITY,
                 expires_in_ms: 60_000,
+                task,
             },
             answer,
             expires_at_us,
@@ -465,6 +487,7 @@ impl Says {
                 words: Words::Sound(samples),
                 priority: NORMAL_PRIORITY,
                 expires_in_ms: 60_000,
+                task: None,
             },
             answer,
             expires_at_us: u64::MAX,
@@ -527,9 +550,9 @@ impl Says {
     }
 
     /// The next of those `of` takes: highest priority, then oldest.
-    fn next_of(&self, of: impl Fn(&Words) -> bool) -> Option<usize> {
+    fn next_of(&self, of: impl Fn(&Request) -> bool) -> Option<usize> {
         (0..self.waiting.len())
-            .filter(|&index| of(&self.waiting[index].request.words))
+            .filter(|&index| of(&self.waiting[index].request))
             .max_by(|&a, &b| {
                 let (a, b) = (&self.waiting[a], &self.waiting[b]);
                 a.request
@@ -542,14 +565,19 @@ impl Says {
     /// The next say of its own: a `from` ask waits for its source, and a
     /// sound is taken by [`Self::take_sound`].
     fn next_index(&self) -> Option<usize> {
-        self.next_of(|words| !matches!(words, Words::From(_) | Words::SoundAt(_) | Words::Sound(_)))
+        self.next_of(|request| {
+            !matches!(
+                request.words,
+                Words::From(_) | Words::SoundAt(_) | Words::Sound(_)
+            )
+        })
     }
 
     /// Take the next sound asked for, to play it now or refuse it now: a
     /// sound never waits for the lamp to be at rest.
     pub fn take_sound(&mut self, now_us: u64) -> Option<(Vec<i16>, Ticket)> {
         self.expire(now_us);
-        let index = self.next_of(|words| matches!(words, Words::Sound(_)))?;
+        let index = self.next_of(|request| matches!(request.words, Words::Sound(_)))?;
         let waiting = self.waiting.remove(index);
         let Words::Sound(samples) = waiting.request.words else {
             unreachable!("next_of chose a sound");
@@ -601,8 +629,8 @@ impl Says {
         ))
     }
 
-    /// Whether an ask for what `source` keeps waits, not yet expired.
-    #[cfg(test)]
+    /// Whether an ask for what `source` keeps waits, not yet expired, for
+    /// any task.
     pub fn asks_for(&self, source: Source, now_us: u64) -> bool {
         self.waiting.iter().any(|waiting| {
             waiting.request.words == Words::From(source) && now_us < waiting.expires_at_us
@@ -610,13 +638,15 @@ impl Says {
     }
 
     /// Take the next ask for what `source` keeps, as its source begins to
-    /// say it at `now_us`: its ticket. Those whose time ran out are answered
-    /// `expired` first.
-    pub fn take_from(&mut self, source: Source, now_us: u64) -> Option<Ticket> {
+    /// say it at `now_us`: its ticket. For news of `task`, an ask for that
+    /// task or for none; an ask for another task waits for its own. Those
+    /// whose time ran out are answered `expired` first.
+    pub fn take_from(&mut self, source: Source, task: Option<u64>, now_us: u64) -> Option<Ticket> {
         self.expire(now_us);
-        let waiting = self
-            .waiting
-            .remove(self.next_of(|words| *words == Words::From(source))?);
+        let waiting = self.waiting.remove(self.next_of(|request| {
+            request.words == Words::From(source)
+                && request.task.is_none_or(|asked| Some(asked) == task)
+        })?);
         Some(Ticket {
             skill: waiting.request.skill,
             answer: Some(waiting.answer),
@@ -1268,6 +1298,7 @@ mod tests {
                     words: Words::Note(format!("{skill}'s note")),
                     priority,
                     expires_in_ms: 60_000,
+                    task: None,
                 },
                 answer,
                 expires_at_us,
@@ -1289,6 +1320,7 @@ mod tests {
                 words: Words::Note("Remind them to call the bank.".into()),
                 priority: 8,
                 expires_in_ms: 120_000,
+                task: None,
             }
         );
         let text =
@@ -1398,6 +1430,7 @@ mod tests {
                 words: Words::From(Source::Tasks),
                 priority: NORMAL_PRIORITY,
                 expires_in_ms: 30_000,
+                task: None,
             }
         );
         assert_eq!(
@@ -1441,18 +1474,20 @@ mod tests {
         assert!(says.asks_for(Source::Schedule, 1_000_000));
         assert!(says.asks_for(Source::Tasks, 1_000_000));
         // Taken by its source, the older of two at 8 first, and answered.
-        let ticket = says.take_from(Source::Schedule, 1_000_000).unwrap();
+        let ticket = says.take_from(Source::Schedule, None, 1_000_000).unwrap();
         ticket.answer(Outcome::Spoken);
         assert_eq!(
             reminder_answer.try_recv(),
             Ok(Answer::Done(Outcome::Spoken))
         );
         // One whose time ran out is expired, not taken.
-        assert!(says.take_from(Source::Schedule, 2_000_000).is_none());
+        assert!(says.take_from(Source::Schedule, None, 2_000_000).is_none());
         assert_eq!(soon_answer.try_recv(), Ok(Answer::Done(Outcome::Expired)));
         assert!(!says.asks_for(Source::Schedule, 2_000_000));
         assert_eq!(
-            says.take_from(Source::Tasks, 2_000_000).unwrap().skill(),
+            says.take_from(Source::Tasks, None, 2_000_000)
+                .unwrap()
+                .skill(),
             "task-news"
         );
         assert_eq!(says.waiting(), 0);
@@ -1468,9 +1503,67 @@ mod tests {
         ask.send(note).unwrap();
         says.poll(0);
         assert!(says.asks_for(Source::Schedule, FROM_LIVES_US - 1));
-        assert!(says.take_from(Source::Schedule, FROM_LIVES_US).is_none());
+        assert!(
+            says.take_from(Source::Schedule, None, FROM_LIVES_US)
+                .is_none()
+        );
         assert_eq!(late_answer.try_recv(), Ok(Answer::Done(Outcome::Expired)));
         assert_eq!(says.waiting(), 1, "the note waits on");
+    }
+
+    /// The reviewer on #1042: task 9 finished and task 10 failed, and the
+    /// skill asked for 10 first (its runs came in the key's text order).
+    /// An ask that names its task is given that task's news and no other,
+    /// so the lamp never droops while it says 9 is done. An ask naming no
+    /// task takes any news, as before; `task` goes only with `from: tasks`.
+    #[test]
+    fn an_ask_that_names_its_task_is_given_that_tasks_news_only() {
+        assert_eq!(
+            parse(r#"{"skill":"task-news","from":"tasks","task":10,"expires_in_ms":30000}"#)
+                .unwrap()
+                .task,
+            Some(10)
+        );
+        for line in [
+            r#"{"skill":"x","from":"schedule","task":10,"expires_in_ms":5}"#,
+            r#"{"skill":"x","note":"n","task":10,"expires_in_ms":5}"#,
+        ] {
+            assert_eq!(
+                parse(line).unwrap_err(),
+                "task goes only with from tasks",
+                "{line}"
+            );
+        }
+        let (mut says, ask) = Says::by_hand();
+        let for_task = |task: Option<u64>| {
+            let (mut one, answered) = asked("task-news", NORMAL_PRIORITY, 61_000_000);
+            one.request.words = Words::From(Source::Tasks);
+            one.request.task = task;
+            (one, answered)
+        };
+        let (ten, ten_answer) = for_task(Some(10));
+        let (nine, nine_answer) = for_task(Some(9));
+        ask.send(ten).unwrap();
+        ask.send(nine).unwrap();
+        says.poll(1_000_000);
+        // News of another task takes neither.
+        assert!(says.take_from(Source::Tasks, Some(11), 1_000_000).is_none());
+        assert!(says.take_from(Source::Tasks, None, 1_000_000).is_none());
+        // 9's news takes 9's ask, though 10's is older.
+        says.take_from(Source::Tasks, Some(9), 1_000_000)
+            .unwrap()
+            .answer(Outcome::Spoken);
+        assert_eq!(nine_answer.try_recv(), Ok(Answer::Done(Outcome::Spoken)));
+        assert!(ten_answer.try_recv().is_err());
+        says.take_from(Source::Tasks, Some(10), 1_000_000)
+            .unwrap()
+            .answer(Outcome::Spoken);
+        assert_eq!(ten_answer.try_recv(), Ok(Answer::Done(Outcome::Spoken)));
+        // An ask naming no task takes any task's news.
+        let (any, _) = for_task(None);
+        ask.send(any).unwrap();
+        says.poll(1_000_000);
+        assert!(says.take_from(Source::Tasks, Some(11), 1_000_000).is_some());
     }
 
     /// The reviewer on #954: a say is never begun after its time, however

@@ -13,6 +13,11 @@
 //!   [`ACKNOWLEDGEMENTS`], hums and laughs): it is decided as a sound that
 //!   went on is, at once;
 //! - words back with nothing past those: `on` decides it, as before;
+//! - words back that only tell the lamp to stop ([`only_a_stop`]), with no
+//!   speech since they were asked for: it is let go, never asked of the
+//!   model, and the answer it waits for is stopped. That holds even once
+//!   `on` has decided because the answer began to sound, since a stop is
+//!   most likely just before it does ([`then_once_decided`]);
 //! - where `on` would let it go and its words are not back, it waits for
 //!   them while it has not ended and is short of its own deadline; then it
 //!   is let go, as with `on`. An ended sound cannot be held: the next one's
@@ -46,8 +51,8 @@ pub const FILLERS: &[&str] = &[
 /// while an answer is awaited: on their own they ask nothing, and a waited
 /// sound of only these and [`FILLERS`] is judged as one of no words is (the
 /// seventh's P2 on #1277: the asker's "Okay." must not cut off the answer
-/// it waits for). "No", "wait", "stop" and "what" are not among them: they
-/// ask something.
+/// it waits for). "No" and "what" are not among them: they ask something.
+/// "Wait" and "stop" alone are a stop ([`only_a_stop`]).
 pub const ACKNOWLEDGEMENTS: &[&str] = &[
     "okay", "ok", "yeah", "yes", "yep", "yup", "right", "alright", "sure",
 ];
@@ -81,7 +86,10 @@ const WITH_A_STOP: &[&str] = &["it", "please", "now", "lamp", "hey", "talking", 
 /// nothing, a stop word, or one that only goes with a stop
 /// ([`WITH_A_STOP`]). "Stop.", "Okay, stop it, please." and "Hold on." do.
 /// "Wait, what about tomorrow?" asks something more and takes the turn as
-/// before, and "Don't stop." is no stop.
+/// before, and "Don't stop." is no stop. In the loop a stop with the
+/// lamp's name, or one still going at its 1 s mark, is decided by `on`
+/// before its words come, and takes the turn as before (the seventh's P3
+/// on #1352).
 pub fn only_a_stop(text: &str) -> bool {
     crate::stop_words::stop_phrase(text)
         && crate::not_speech::plain_words(text).iter().all(|word| {
@@ -131,6 +139,29 @@ pub fn then(lets_go: bool, verdict: Verdict, ended: bool, at_us: u64, deadline_u
         Verdict::Words(_) => Then::LetGo,
         Verdict::Pending if !ended && at_us < deadline_us => Then::Wait,
         Verdict::Pending => Then::LetGo,
+    }
+}
+
+/// [`Then`] for a waited sound that `on` has already decided, when its words
+/// were asked for and it has been quiet since: words that only say to stop
+/// still stop. While they aren't back, it waits for them only if `on`
+/// decided because the answer began to sound inside its 300 ms of quiet
+/// (`answer_sounding`), as long as it hasn't ended and is short of
+/// `deadline_us`. One decided at its 1 s mark went on, and is taken as
+/// before. Anything else is as `on` decided. So a "Stop." that ends just
+/// before the answer sounds is never asked of the model (the seventh's P2
+/// on #1352).
+pub fn then_once_decided(
+    verdict: Verdict,
+    answer_sounding: bool,
+    ended: bool,
+    at_us: u64,
+    deadline_us: u64,
+) -> Then {
+    match verdict {
+        Verdict::Stop(_) => Then::Stop,
+        Verdict::Pending if answer_sounding && !ended && at_us < deadline_us => Then::Wait,
+        _ => Then::AsBefore,
     }
 }
 
@@ -488,6 +519,39 @@ pub(crate) mod tests {
         }
         for (lets_go, ended) in [(false, false), (true, false), (true, true)] {
             assert_eq!(then(lets_go, Verdict::Stop(1), ended, 0, 1), Then::Stop);
+        }
+    }
+
+    /// Once `on` has decided, a stop still stops. Missing words are waited
+    /// for only when it decided because the answer began to sound, while the
+    /// sound hasn't ended and is short of its deadline. Anything else, a
+    /// sound decided at its 1 s mark among them, is as `on` decided.
+    #[test]
+    fn once_decided_only_a_stop_or_its_wait_changes_anything() {
+        for sounding in [false, true] {
+            for ended in [false, true] {
+                assert_eq!(
+                    then_once_decided(Verdict::Stop(1), sounding, ended, 2, 1),
+                    Then::Stop
+                );
+            }
+            for words in [Verdict::Words(1), Verdict::Words(0)] {
+                assert_eq!(
+                    then_once_decided(words, sounding, false, 0, 1),
+                    Then::AsBefore
+                );
+            }
+        }
+        assert_eq!(
+            then_once_decided(Verdict::Pending, true, false, 0, 1),
+            Then::Wait
+        );
+        for (sounding, ended, at) in [(false, false, 0), (true, true, 0), (true, false, 1)] {
+            assert_eq!(
+                then_once_decided(Verdict::Pending, sounding, ended, at, 1),
+                Then::AsBefore,
+                "sounding {sounding}, ended {ended}, at {at}"
+            );
         }
     }
 

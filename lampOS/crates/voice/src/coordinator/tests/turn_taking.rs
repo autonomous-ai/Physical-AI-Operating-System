@@ -314,6 +314,7 @@ impl Harness {
                     self.admission.pending_ended(),
                     self.detector.pause_blocks(),
                     self.last_speech_us,
+                    state.waited && state.sounding,
                     at_us,
                 );
                 self.told.extend(told);
@@ -626,12 +627,18 @@ struct WithWords {
 /// 0.99, then 1.5 s of quiet. `said` comes back from the ears `after`
 /// blocks once its words were asked for, if ever.
 fn with_words(blocks: u32, words: bool, said: Option<(&str, u32)>) -> WithWords {
-    with_words_in(&[(blocks, 0.99)], words, said)
+    with_words_in(&[(blocks, 0.99)], words, said, None)
 }
 
 /// [`with_words`], with the sound in `pieces` of blocks at a score: speech,
-/// a pause, speech again.
-fn with_words_in(pieces: &[(u32, f32)], words: bool, said: Option<(&str, u32)>) -> WithWords {
+/// a pause, speech again. With `answer_at`, the answer begins to sound at
+/// that block of the sound (`answer_sounds`).
+fn with_words_in(
+    pieces: &[(u32, f32)],
+    words: bool,
+    said: Option<(&str, u32)>,
+    answer_at: Option<u32>,
+) -> WithWords {
     let mut h = Harness::duplex(4_000_000);
     let script = words.then(|| {
         let (words, script) = crate::wait_words::tests::scripted();
@@ -648,6 +655,9 @@ fn with_words_in(pieces: &[(u32, f32)], words: bool, said: Option<(&str, u32)>) 
         .collect();
     for block in 0..scores.len() as u32 + 150 {
         let score = scores.get(block as usize).copied().unwrap_or(0.0);
+        if answer_at == Some(block) {
+            answer_sounds(&mut h);
+        }
         sound(&mut h, &mut t, 1, score, true, &mut accepted);
         if decided.is_none() && (accepted.is_some() || !h.let_go.is_empty()) {
             decided = Some(block);
@@ -1795,6 +1805,7 @@ fn with_words_a_stop_the_person_went_on_from_takes_the_turn_and_a_lone_one_stops
         &[(30, 0.99), (15, 0.0), (60, 0.99)],
         true,
         Some(("Wait.", 15)),
+        None,
     );
     assert!(!went_on.stopped, "the answer the person wanted was stopped");
     let accepted = went_on.accepted.expect("the request goes on as one line");
@@ -1805,4 +1816,26 @@ fn with_words_a_stop_the_person_went_on_from_takes_the_turn_and_a_lone_one_stops
     assert!(lone.stopped);
     assert_eq!(lone.let_go, ["stop_said"]);
     assert!(lone.accepted.is_none());
+}
+
+/// The seventh's P2 on #1352: a "Stop." that ends less than 300 ms before
+/// the answer begins to sound. Once it sounds, `on` decides a waited sound
+/// that hasn't been quiet for 300 ms at once, before its words, and so the
+/// stop was taken as a request. Its words were asked for and it has been
+/// quiet since, so now they decide it: it waits for them, stops the answer
+/// and is never asked of the model. The seventh's probe: a 0.4 s "Stop.",
+/// its words asked for 100 ms after it ends and back 250 ms later, the
+/// answer sounding 120, 150 or 200 ms after it ends. "No." in the same
+/// place is taken, as before.
+#[test]
+fn with_words_a_stop_just_before_the_answer_sounds_still_stops_it() {
+    for answer_at in [52, 55, 60] {
+        let stop = with_words_in(&[(40, 0.99)], true, Some(("Stop.", 25)), Some(answer_at));
+        assert!(stop.accepted.is_none(), "answer at {answer_at}: taken");
+        assert!(stop.stopped, "answer at {answer_at}");
+        assert_eq!(stop.let_go, ["stop_said"], "answer at {answer_at}");
+    }
+    let no = with_words_in(&[(40, 0.99)], true, Some(("No.", 25)), Some(55));
+    assert!(no.accepted.is_some());
+    assert!(!no.stopped);
 }

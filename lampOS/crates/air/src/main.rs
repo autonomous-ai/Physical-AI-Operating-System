@@ -76,7 +76,10 @@ fn parse(given: &[String]) -> Result<Option<Arguments>, String> {
 #[cfg(target_os = "linux")]
 mod serve {
     use super::{Arguments, log};
-    use lamp_air::{DATA_READY, PRODUCT, READ_VALUES, START, command, reading, text, watch, words};
+    use lamp_air::{
+        DATA_READY, PRODUCT, READ_TIMES, READ_VALUES, START, command, reading, text, watch,
+        words_among_filler,
+    };
     use lamp_bus::Publisher;
     use lamp_msgs::{AirState, Diagnostic};
     use rustix::{
@@ -87,11 +90,14 @@ mod serve {
     };
     use std::{
         io,
+        sync::atomic::{AtomicBool, Ordering},
         thread::sleep,
         time::{Duration, Instant},
     };
 
     const I2C_SLAVE: Opcode = 0x0703;
+    /// Filler was said in the journal: once a run is enough.
+    static FILLER_SAID: AtomicBool = AtomicBool::new(false);
     /// The sensor answers a command after this long (the datasheet's
     /// execution times are 20 ms for reading values and names).
     const ANSWER: Duration = Duration::from_millis(25);
@@ -125,14 +131,24 @@ mod serve {
             Ok(Self(fd))
         }
 
-        /// Send a command and read `count` words of its answer.
+        /// Send a command and read `count` words of its answer, through
+        /// any filler a bus faster than the sensor puts in it: the read is
+        /// `READ_TIMES` the answer's length. Filler is said once in the
+        /// journal.
         fn ask(&self, code: u16, count: usize) -> Result<Vec<u16>, String> {
             write(&self.0, &command(code)).map_err(|e| format!("command {code:#06x}: {e}"))?;
             sleep(ANSWER);
-            let mut reply = vec![0u8; count * 3];
+            let mut reply = vec![0u8; count * 3 * READ_TIMES];
             let got =
                 read(&self.0, &mut reply).map_err(|e| format!("answer to {code:#06x}: {e}"))?;
-            words(&reply[..got])
+            let filled = words_among_filler(&reply[..got], count)?;
+            if filled.skipped > 0 && !FILLER_SAID.swap(true, Ordering::Relaxed) {
+                log(&format!(
+                    "the air sensor's answer to {code:#06x} had {} filler bytes (0xff) between its words, skipped by their CRCs",
+                    filled.skipped
+                ));
+            }
+            Ok(filled.words)
         }
 
         pub fn name(&self) -> Result<String, String> {
@@ -182,7 +198,30 @@ mod serve {
             // Opening the bus and setting the address make no transaction.
             let sensor =
                 Sensor::open(self.bus).map_err(|e| watch::Missing::NoBus(e.to_string()))?;
-            let name = sensor.name().map_err(watch::Missing::NoAnswer)?;
+            let name = match sensor.name() {
+                Ok(name) => name,
+                // Something answered, but its name failed its CRC: start
+                // its measurement anyway and try the values. A guard: on
+                // lamp-4ace on 17 Oct the name failed all day, and whether
+                // a start would have brought the values back is not shown
+                // (the first builder, #705 20:44). Nobody acknowledging is
+                // never started, so a lamp without the sensor makes no more
+                // transactions.
+                Err(error) if error.contains("CRC") => {
+                    // A start refused (one already measuring may refuse
+                    // it) still leaves the values to try; the loop starts
+                    // it again after 15 s with no reading.
+                    match sensor.start() {
+                        Ok(()) => format!(
+                            "an air sensor whose name failed ({error}); its measurement started"
+                        ),
+                        Err(start) => format!(
+                            "an air sensor whose name failed ({error}); its start failed too ({start}), so its values are tried as it is"
+                        ),
+                    }
+                }
+                Err(error) => return Err(watch::Missing::NoAnswer(error)),
+            };
             self.sensor = Some(sensor);
             Ok(name)
         }

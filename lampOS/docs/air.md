@@ -14,7 +14,48 @@ values (0x0471, seven words, each with Sensirion's CRC-8), and start
 measurement (0x0021), sent only when no new reading has come for 15 s,
 as after a power cut. Every word's CRC is checked; a bad one is no value.
 0xFFFF (and 0x7FFF for the signed humidity and temperature) means the
-sensor does not know the value yet, and it is left out.
+sensor does not know the value yet, and it is left out. CO2 says it as
+either: for its first seconds after a start it reads 0x7FFF (lamp-4ace,
+17 Oct 18:3x), which taken as 32,767 ppm would make every start Stuffy.
+
+**Filler, a failed name, and a cause not reproduced.** On lamp-4ace on 17
+Oct every look failed its CRC from at least 11:00 until 18:36, when the
+reads came back after the hardware team swapped the sensor and a start was
+sent by hand. The cause is not reproduced: at 20:13 to 20:19 the swapped
+sensor, measuring, gave no `0xff` filler at 400 kHz or at 100 kHz (0 in
+3,360 bytes each), and at 20:42 to 20:44, stopped (`0x0104`) and idle, it
+gave none either (0 in 480) and its name read clean; the installed
+`lamp-air` restarted it as it should (the first builder, #705 18:28 to
+20:44). So the filler decode and the start when the name fails are guards,
+not a shown fix; what is shown is that a sensor just started reads CO2
+`0x7FFF` (the old `lamp-air` took it as 32,767 ppm, very stuffy). What was
+seen at 18:2x, in the swapped sensor's first minutes on the bus: the SEN6x
+speaks I2C standard mode only (100 kHz) and stretches the clock; lamp-4ace's
+bus 0 runs at 400 kHz (`twi@2510000`'s `clock-frequency`), the master read
+`0xff` while the sensor still held the line, and `0xff` bytes came between
+the real ones,
+up to two inside one word (the first builder, #705 17 Oct 18:28 and
+18:30). So each answer is read at three
+times its length and decoded by its CRCs (`words_among_filler`): each
+word is two bytes and a CRC that matches, a `0xff` is taken as filler
+first and as data only where no decode with it skipped holds,
+backtracking over every `0xff` (at most 8 skipped in one place), so a
+real 0xFFFF still reads as "not known yet". Filler first, because filler
+can make a word: 0xFF00 is `ff 00 00` (its CRC is 0x00), and `ff 00 ff 00`
+around a null word, with the inner `ff` skipped, reads as it. A reply that reads straight (its first words all with good CRCs) is taken as it is, before any backtracking, so with no filler a real `0xff` is never skipped for the bytes after the answer, whatever the sensor sends there (the reviewer on #1366: T 0x1BFF then CO2 0x0370, with `0x00` after, read 28,756 ppm without it). When the name still fails its
+CRC (something answered), the measurement is started anyway and the
+values tried, a guard for a name that fails while the values would read
+(on lamp-4ace on 17 Oct the name failed all day; whether a start would
+have brought the values back is not shown, and the branch has not run on
+a lamp). The journal then says
+"the sensor answers: an air sensor whose name failed (…); its
+measurement started". A start it refuses (one already measuring may)
+still leaves the values to try, and the loop starts it again after 15 s
+with no reading. Nobody acknowledging is never started, so a lamp
+without the sensor makes no more transactions. The journal says it once
+a run: "the air sensor's answer to 0x… had N filler bytes (0xff)
+between its words, skipped by their CRCs". The bus at 100 kHz (#1368) is the sensor's own
+limit, not shown to be the fix.
 
 A sensor that does not answer, or answers its name but gives no reading
 (a half-seated plug, a CRC fault), is looked for three times, five seconds
@@ -78,8 +119,11 @@ read of the sensor took a median 4.60 ms at 100 kHz against 1.30 ms at
 so it has not been seen at 100 kHz.
 
 The temperature and humidity are those inside the base, warmed by the
-lamp itself (33 °C on 2026-10-14 in a cooler office): they are not the
-room's, and nothing should speak of them as if they were.
+lamp itself (33 °C on 2026-10-14 in a cooler office; on 17 Oct it climbed
+from 35.5 to 44 °C in 6 s after a start, and the humidity fell with it):
+they are not the room's, and nothing should speak of them as if they
+were. Where the sensor sits in the base is the hardware team's question
+(`lamp-4ace.md` question 5).
 
 ## What it says
 

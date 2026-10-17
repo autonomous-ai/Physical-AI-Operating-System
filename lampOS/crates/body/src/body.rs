@@ -1127,15 +1127,22 @@ const READ_JUMP: u16 = 300;
 const ARM_EASE_REACH: u16 = 400;
 /// Bad reads of one joint in a row that end the run on `Stop::BadRead`.
 const BAD_READS_IN_ROW: u8 = 3;
-/// A temperature reading over this, or farther than `TEMPERATURE_JUMP` from
-/// the joint's last good one, is not how warm the servo is. lamp-52e6 on
-/// 2026-10-17 read 43 to 54 on most logged steps, yet its shoulder and
-/// elbow read 60 to 150 on single steps among them, in checksummed
-/// replies whose positions and loads were where the joint was, and never
-/// over 150: the servo's own register, not the wire. Heat rises by a degree
-/// in tens of seconds, not 15 in a 20 ms step.
+/// What `Bus::judge_temperatures` takes as a reading of how warm a servo
+/// is. On lamp-52e6 on 2026-10-17, over 632 pairs of its arm's logged
+/// standing steps 20 to 30 s apart (readings under 58), none rose more than
+/// a degree (3 degrees a minute at most); yet single steps among them read
+/// 60 to 150, in checksummed replies whose positions and loads were where
+/// the joint was, and never over 150: the servo's own register, not the
+/// wire. A reading is bad over `TEMPERATURE_MAX`, or farther from the last
+/// good one than `TEMPERATURE_JUMP` (a degree or two of register noise
+/// and margin) and a degree per `STEPS_PER_DEGREE` steps since it: 30
+/// degrees a minute, ten times the fastest seen.
 const TEMPERATURE_MAX: u8 = 100;
-const TEMPERATURE_JUMP: u8 = 15;
+const TEMPERATURE_JUMP: u8 = 3;
+const STEPS_PER_DEGREE: u128 = 100;
+/// How near itself a bad value must stay, read after read, to become the
+/// good one after `Limits::temperature_steps` reads.
+const TEMPERATURE_SETTLE: u8 = 2;
 
 /// The window each arm goal must be inside, shoulder then elbow, for a body
 /// given a pose to stand in: its way between folded and stood up, and
@@ -1175,8 +1182,13 @@ struct Bus<'a, P, R> {
     bad_in_row: [u8; 5],
     /// Each joint's last good temperature and its bad temperature reads
     /// (`judge_temperatures`).
-    warm: [Option<u8>; 5],
+    warm: [Option<(u8, Duration)>; 5],
     bad_temperatures: [u16; 5],
+    /// A bad value that has stayed, and for how many reads in a row, and
+    /// the reads it must stay to become the good one
+    /// (`Limits::temperature_steps`).
+    settling: [Option<(u8, u8)>; 5],
+    settle_steps: u8,
 }
 
 impl<'a, P: PortIo, R: Runtime> Bus<'a, P, R> {
@@ -1194,6 +1206,8 @@ impl<'a, P: PortIo, R: Runtime> Bus<'a, P, R> {
             bad_in_row: [0; 5],
             warm: [None; 5],
             bad_temperatures: [0; 5],
+            settling: [None; 5],
+            settle_steps: Limits::FOLDED.temperature_steps,
         }
     }
 }
@@ -1297,7 +1311,7 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
             Ok(())
         })?;
         self.judge_positions(&mut samples)?;
-        self.judge_temperatures(&mut samples)?;
+        self.judge_temperatures(&mut samples);
         Ok(samples)
     }
 
@@ -1353,34 +1367,53 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
     }
 
     /// Every temperature read passes here before a peak or the heat stop
-    /// uses it, as positions pass `judge_positions`. A bad one (over
-    /// `TEMPERATURE_MAX`, or more than `TEMPERATURE_JUMP` from the joint's
-    /// last good one) is counted and replaced by the last good one; with no
-    /// good one yet the read fails. Bad ones in a row do not stop the run:
-    /// lamp-52e6 reads them often, and the heat stop they would stand in
-    /// for needs `Limits::temperature_steps` hot steps in a row. The last
-    /// good one counts in the heat streak as it did, so a bad read neither
-    /// starts nor resets it.
-    fn judge_temperatures(&mut self, samples: &mut [Sample; 5]) -> Result<(), String> {
+    /// uses it, as positions pass `judge_positions`. A bad one is over
+    /// `TEMPERATURE_MAX`, or farther from the joint's last good one than
+    /// `TEMPERATURE_JUMP` and a degree per `STEPS_PER_DEGREE` steps since
+    /// it. It is counted and replaced by the last good one, so it is never
+    /// a peak and neither starts nor resets the heat streak. A bad value
+    /// that stays within `TEMPERATURE_SETTLE` of itself for `settle_steps`
+    /// reads in a row is what the servo reads now and becomes the good one:
+    /// a joint really at 70 after a low read, or a steady 150, is judged on
+    /// it again. Bad reads never stop the run. With no good one yet (the
+    /// first read) a reading is taken as it is, so one over the limit goes
+    /// down the found-hot path (refused, torque off on all five).
+    fn judge_temperatures(&mut self, samples: &mut [Sample; 5]) {
+        let now = self.runtime.now();
         for (index, sample) in samples.iter_mut().enumerate() {
             let read = sample.temperature;
-            let good = self.warm[index];
-            let bad = read > TEMPERATURE_MAX
-                || good.is_some_and(|good| read.abs_diff(good) > TEMPERATURE_JUMP);
-            if !bad {
-                self.warm[index] = Some(read);
+            let Some((good, at)) = self.warm[index] else {
+                if read > TEMPERATURE_MAX {
+                    self.bad_temperatures[index] = self.bad_temperatures[index].saturating_add(1);
+                } else {
+                    self.warm[index] = Some((read, now));
+                }
+                continue;
+            };
+            let steps = now.saturating_sub(at).as_micros() / TICK.as_micros();
+            let reach = u128::from(TEMPERATURE_JUMP) + steps / STEPS_PER_DEGREE;
+            // Over the limit is bad unless the good one is too: it settled there.
+            let in_range = read <= TEMPERATURE_MAX || good > TEMPERATURE_MAX;
+            if in_range && u128::from(read.abs_diff(good)) <= reach {
+                self.warm[index] = Some((read, now));
+                self.settling[index] = None;
                 continue;
             }
-            self.bad_temperatures[index] = self.bad_temperatures[index].saturating_add(1);
-            match good {
-                Some(good) => sample.temperature = good,
-                None => {
-                    let joint = Joint::ALL[index].id();
-                    return Err(format!("joint {joint} read {read} degrees"));
+            let held = match self.settling[index] {
+                Some((first, count)) if read.abs_diff(first) <= TEMPERATURE_SETTLE => {
+                    (first, count.saturating_add(1))
                 }
+                _ => (read, 1),
+            };
+            if held.1 >= self.settle_steps {
+                self.warm[index] = Some((read, now));
+                self.settling[index] = None;
+                continue;
             }
+            self.settling[index] = Some(held);
+            self.bad_temperatures[index] = self.bad_temperatures[index].saturating_add(1);
+            sample.temperature = good;
         }
-        Ok(())
     }
 
     /// Torque, acceleration and goal speed of the commanded joints.
@@ -2484,6 +2517,7 @@ fn run_until_stopped(
     watch: impl FnMut(&Glimpse),
 ) -> BodyReport {
     let mut bus = Bus::new(io, runtime, standing);
+    bus.settle_steps = limits.temperature_steps.max(1);
     let mut report = run_on(
         &mut bus, limits, home, standing, looking, news, asked, watch,
     );

@@ -62,6 +62,8 @@ struct Lamp {
     unstrained: Option<[u16; 5]>,
     /// A temperature to put back once it has been read once.
     blip: Option<(usize, u8)>,
+    /// Temperatures one servo reads from a given time: when, servo, degrees.
+    heats: Vec<(Duration, usize, u8)>,
     simulated_to: Duration,
     /// The shoulder and the elbow follow their goals like the other three.
     /// Off, they stay where they are whatever is written to them.
@@ -146,6 +148,7 @@ fn folded(cancel_at: Duration) -> (Lamp, Clock) {
             strains: Vec::new(),
             unstrained: None,
             blip: None,
+            heats: Vec::new(),
             simulated_to: Duration::ZERO,
             arm_moves: false,
             overload_clears: 0,
@@ -184,6 +187,12 @@ impl Lamp {
                 }
             }
         }
+        for (at, index, to) in &self.heats {
+            if now >= *at {
+                self.servos[*index].temperature = *to;
+            }
+        }
+        self.heats.retain(|(at, _, _)| now < *at);
         if !self.strains.is_empty() {
             let before = *self
                 .unstrained
@@ -592,6 +601,8 @@ fn it_does_not_start_on_a_lamp_that_is_not_as_expected() {
     assert!(refused(&|lamp| lamp.servos[ROLL].torque = 0).contains("torque"));
     assert!(refused(&|lamp| lamp.servos[PITCH].status = 0x20).contains("0x20"));
     assert!(refused(&|lamp| lamp.servos[YAW].temperature = 70).contains("70"));
+    // Over 100 on the first read is still found hot: let go, not a failed read.
+    assert!(refused(&|lamp| lamp.servos[YAW].temperature = 150).contains("150 already"));
     assert!(refused(&|lamp| lamp.servos[PITCH].load = 200).contains("200"));
     // A joint that does not answer, commanded or not.
     assert!(refused(&|lamp| lamp.servos[1].answers = false).contains("first read"));
@@ -754,10 +765,10 @@ fn a_new_flag_a_moved_elbow_or_a_hot_joint_stops_it() {
     let ended = |index: usize, event: Event| {
         let (mut lamp, mut clock) = folded(Duration::from_secs(8));
         lamp.event = Some((Duration::from_millis(1_500), index, event));
-        // Heat comes on slowly: from a few degrees under, not 18 in a step
+        // Heat comes on slowly: from two degrees under, not 18 in a step
         // (`judge_temperatures`).
         if let Event::Heat(to) = event {
-            lamp.servos[index].temperature = to - 5;
+            lamp.servos[index].temperature = to - 2;
         }
         let news = script(&clock.time);
         let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
@@ -1966,6 +1977,7 @@ fn an_elbow_pushing_under_an_old_overload_is_told_to_stop_and_then_carries_the_l
     // No torque was written: stopping the push was enough.
     assert_eq!(report.torque_writes, 0);
     assert!(lamp.registers.contains(&(3, 42, vec![0xfc, 0x07])));
+    assert!(report.stood, "{report:?}");
     assert_eq!(lamp.servos[2].status, 0);
     // Down again, its arm is left resting where it is, not pushed at.
     let (shoulder, elbow) = (lamp.servos[1], lamp.servos[2]);
@@ -4435,6 +4447,7 @@ fn a_shoulder_already_pushed_when_the_lamp_stands_learns_no_load_and_still_stops
         |_| {},
     );
     assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.stood, "{report:?}");
     assert!(report.stalls[3] >= 1, "{report:?}");
 }
 
@@ -4973,6 +4986,7 @@ fn a_shoulder_left_up_by_a_power_cut_is_lowered_first_and_the_lamp_may_then_stan
         lowered.seconds
     );
     assert!(report.woke.is_some());
+    assert!(report.stood, "{report:?}");
     // On the way down the shoulder only ever went down, under a count a
     // write, and the elbow was never asked to move.
     let shoulder = goals_of(&lamp, Joint::BasePitch);
@@ -6576,55 +6590,105 @@ fn a_shoulder_reading_150_degrees_once_is_counted_and_never_a_peak() {
     assert_eq!(report.bad_reads, [0; 5]);
 }
 
-/// Bad temperatures in a row are not heat and do not stop the run: a
-/// shoulder reading 150 on every step from 4 s is counted on each, the arm
-/// is not sent down for it, and the run ends as asked.
+/// Bad temperatures in a row, fewer than `temperature_steps`, are not heat
+/// and do not stop the run: a shoulder reading 150 for 0.2 s is counted on
+/// each read, never the peak, and the run ends as asked.
 #[test]
 fn bad_temperatures_in_a_row_do_not_stop_the_run() {
     let (report, _, lamp) = misread_4ace_with(Vec::new(), |lamp| {
-        lamp.event = Some((Duration::from_secs(4), 1, Event::Heat(150)));
+        lamp.heats = vec![
+            (Duration::from_secs(4), 1, 150),
+            (Duration::from_millis(4_200), 1, 45),
+        ];
     });
     assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
     let reads = lamp
         .read_times
         .iter()
-        .filter(|at| **at >= Duration::from_secs(4))
+        .filter(|at| (Duration::from_secs(4)..Duration::from_millis(4_200)).contains(*at))
         .count();
-    assert!(reads > 100, "{reads}");
+    assert!(reads >= 3, "{reads}");
     assert_eq!(usize::from(report.bad_temperatures[1]), reads);
     assert_eq!(report.arm_peak_temperature, [45, 45]);
-    assert!(
-        report.retreats.iter().all(|why| !why.contains("degrees")),
-        "{:?}",
-        report.retreats
-    );
 }
 
-/// Real heat still stops it: a head that warms from 58 to 63, a step rise
-/// `judge_temperatures` lets in, ends the run after `temperature_steps`
-/// hot steps, not before.
+/// Folded, the head pitch at `start`, with `heats` of it: how the run
+/// ended and what it counted.
+fn heated_pitch(start: u8, glitch: Option<u8>, heats: Vec<(Duration, usize, u8)>) -> BodyReport {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(8));
+    lamp.servos[PITCH].temperature = start;
+    lamp.event = glitch.map(|to| (Duration::from_millis(1_500), PITCH, Event::HeatOnce(to)));
+    lamp.heats = heats;
+    let news = script(&clock.time);
+    run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {})
+}
+
+/// Real heat still stops it: a head that warms from 58 to 63 a degree
+/// each 0.1 s, a rise `judge_temperatures` lets in, ends the run after `temperature_steps`
+/// hot steps.
 #[test]
 fn a_joint_that_really_warms_still_stops_after_its_hot_steps() {
-    let at = Duration::from_millis(1_500);
+    let ramp = (59..=63)
+        .zip(0..)
+        .map(|(to, n)| (Duration::from_millis(1_500 + 100 * n), PITCH, to))
+        .collect();
+    let report = heated_pitch(58, None, ramp);
+    let hot = Stop::Temperature {
+        joint: 5,
+        temperature: 63,
+    };
+    assert_eq!(report.stop, hot, "{report:?}");
+    assert_eq!(report.bad_temperatures, [0; 5]);
+}
+
+/// A low first read does not hide real heat: the servo really at 70, only
+/// its first read 40. 70 stays, so after `temperature_steps` reads it is
+/// the good reading, and heat stops the run as on lamp-voice.
+#[test]
+fn a_joint_really_at_70_after_a_first_read_of_40_still_stops_on_heat() {
     let (mut lamp, mut clock) = folded(Duration::from_secs(8));
-    lamp.servos[PITCH].temperature = 58;
-    lamp.event = Some((at, PITCH, Event::Heat(63)));
+    lamp.servos[PITCH].temperature = 70;
+    lamp.event = Some((Duration::ZERO, PITCH, Event::HeatOnce(40)));
     let news = script(&clock.time);
     let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
-    assert_eq!(
-        report.stop,
-        Stop::Temperature {
+    let hot = Stop::Temperature {
+        joint: 5,
+        temperature: 70,
+    };
+    assert_eq!(report.stop, hot, "{report:?}");
+}
+
+/// A jump that stays is not dropped for ever: 45, then 70 from 1.5 s, and
+/// a steady 150, each end on heat as on lamp-voice.
+#[test]
+fn a_jump_that_stays_becomes_the_reading_and_stops_on_heat() {
+    for to in [70, 150] {
+        let report = heated_pitch(45, None, vec![(Duration::from_millis(1_500), PITCH, to)]);
+        let hot = Stop::Temperature {
             joint: 5,
-            temperature: 63
-        },
-        "{report:?}"
+            temperature: to,
+        };
+        assert_eq!(report.stop, hot, "{to}: {report:?}");
+        assert_eq!(
+            report.bad_temperatures[4],
+            u16::from(Limits::FOLDED.temperature_steps) - 1,
+            "{to}"
+        );
+    }
+}
+
+/// One glitch within the old 15 is not let in to walk the reading: 47, one
+/// read of 32, then 48. The run judges 48, not 32.
+#[test]
+fn a_glitch_of_32_between_47_and_48_is_dropped() {
+    let report = heated_pitch(
+        47,
+        Some(32),
+        vec![(Duration::from_millis(1_600), PITCH, 48)],
     );
-    assert_eq!(report.bad_temperatures, [0; 5]);
-    let hot = lamp.read_times.iter().filter(|t| **t >= at).count();
-    assert!(
-        hot >= usize::from(Limits::FOLDED.temperature_steps),
-        "{hot}"
-    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.bad_temperatures, [0, 0, 0, 0, 1]);
+    assert_eq!(report.peak_temperature[0], 48);
 }
 
 /// Taking hold of an arm joint writes its goal by itself, and that write is
@@ -7230,6 +7294,7 @@ fn a_steady_wrong_elbow_reading_as_the_arm_comes_to_rest_is_not_its_resting_goal
             Asked::default,
             |_| {},
         );
+        assert!(report.stood, "{report:?}");
         let late: Vec<u16> = lamp
             .goals
             .iter()
@@ -7644,6 +7709,7 @@ fn a_steady_wrong_elbow_reading_under_load_as_the_arm_comes_to_rest_is_not_its_r
             Asked::default,
             |_| {},
         );
+        assert!(report.stood, "{report:?}");
         let late: Vec<u16> = lamp
             .goals
             .iter()

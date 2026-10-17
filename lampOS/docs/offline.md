@@ -108,6 +108,19 @@ covers the link as before (`crates/voice/src/session_lifetime.rs`, tests
 Kind: off unless set. Not yet shown on a host with its network cut or on a
 lamp.
 
+**Why the line never printed on lamp-4ace (the first builder, 17 Oct):** it
+needs all of `LAMP_START_OFFLINE=on`, a service (`Lifetime::Serve`), the
+microphone retained, the budget passed and the link still down. Neither
+lamp-4ace's unit nor the product's sets the switch, so today a voice that
+starts with no link still ends at 25 s; and in the 16 Oct cut the link was
+in fact up (`listening_ready` at 0.5 s). The coordinator's own loop is now
+tested both ways
+(`coordinator::tests::endpoint_session::a_service_started_with_no_link_says_so_once_and_is_ready_when_the_link_comes`,
+on the stepped clock): with the switch, a link 3 s past the budget gives the
+line once, then readiness, and the service runs on to a mute; without it,
+the service ends at the budget with "voice input never became ready". The
+units get the switch after a minute on a lamp with its Wi-Fi off.
+
 ## Step 2: the board knows when its clock is set (`lamp-health --clock kernel`)
 
 `lamp-health serve --clock kernel` reads `clock_synced` from the kernel

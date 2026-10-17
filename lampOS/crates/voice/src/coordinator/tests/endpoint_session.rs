@@ -541,16 +541,24 @@ fn provider_peer(
     mut channels: WorkerChannels,
     seen: Arc<Mutex<Seen>>,
     reply: Option<ProviderReply>,
+    ready_after: Option<Duration>,
 ) -> PeerStep {
     assert!(reply.is_none_or(|reply| reply.packets <= PEER_STEP_BUDGET));
     let mut ready = false;
+    // With `ready_after`, the link is down until that long after the
+    // peer's first step: a service started with no internet (#830).
+    let mut first_step_us: Option<u64> = None;
     // Output is credited: the coordinator grants two packets, then more.
     let (mut granted, mut sent) = (2u64, 0u64);
     let mut outbox: VecDeque<ProviderOutput> = VecDeque::new();
     let mut due: VecDeque<(Instant, u64)> = VecDeque::new();
     let mut sequence = 0u64;
     Box::new(move || {
-        if !ready {
+        let late = ready_after.is_some_and(|after| {
+            let first = *first_step_us.get_or_insert_with(monotonic_us);
+            monotonic_us().saturating_sub(first) < after.as_micros() as u64
+        });
+        if !ready && !late {
             let at = monotonic_us();
             channels.control.send(WorkerEvent::ProviderLink {
                 link: crate::provider_link::ProviderLink {
@@ -981,6 +989,13 @@ struct Lamp {
     /// that answer's queued speech as `ExpiredState`. It refuses the rest of
     /// that answer, as one revoked.
     lapses_after: Option<usize>,
+    /// The provider's link comes up only this long after it starts (#830).
+    provider_ready_after: Option<Duration>,
+    /// `LAMP_START_OFFLINE`, for this run's thread (#830).
+    start_offline: Option<bool>,
+    /// Run as the service does (`Lifetime::Serve`), ended by `mute_at`,
+    /// not after `seconds`: starting offline is only for a service.
+    serve: bool,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1007,7 +1022,16 @@ fn run_policy_with_peers(
     // and keep the scope through shutdown and collection of scenario timestamps.
     let mut scope = match mode {
         PeerMode::RealProcessWithPrivacyTolerance => None,
-        PeerMode::Stepped => Some(scenario_clock::Scope::enter(Duration::from_secs(12)).unwrap()),
+        // A late link runs past the startup budget, so its scenario is
+        // longer, still stepped.
+        PeerMode::Stepped => Some(
+            scenario_clock::Scope::enter(if lamp.provider_ready_after.is_some() {
+                Duration::from_secs(60)
+            } else {
+                Duration::from_secs(12)
+            })
+            .unwrap(),
+        ),
     };
     let stop = Arc::new(AtomicBool::new(false));
     let seen = Arc::new(Mutex::new(Seen::default()));
@@ -1020,7 +1044,12 @@ fn run_policy_with_peers(
             seen.clone(),
         ),
         privacy_peer(privacy_peer_channels, seen.clone(), mute_at),
-        provider_peer(provider_peer_channels, seen.clone(), reply),
+        provider_peer(
+            provider_peer_channels,
+            seen.clone(),
+            reply,
+            lamp.provider_ready_after,
+        ),
         speaker_peer(
             speaker_peer_channels,
             seen.clone(),
@@ -1079,6 +1108,7 @@ fn run_policy_with_peers(
     let mut trace = SessionState::finite();
     let mut reply = None;
     let started = Instant::now();
+    crate::session_lifetime::set_start_offline_for_test(lamp.start_offline);
     let result = if let Some(gate) = fixture_privacy {
         conversation_with_fixture_privacy(
             &mut rig,
@@ -1097,7 +1127,11 @@ fn run_policy_with_peers(
         conversation(
             &mut rig,
             &mut owner,
-            Lifetime::Finite(seconds),
+            if lamp.serve {
+                Lifetime::Serve
+            } else {
+                Lifetime::Finite(seconds)
+            },
             &mut trace,
             StartupEvents::default(),
             &mut reply,
@@ -1107,6 +1141,7 @@ fn run_policy_with_peers(
         )
     };
     let elapsed = started.elapsed();
+    crate::session_lifetime::set_start_offline_for_test(None);
     // Sleeping fixtures need forced reaping; only the endpoint record matters.
     let _ = rig.shutdown(&mut trace);
     stop.store(true, Ordering::SeqCst);
@@ -2824,4 +2859,50 @@ fn a_speaker_lapse_mid_answer_cuts_it_and_the_next_question_is_answered() {
         "{:?}",
         seen.chunks
     );
+}
+
+/// #830, the first builder's 07:26: "listening with no link" never printed
+/// on lamp-4ace. With `LAMP_START_OFFLINE=on`, a service whose link is down
+/// past the startup budget keeps listening, says so once, and becomes ready
+/// when the link comes; without it, it ends at the budget, as before.
+#[test]
+fn a_service_started_with_no_link_says_so_once_and_is_ready_when_the_link_comes() {
+    // The link comes 3 s past the budget; a mute 5 s after that ends the
+    // service's cycle, as a person's mute does.
+    let link_after = INPUT_READINESS_TIMEOUT + Duration::from_secs(3);
+    let mute_block = (link_after.as_millis() as u64 + 5_000) / 10;
+    let late = |start_offline: bool| {
+        run_policy_with_peers(
+            TurnTaking::V1Baseline,
+            0,
+            |_| QUIET,
+            EndpointRig::double(delayed(0.0, Duration::ZERO)),
+            None,
+            Some(mute_block),
+            PeerMode::Stepped,
+            Lamp {
+                provider_ready_after: Some(link_after),
+                start_offline: Some(start_offline),
+                serve: true,
+                ..Lamp::default()
+            },
+        )
+    };
+    let waited = late(true);
+    // It lived past the budget to the mute that ends the cycle.
+    let end = format!("{:?}", waited.result.as_ref().unwrap_err());
+    assert!(end.contains("PhysicalMute"), "{end}");
+    let said = waited.events("waiting_for_link");
+    assert_eq!(said.len(), 1, "said once: {said:?}");
+    let ready = waited.events("provider_link_current");
+    assert_eq!(ready.len(), 1, "ready once the link came: {ready:?}");
+    assert!(
+        said[0]["at_us"].as_u64().unwrap() < ready[0]["at_us"].as_u64().unwrap(),
+        "said before ready"
+    );
+    // Without the switch the startup budget covers the link, as before.
+    let ended = late(false);
+    let error = ended.result.as_ref().unwrap_err().to_string();
+    assert!(error.contains("voice input never became ready"), "{error}");
+    assert!(ended.events("waiting_for_link").is_empty());
 }

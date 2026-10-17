@@ -3,7 +3,7 @@
 //! prints one line a part (docs/selftest.md).
 use lamp_bus::Bus;
 use lamp_msgs::{Occasion, SelfTest, Verdict};
-use lamp_selftest::{BUDGET, hand, kernel, listen, mic, report, ring, speaker};
+use lamp_selftest::{BUDGET, hand, kernel, listen, mic, quiet, report, ring, speaker};
 use std::{path::PathBuf, process::ExitCode, time::Instant};
 
 const USAGE: &str = "usage: lamp-selftest [--occasion factory|first-boot|on-demand] [--dir ABSOLUTE] [--bus-root ABSOLUTE]";
@@ -83,6 +83,17 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    // A passive run never begins inside a turn (#812): it waits for the
+    // voice to rest, and leaves the run for the next time if it does not.
+    if arguments.occasion == Occasion::FirstBoot
+        && !quiet::wait(|| quiet::read(&bus), std::thread::sleep)
+    {
+        eprintln!(
+            "lamp-selftest: the voice was in a turn for {} s; this run is left for the next time",
+            quiet::MOST.as_secs()
+        );
+        return ExitCode::SUCCESS;
+    }
     let mut checks = listen::checks(&bus);
     checks.insert(0, Box::new(mic::VoiceMic { bus: &bus }));
     // The colours are asked for at the factory and on demand; at first

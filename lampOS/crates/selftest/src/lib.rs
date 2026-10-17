@@ -11,6 +11,7 @@
 //! - [`hand`]: touch by hand, at the factory.
 //! - [`speaker`]: the echo the voice's canceller removed from the lamp's own speech.
 //! - [`report`]: where a run is kept, and what a person reads.
+//! - [`quiet`]: a passive run waits for the voice to be out of a turn.
 
 // Nothing in this library prints; the program prints what it is given.
 #![deny(clippy::print_stderr, clippy::print_stdout, clippy::dbg_macro)]
@@ -22,6 +23,7 @@ pub mod hand;
 pub mod kernel;
 pub mod listen;
 pub mod mic;
+pub mod quiet;
 pub mod report;
 pub mod ring;
 pub mod speaker;

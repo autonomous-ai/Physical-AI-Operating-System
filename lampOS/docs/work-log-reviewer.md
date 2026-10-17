@@ -4,6 +4,31 @@
 
 Newest first. Times from `date` (+07). 00:12 to 01:40: the review agents stopped at a usage limit.
 
+- 07:13 merged #1229 (a silent privacy worker ends the loop: stepped test; my #1222 P3)
+- 07:12 merged #1225 (a speaker lapse mid-answer tested through the loop; my #1214 P3)
+- 07:10 merged #1227 (#1224's open P2: introductions no longer name the speaker)
+- 07:08 #1179 re-checked at bf21ea87c: clean; for the first builder
+- 07:1x #1229 reviewed: no finding (both ends of the 50-60 ms window pinned); merge on green ARM64. Follow-up: stepped hand_controls teardown still fails under heavy load (2-3 of 120), noted on #705
+- 07:1x #1228 reviewed: no finding above P3 (test can fail both ways); merge on green ARM64
+- 07:0x #1042 first review: two P2s (a reload drops the next task's news; runs come out in text order so task 9 and 10 get swapped moods); scope borderline (crates/skills keys)
+- 07:0x #1226 first review: P2 (a continuing request carries over the last request the rule judged, of any age or session: the #1168 lesson again; probed)
+- 06:48 #1192 merged by the first builder at 0707e8ea0 (code ready per my re-check; no lamp run yet, as no body goes on a lamp from a merge)
+- 06:48 merged #1223 (task news together; off unless set)
+- 06:47 merged #1218 (lamp-skills test clock; 120 s to 32 s)
+- 06:5x #968 re-checked at 1d23b5763: history clean (no Python), earlier findings fixed; new P2 (the rebase drops set_unshown, so a skill's sound shows the thinking and speaking faces on lamps with LAMP_SAY=on, with the switch off)
+- 06:4x #1223 first review: P3s only (a task put back goes to the front; the together note drops the #757 guard on cut answers); merge on green ARM64
+- 06:43 #1214 and #1224 merged by the first builder at 06:41; #1224's open P2 noted on #705 for a follow-up
+- 06:4x #1010 re-checked at 3a977eb9b: builds again, no finding; waits only for the lamp-52e6 run with a hand on the elbow (Monday)
+- 06:42 #1214 re-checked: clean; for the first builder (lamp-4ace); told on #1178
+- 06:4x #1224 re-checked at 11e57f43f: P2 half fixed ('it's X' needs 'my name' now; bare 'Lamp, this is Jim.' still gives a name while 'this is Jim speaking' no longer does)
+- 06:41 limit again ~06:30-06:40; merged #1201; restarting reviews
+- 06:40 merged #1201 (the paced duplex test on the scenario clock; my doc P2 fixed)
+- 06:27 #1201 re-checked: doc P2 fixed; merge on green ARM64
+- 06:25 merged #1222 (hand_controls' four loop tests stepped; the long-flaky hand-stop test included) and closed #1220
+- 06:1x #1224 first review: P2 ("this is Jim" fires on introducing someone else: an unnamed speaker's face can be filed under the friend's name when the friend stands far enough away)
+- 06:1x #1218 re-checked at b2009ffc1: all four findings fixed (real waits tested again); two new P2 test races (the host-clock test's start time taken after the publish; the Policy's 300 ms now a skip so say_now can beat the face's leave)
+- 06:0x #1192 re-checked at 0707e8ea0: no finding (resting arm not eased); merge once the full lamp-52e6 rerun is posted on this head and ARM64 is green
+- 05:57 #1214 first review: the silent case fixed (test proven by a revert run); P2 (a lapse while speaking can still end the voice); then the first builder's (lamp-4ace); told on #1178
 - 05:5x #1192 re-checked at ebe72debd: code ready (easing capped at 400; all probes hold); waits for the full lamp-52e6 rerun and ARM64
 - 05:52 merged #1221 (#1208's P3s: a yes as a question is no yes; more ordinary yeses)
 - 05:4x #1218 first review: P2 (no test runs the real waits any more: every waiting test passes --clock-control); P3s (skip_us unbounded, remove_file at PATH)

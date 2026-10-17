@@ -4,6 +4,13 @@
 
 Newest first. Times from `date` (+07). 00:12 to 01:40: the review agents stopped at a usage limit.
 
+- 14:50 merged #1263 (lamp-keeper prepare reads the records as install does; the second builder's yes)
+- 14:50 merged #1296 (a refused standing lamp folds before letting go; lamp-52e6 run by the fifth)
+- 14:47 #1291 re-checked at 18fb9ed30: rebased, wiring test added and proven, took_over unchanged; merge on green ARM64
+- 14:46 #1316 left to the first builder (on by default, real-hardware light and character change, the third has no lamp); code right, 4 P3s
+- 14:43 merged #1314 (the supervisor tests' inert child builds its worker before it binds)
+- 14:39 merged #1306 (stop-word counts keep the last 16 results and the first 16 stops; at most 32, tmpfs 0600, off unless set)
+- 14:38 merged #1308 (the mic USB check fails only where a Jieli is the mic; #1304's P3s)
 - 14:37 merged #1299 (PR runs include the realtime group, one at a time and first; +8 tests, about 8-10 s)
 - 14:36 merged #1311 (the worker environment test fails on any extra variable; doc on late words; P3: the failure message prints values)
 - 14:35 merged #1305 (capture retries a mic off USB at start; privacy path cleared by the first builder at 14:11; busy retry 50 ms)

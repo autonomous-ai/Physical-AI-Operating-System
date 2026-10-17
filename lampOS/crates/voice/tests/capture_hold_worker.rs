@@ -140,11 +140,14 @@ struct Rig {
     /// The epoch of each start the worker reported, and its gaps.
     epochs: Vec<u64>,
     gaps: usize,
-    /// A reference fault and a refused send are recorded, not a failure
-    /// (#1178): the worker is expected to end.
+    /// A reference fault and a refused send are recorded, and a refused
+    /// receive ends the drain, not the test (#1178, #1351): the worker is
+    /// expected to end.
     tolerate_fault: bool,
     fault: Option<ReferenceFaultKind>,
     refused: Option<std::io::Error>,
+    /// The worker's own fault, recorded the same way.
+    worker_fault: Option<String>,
 }
 
 impl Rig {
@@ -275,6 +278,7 @@ impl Rig {
             epochs: Vec::new(),
             gaps: 0,
             tolerate_fault: false,
+            worker_fault: None,
             fault: None,
             refused: None,
         };
@@ -359,7 +363,17 @@ impl Rig {
             }
             self.authority_at = Some(Instant::now());
         }
-        while let Some(event) = self.parent.control.receive::<WorkerEvent>().unwrap() {
+        loop {
+            let event = match self.parent.control.receive::<WorkerEvent>() {
+                // Once the worker has gone, the receive itself can be
+                // refused (ECONNREFUSED on Linux): nothing more is read. It
+                // isn't kept in `refused`, which holds the send's (#1351).
+                Err(_) if self.tolerate_fault => break,
+                received => match received.unwrap() {
+                    Some(event) => event,
+                    None => break,
+                },
+            };
             match event {
                 WorkerEvent::Ready => self.ready = true,
                 WorkerEvent::CapturePrepared { .. } => self.prepared = true,
@@ -384,13 +398,23 @@ impl Rig {
                         self.device.queued()
                     )
                 }
+                WorkerEvent::Fault { code } if self.tolerate_fault => {
+                    self.worker_fault.get_or_insert(code);
+                }
                 WorkerEvent::Fault { code } => {
                     panic!("worker fault {code} after {} frames", self.frames.len())
                 }
                 _ => {}
             }
         }
-        while let Some(frame) = self.parent.data.receive::<MicrophoneFrame>().unwrap() {
+        loop {
+            let frame = match self.parent.data.receive::<MicrophoneFrame>() {
+                Err(_) if self.tolerate_fault => break,
+                received => match received.unwrap() {
+                    Some(frame) => frame,
+                    None => break,
+                },
+            };
             assert_eq!(frame.samples.len(), CAPTURE_SAMPLES);
             assert_eq!(frame.privacy_generation, self.privacy);
             self.frames.push(Heard {
@@ -802,6 +826,10 @@ fn a_mute_while_the_microphone_is_waited_for_opens_nothing() {
         .set_microphone_permission(now(), Permission::Denied)
         .unwrap();
     rig.authority_at = None;
+    // The worker ends on the refusal, saying so: its fault may be read
+    // before the thread is seen to finish, and an authority sent after it
+    // ended is refused. Both are recorded, not a failure.
+    rig.tolerate_fault = true;
     let worker = rig.worker.take().unwrap();
     let deadline = Instant::now() + Duration::from_secs(2);
     while !worker.is_finished() {
@@ -809,7 +837,12 @@ fn a_mute_while_the_microphone_is_waited_for_opens_nothing() {
         rig.service();
         sleep(Duration::from_millis(1));
     }
-    let _ = worker.join().unwrap();
+    let ended = worker.join().unwrap();
+    let reason = ended.expect_err("the worker ended on the refusal");
+    assert!(reason.contains("NotPermitted"), "{reason}");
+    if let Some(code) = &rig.worker_fault {
+        assert!(code.contains("NotPermitted"), "{code}");
+    }
     assert!(!rig.prepared);
     assert_eq!(rig.device.counts().0, 0, "the microphone was never opened");
 }

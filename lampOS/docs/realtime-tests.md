@@ -1265,3 +1265,32 @@ counts each journal's lines exactly, and now counts the new one (5, not 4).
 It takes about 1.8 s on the Intel Mac, almost all of it the program starting
 twice in a debug build. It left the group, in all three filtersets, on
 2026-10-17.
+
+## The mute-while-waiting capture test reads its worker's own end (#1305's test)
+
+`capture_hold_worker`'s `a_mute_while_the_microphone_is_waited_for_opens_nothing`
+(#1305) failed one pull request's run, #1340's 39019956234, with "worker
+fault capture: NotPermitted after 0 frames". It passed in the nine runs
+around it. Once the microphone is denied, the worker's next open is refused
+and it ends, sending `Fault { NotPermitted }` as it goes: the outcome the
+test wants. But the test waited with `while !worker.is_finished() {
+rig.service() }`, and `Rig::service` panicked on any worker fault. So if the
+test read the fault before it saw the thread finish, it failed. A refused
+send of the next authority, after the worker had ended, would have panicked
+too. Since #1299 this binary runs on every pull request.
+
+The rig now records a worker fault, as it already recorded a reference fault
+and a refused send, when `tolerate_fault` is set, and this test sets it
+before it waits. With `tolerate_fault` set, a refused receive on the control
+or data socket ends that drain instead of the test: once the worker has
+gone, Linux can refuse the receive itself (`capture.c.p: Connection
+refused`), which is how `a_speaker_held_up_ends_the_capture_worker_unless_recovery_is_bounded`
+failed (#1351, the reviewer on this pull request). A refused receive isn't
+kept in `refused`, which holds the send's. After `join` it asserts the worker ended on `NotPermitted`,
+from its result and from the recorded fault if one came. On Linux x86_64 the
+test as it was failed 1 of 3 on its own; with a 400 ms sleep in the worker
+right after it sends its fault, it failed 3 of 3, and this passes 3 of 3
+either way. For #1351: a scratch `service()` right after that test joins its
+worker, with no send due, receives on the gone sockets first; on
+`lamp-voice` it failed 1 of 3 at the refused receive, and with this the
+receive never fails. The whole binary passes 9 of 9.

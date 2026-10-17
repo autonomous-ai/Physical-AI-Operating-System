@@ -56,7 +56,9 @@ pub struct State {
     /// Each product setting `install` wrote, or found already the build's
     /// default, by path: the SHA-256 of those bytes. A setting whose bytes
     /// no longer match was changed on the lamp and is never written over
-    /// (docs/install.md). Absent from a state written before.
+    /// (docs/install.md). A key path may hold `install::SET_ASIDE` instead,
+    /// no hash: written once, before records that were set aside. Absent
+    /// from a state written before.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub settings: BTreeMap<String, String>,
     /// The SHA-256 of each product setting `install` is about to write,

@@ -285,11 +285,13 @@ from V1's config, which may still hold the previous owner's; it says so and
 leaves the key to setup. It reads the records as install does
 (`Records::state`, #1094's review): a corrupt `state.json` is set aside as
 `state.json.corrupt-<ms>` and said, and since what was written before is
-then not known, V1's key is not copied; each key file missing then is
-recorded as once written (`install::SET_ASIDE`), so the next prepare or
-install does not copy it either (Third on #1263). If that mark cannot be
-saved (records damaged, then unwritable), prepare exits 1 and that update is
-refused, on purpose: the next run, finding no records, would copy V1's key. One that cannot be read
+then not known, V1's key is not copied; every key path, missing or there,
+is recorded as once written (`install::SET_ASIDE`), so neither the next
+prepare or install, nor one after a later reset, copies it (Third and the
+reviewer on #1263). If that mark cannot be saved (records damaged, then
+unwritable), prepare exits 1 and that update is refused; the next run,
+finding no `state.json` but a `state.json.corrupt-*` beside it, takes the
+records as set aside again, so it copies nothing either. One that cannot be read
 is said and left alone, with nothing written and exit 0. A file missing and no usable key in V1's config:
 nothing written, it says so and exits 0, as install does, and setup takes
 the user's key. Main's updater runs `bin/service prepare` before every

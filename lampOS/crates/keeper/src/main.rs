@@ -95,7 +95,7 @@ fn prepare() -> ExitCode {
     let mut say = |line: &str| eprintln!("lamp-keeper: prepare: {line}");
     match install::provision_device_key(Path::new("/"), install::RECORDS, &mut say) {
         Ok(wrote) if wrote.is_empty() => {
-            eprintln!("lamp-keeper: prepare: the device key is in place; nothing written");
+            eprintln!("lamp-keeper: prepare: nothing written");
             ExitCode::SUCCESS
         }
         Ok(wrote) => {

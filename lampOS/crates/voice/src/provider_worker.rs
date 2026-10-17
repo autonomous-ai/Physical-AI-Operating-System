@@ -191,6 +191,9 @@ pub struct Files {
     /// (`--policy-holds-actions`, `crate::policy_holds`, #800). Only with the
     /// bus.
     pub policy_holds: bool,
+    /// Whether a line lost with its connection is sent again once
+    /// (`--resend-lost-line`, `LAMP_RESEND_LOST_LINE`, [`crate::resend`]).
+    pub resend_lost_line: bool,
     /// Whether the model is told, while a request is heard, that its words
     /// name one of the staff (`--staff-note`, `crate::staff_note`). Only
     /// with the tasks part.
@@ -263,6 +266,7 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
     let (ask_unclear, flags) = crate::not_speech::take_unclear(flags);
     let (transcription_language, flags) = crate::not_speech::take_transcription(flags);
     let (policy_holds, flags) = crate::policy_holds::take(flags);
+    let (resend_lost_line, flags) = crate::resend::take(flags);
     let (staff_note, flags) = crate::staff_note::take(flags);
     // `start_agent_task` says what the staff's note asks, when it is sent.
     if let Some(place) = tools.tasks.as_mut() {
@@ -298,6 +302,7 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
         ask_unclear,
         transcription_language,
         policy_holds,
+        resend_lost_line,
         staff_note,
     };
     Ok((continuation, sight, files, visual))

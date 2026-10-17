@@ -141,6 +141,18 @@ standing lamp whose shoulder or elbow cannot be read (`Stop::BadTemperature`,
 below), or is found too warm, is not let go up, where it falls, nor left up
 held, where it may heat on: it folds down first, then is let go.
 
+Another surprise while a standing lamp folds down (asked to stop, or
+folding for one of the stops above) does not let it go mid-air: a joint
+too hot, loaded, off its goal, drifting, a status byte that changes, or a
+temperature that cannot be read (that joint no longer judged) leaves it
+folding, within the time a stop allows, and the run then ends on what it
+was folding for, or else on that surprise, and lets go folded
+(`a_surprise_while_a_standing_lamp_folds_keeps_it_folding_then_lets_go`:
+the head at 70, or reading 150 and 5 by turns, as it folds). A wire lost
+for half a second, an arm goal the guard refuses, a position that cannot
+be read, and a hand or `--overload release` letting go still end it at
+once.
+
 A load over its bound for six steps does not by itself end the run. The
 joint gives way: its goal becomes where it is, and nothing is asked of it for
 two seconds while the other joints go on. Then it moves again from there. If
@@ -336,11 +348,12 @@ starting the count again, so 49 bad and one good, again and again, still
 ends it within about a second more, where starting again took 44.7 s, and
 one bad read in 27 never adds up (ten simulated minutes at that rate, at
 random, run on). For the head or the base the run ends there and the
-whole lamp is let go, as for any surprise. For the shoulder or the elbow of
-a lamp that may stand, it first folds down as when asked to stop, at its
-own pace and its arm goals at most 50 counts a write, that joint's
-temperature no longer judged; once folded (or after the time a stop
-allows) the run ends on `BadTemperature` and the whole lamp is let go,
+whole lamp is let go, as for any surprise (one folding down while it
+stands keeps folding first, see "When it stops"). For the shoulder or
+the elbow of a lamp that may stand, it first folds down as when asked to
+stop, at its own pace and its arm goals at most 50 counts a write,
+that joint's temperature no longer judged; once folded (or after the time
+a stop allows) the run ends on `BadTemperature` and the whole lamp is let go,
 folded. Started again with the elbow still unreadable, the arm is down and
 let go, never left up with torque on
 (`a_standing_lamp_whose_elbow_temperature_is_unreadable_folds_then_lets_go`;

@@ -7046,6 +7046,46 @@ fn a_standing_lamp_whose_elbow_temperature_is_unreadable_folds_then_lets_go() {
     }
 }
 
+/// The seventh's 12:52 P3 on #1281: another surprise while a standing lamp
+/// folds down let go of it mid-air. Stood up and asked to stop at 12 s, the
+/// head turning hot, or unreadable, as it folds: it keeps folding, a step
+/// at a time, and is let go folded, ending on that surprise.
+#[test]
+fn a_surprise_while_a_standing_lamp_folds_keeps_it_folding_then_lets_go() {
+    for hot in [true, false] {
+        let (mut lamp, mut clock) = folded(Duration::from_secs(12));
+        lamp.arm_moves = true;
+        lamp.overload_clears = 1;
+        let from = Duration::from_millis(12_300);
+        if hot {
+            lamp.heats = vec![(from, PITCH, 70)];
+        } else {
+            lamp.flicker = Some((from, PITCH, by_turns(5_000), 0));
+        }
+        let report = run_standing(
+            &mut lamp,
+            &mut clock,
+            Limits::FOLDED,
+            Some(HOME),
+            Some(standing(100, 60)),
+            || Some((Mood::Listening, 100)),
+            |_| {},
+        );
+        assert!(report.stood, "{report:?}");
+        if hot {
+            assert!(
+                matches!(report.stop, Stop::Temperature { joint: 5, .. }),
+                "{report:?}"
+            );
+        } else {
+            assert!(
+                matches!(report.stop, Stop::BadTemperature { joint: 5, .. }),
+                "{report:?}"
+            );
+        }
+        assert_folded_then_let_go(&lamp);
+    }
+}
 /// Folded, the same ends at once, let go: it is down already.
 #[test]
 fn a_folded_lamp_whose_elbow_temperature_is_unreadable_lets_go() {

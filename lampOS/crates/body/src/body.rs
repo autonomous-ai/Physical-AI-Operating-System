@@ -4547,11 +4547,16 @@ fn run_on<P: PortIo, R: Runtime>(
                 // held it may be heating. It folds down as when asked to
                 // stop, its temperature no longer judged, and is let go
                 // once down.
+                // Any joint unreadable so while a standing lamp folds down
+                // (seventh, #1281 12:52): it keeps folding the same way.
                 if let Some(Stop::BadTemperature { joint, .. }) = bus.refused
                     && standing.is_some()
-                    && let Some(arm) = ARM.into_iter().find(|arm| arm.id() == joint)
+                    && let Some(unread) = Joint::ALL.into_iter().find(|unread| {
+                        unread.id() == joint
+                            && (ARM.contains(unread) || leaving.is_some() && stand > 0.0)
+                    })
                 {
-                    bus.unjudged[arm.index()] = true;
+                    bus.unjudged[unread.index()] = true;
                     let stop = bus.refused.take();
                     leave_for = leave_for.or(stop);
                     leaving.get_or_insert(now);
@@ -5247,8 +5252,17 @@ fn run_on<P: PortIo, R: Runtime>(
             first_step = report.steps;
             continue;
         }
+        // A standing lamp folding down is not let go mid-air by another
+        // surprise (seventh, #1281 12:52): it keeps folding, within the
+        // time a stop allows, and ends on what it was folding for, or else
+        // on this. A lost wire, an arm goal the guard refuses, a position
+        // that cannot be read and a hand or an overload letting go end it
+        // as before.
         if let Some(surprise) = surprise {
-            break surprise;
+            if leaving.is_none() || stand <= 0.0 {
+                break surprise;
+            }
+            leave_for.get_or_insert(surprise);
         }
         if let Some(since) = leaving {
             let settled = (0..3).all(|index| {

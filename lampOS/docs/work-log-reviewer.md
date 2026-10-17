@@ -4,6 +4,19 @@
 
 Newest first. Times from `date` (+07). 00:12 to 01:40: the review agents stopped at a usage limit.
 
+- 23:11 posted where every ready PR stands on #705
+- 23:10 merged #1402 (setup's light paints on a clock its tests run fast; P3: the after-marker window shrinks)
+- 23:10 merged #1406 (setup's backend link needs the device id; a link it cannot write never fails setup; a broken one names its fields; null-field 400 still open)
+- 23:09 merged #1405 (lamp-skills refuses a second --zone or offset)
+- 23:04 #1378 merged by the first builder at 23:03
+- 23:02 #1407 reviewed at d94952de7: no finding (a transport drop says its cause by kind, never the URL); merge on green ARM64
+- 23:00 merged #1395 (lamp-tasks closes the harness it started once its work is told, off unless --close-told)
+- 23:00 #1397 re-checked at 8c7c6986e: P2 (the early read_owed runs without the switch, so every lamp changes); otherwise good
+- 22:59 #1399 re-checked at a78e42bc3: both P2s fixed; code ready; for the first builder (no lamp run this round)
+- 22:52 #1405 reviewed at 57eb5ce1f: no finding (lamp-skills refuses a second zone or offset; tested six ways); merge on green ARM64
+- 22:46 #1395 re-checked at a758fafa6: no findings left; off unless --close-told (neither unit sets it), so mergeable on green ARM64; the first builder's lamp-4ace check is posted for when it's turned on
+- 22:46 merged #1403 (setup's status says generation lamp-v2)
+- 22:44 merged #1391 (skills take --zone, so quiet hours keep their clock hours across summer time; closes #1384)
 - 22:40 merged #1401 (setup keeps the backend's link root-only, the reset removes it; P3: a null field fails setup)
 - 22:32 merged #1400 (a renewal waits for a request awaiting its response, pinned as a test)
 - 22:32 #1403 reviewed at 239b1b00e: no finding (setup status adds generation lamp-v2); merge on green ARM64

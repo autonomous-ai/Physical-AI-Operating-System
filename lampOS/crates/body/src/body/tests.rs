@@ -6000,16 +6000,16 @@ fn an_elbow_goal_register_past_its_range_is_never_written_as_a_goal() {
 /// goal registers where it is, with `misreads` of its positions: the run
 /// until it is asked to stop at ten seconds, and every elbow goal written.
 fn misread_4ace(misreads: Vec<(Duration, usize, u16, u8)>) -> (BodyReport, Vec<u16>, Lamp) {
-    misread_4ace_with(misreads, None)
+    misread_4ace_with(misreads, |_| {})
 }
 
-/// The same, with `event` happening to one servo.
+/// The same, with the lamp first changed by `prepare`.
 fn misread_4ace_with(
     misreads: Vec<(Duration, usize, u16, u8)>,
-    event: Option<(Duration, usize, Event)>,
+    prepare: impl FnOnce(&mut Lamp),
 ) -> (BodyReport, Vec<u16>, Lamp) {
     let (mut lamp, mut clock) = folded(Duration::from_secs(10));
-    lamp.event = event;
+    prepare(&mut lamp);
     lamp.arm_moves = true;
     lamp.overload_clears = 1;
     for (servo, at) in lamp
@@ -6136,36 +6136,64 @@ fn three_bad_reads_of_a_joint_in_a_row_stop_the_body_naming_it() {
 /// never a peak, and the run goes on.
 #[test]
 fn a_shoulder_reading_150_degrees_once_is_counted_and_never_a_peak() {
-    let event = (Duration::from_secs(4), 1, Event::HeatOnce(150));
-    let (report, _, _) = misread_4ace_with(Vec::new(), Some(event));
+    let (report, _, _) = misread_4ace_with(Vec::new(), |lamp| {
+        lamp.event = Some((Duration::from_secs(4), 1, Event::HeatOnce(150)));
+    });
     assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
     assert_eq!(report.arm_peak_temperature, [45, 45]);
     assert_eq!(report.bad_temperatures, [0, 1, 0, 0, 0]);
     assert_eq!(report.bad_reads, [0; 5]);
 }
 
-/// Three bad temperatures of one joint in a row stop the body naming it,
-/// on the third, before any of them can count as heat.
+/// Bad temperatures in a row are not heat and do not stop the run: a
+/// shoulder reading 150 on every step from 4 s is counted on each, the arm
+/// is not sent down for it, and the run ends as asked.
 #[test]
-fn three_bad_temperatures_of_a_joint_in_a_row_stop_the_body_naming_it() {
-    let event = (Duration::from_secs(4), 1, Event::Heat(150));
-    let (report, _, lamp) = misread_4ace_with(Vec::new(), Some(event));
+fn bad_temperatures_in_a_row_do_not_stop_the_run() {
+    let (report, _, lamp) = misread_4ace_with(Vec::new(), |lamp| {
+        lamp.event = Some((Duration::from_secs(4), 1, Event::Heat(150)));
+    });
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
     let reads = lamp
         .read_times
         .iter()
-        .filter(|at| **at >= Duration::from_secs(4));
-    assert_eq!(reads.count(), 3, "{report:?}");
+        .filter(|at| **at >= Duration::from_secs(4))
+        .count();
+    assert!(reads > 100, "{reads}");
+    assert_eq!(usize::from(report.bad_temperatures[1]), reads);
+    assert_eq!(report.arm_peak_temperature, [45, 45]);
+    assert!(
+        report.retreats.iter().all(|why| !why.contains("degrees")),
+        "{:?}",
+        report.retreats
+    );
+}
+
+/// Real heat still stops it: a head that warms from 58 to 63, a step rise
+/// `judge_temperatures` lets in, ends the run after `temperature_steps`
+/// hot steps, not before.
+#[test]
+fn a_joint_that_really_warms_still_stops_after_its_hot_steps() {
+    let at = Duration::from_millis(1_500);
+    let (mut lamp, mut clock) = folded(Duration::from_secs(8));
+    lamp.servos[PITCH].temperature = 58;
+    lamp.event = Some((at, PITCH, Event::Heat(63)));
+    let news = script(&clock.time);
+    let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
     assert_eq!(
         report.stop,
-        Stop::BadTemperature {
-            joint: 2,
-            temperature: 150,
-            from: 45
+        Stop::Temperature {
+            joint: 5,
+            temperature: 63
         },
         "{report:?}"
     );
-    assert_eq!(report.bad_temperatures, [0, 3, 0, 0, 0]);
-    assert_eq!(report.arm_peak_temperature, [45, 45]);
+    assert_eq!(report.bad_temperatures, [0; 5]);
+    let hot = lamp.read_times.iter().filter(|t| **t >= at).count();
+    assert!(
+        hot >= usize::from(Limits::FOLDED.temperature_steps),
+        "{hot}"
+    );
 }
 
 /// Taking hold of an arm joint writes its goal by itself, and that write is

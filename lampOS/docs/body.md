@@ -262,13 +262,15 @@ more than 15 (`TEMPERATURE_JUMP`) from the joint's last good one; heat
 rises by a degree in tens of seconds, not 15 in a 20 ms step. A bad one is
 counted in the end report as `bad_temperatures` (per joint, in the order of
 `bad_reads`) and replaced by the joint's last good one; with no good one yet
-the read fails. Three in a row of one joint end the run on
-`Stop::BadTemperature`, which names the joint (`stopped: shoulder read 150
-degrees three times in a row, not how warm it can be (last good 45)`):
-
-```text
-"stop":{"kind":"bad_temperature","joint":2,"temperature":150,"from":45}
-```
+the read fails. Bad ones in a row do not stop the run, unlike positions:
+the hot-servo stop they would stand in for needs `temperature_steps` (50)
+hot steps in a row, and letting go of a lamp for a sensor glitch is worse
+than the glitch. The last good one counts in that streak as it did, so a
+bad read neither starts nor resets it. How often, on lamp-52e6 on
+2026-10-17 from 02:42 to 07:35: of 1,839 logged standing steps (one every
+30 s, and each change of mood), the shoulder read 60 or over on 23 (about 5
+an hour) and the elbow on 19 (about 4 an hour), about one logged step in
+a hundred; the head's temperatures are not logged.
 
 It is a count apart from `bad_reads` because it is not the same fault: the
 position in the same reply was good, so a position-misread count stays
@@ -276,7 +278,7 @@ what it was and the two can be told apart in a report.
 
 Why, lamp-52e6 on 2026-10-17: every run that stood ended on
 `arm_peak_temperature [150,150]` (and lamp-4ace's 01:58 report on
-`peak_temperature [150,55,150]`), while the logged steps read 43 to 54. A
+`peak_temperature [150,55,150]`), while most logged steps read 43 to 54. A
 few logged steps read 60 to 150 on one joint, the step before and after
 back near 47, never over 150. It is not a misframed reply: a reply is taken
 only with its checksum, its ID asked once, exactly 15 bytes of telemetry
@@ -286,7 +288,8 @@ and nothing else on the wire before the request or after the last reply
 same replies were where the joint was. It is what the servo's temperature
 register (63) said. The tests are
 `a_shoulder_reading_150_degrees_once_is_counted_and_never_a_peak`,
-`three_bad_temperatures_of_a_joint_in_a_row_stop_the_body_naming_it` and
+`bad_temperatures_in_a_row_do_not_stop_the_run`,
+`a_joint_that_really_warms_still_stops_after_its_hot_steps` and
 `one_hot_reading_while_it_moves_is_not_heat` (lamp-4ace's yaw reading 72
 for one step, now a bad read).
 

@@ -263,17 +263,6 @@ pub fn stopped(stop: &Stop) -> Diagnostic {
                 joint_word(*joint)
             ),
         ),
-        Stop::BadTemperature {
-            joint,
-            temperature,
-            from,
-        } => (
-            Level::Error,
-            format!(
-                "stopped: {} read {temperature} degrees three times in a row, not how warm it can be (last good {from})",
-                joint_word(*joint)
-            ),
-        ),
         Stop::Overload {
             joint,
             load,

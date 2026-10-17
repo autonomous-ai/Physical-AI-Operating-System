@@ -26,18 +26,11 @@ filter = '''
 '''
 test-group = 'realtime'
 
-# Pull requests on GitHub Actions (.github/workflows/lampos-arm64.yml):
-# everything except the realtime group. A filter given on the command line is
-# intersected with this.
+# EXPERIMENT (#823, do not merge): pull requests run every test, the
+# realtime group too, still one at a time through its test group, to see
+# whether its real-time bounds hold beside a full core load.
 [profile.pr]
-default-filter = '''
-not (
-    (binary_id(lamp-memory::health) & test(=the_environment_alone_does_not_enable_reporting_or_create_bus_data))
-  | binary_id(lamp-voice::capture_hold_worker)
-  | (binary_id(lamp-voice) & test(=coordinator::tests::endpoint_session::endpoint_fixture_reaps_on_panic_before_and_after_handoff))
-  | (binary_id(lamp-health::program) & test(=between_two_healths_five_seconds_apart_the_program_is_not_taken_for_gone))
-)
-'''
+default-filter = 'all()'
 
 # By hand: only the realtime group, e.g.
 #   cargo nextest run --release --workspace --profile realtime -j 1

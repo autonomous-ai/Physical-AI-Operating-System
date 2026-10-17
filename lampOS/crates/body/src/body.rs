@@ -859,13 +859,6 @@ pub enum Stop {
         position: u16,
         from: u16,
     },
-    /// Three temperatures of one joint in a row were bad reads
-    /// (`Bus::judge_temperatures`): the last, and the last good one.
-    BadTemperature {
-        joint: u8,
-        temperature: u8,
-        from: u8,
-    },
     /// Under `--overload release`: it let go a second time within ten
     /// minutes, or could not take the lamp up again. Torque is left as it
     /// was let go, off.
@@ -1180,11 +1173,10 @@ struct Bus<'a, P, R> {
     goals: [Option<u16>; 5],
     bad_reads: [u16; 5],
     bad_in_row: [u8; 5],
-    /// Each joint's last good temperature and its bad temperature reads in
-    /// all and in a row (`judge_temperatures`).
+    /// Each joint's last good temperature and its bad temperature reads
+    /// (`judge_temperatures`).
     warm: [Option<u8>; 5],
     bad_temperatures: [u16; 5],
-    bad_warm_in_row: [u8; 5],
 }
 
 impl<'a, P: PortIo, R: Runtime> Bus<'a, P, R> {
@@ -1202,7 +1194,6 @@ impl<'a, P: PortIo, R: Runtime> Bus<'a, P, R> {
             bad_in_row: [0; 5],
             warm: [None; 5],
             bad_temperatures: [0; 5],
-            bad_warm_in_row: [0; 5],
         }
     }
 }
@@ -1365,8 +1356,11 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
     /// uses it, as positions pass `judge_positions`. A bad one (over
     /// `TEMPERATURE_MAX`, or more than `TEMPERATURE_JUMP` from the joint's
     /// last good one) is counted and replaced by the last good one; with no
-    /// good one yet the read fails. `BAD_READS_IN_ROW` of one joint end the
-    /// run on `Stop::BadTemperature`.
+    /// good one yet the read fails. Bad ones in a row do not stop the run:
+    /// lamp-52e6 reads them often, and the heat stop they would stand in
+    /// for needs `Limits::temperature_steps` hot steps in a row. The last
+    /// good one counts in the heat streak as it did, so a bad read neither
+    /// starts nor resets it.
     fn judge_temperatures(&mut self, samples: &mut [Sample; 5]) -> Result<(), String> {
         for (index, sample) in samples.iter_mut().enumerate() {
             let read = sample.temperature;
@@ -1375,25 +1369,15 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
                 || good.is_some_and(|good| read.abs_diff(good) > TEMPERATURE_JUMP);
             if !bad {
                 self.warm[index] = Some(read);
-                self.bad_warm_in_row[index] = 0;
                 continue;
             }
             self.bad_temperatures[index] = self.bad_temperatures[index].saturating_add(1);
-            self.bad_warm_in_row[index] = self.bad_warm_in_row[index].saturating_add(1);
-            let joint = Joint::ALL[index].id();
-            if self.bad_warm_in_row[index] >= BAD_READS_IN_ROW {
-                let stop = Stop::BadTemperature {
-                    joint,
-                    temperature: read,
-                    from: good.unwrap_or(read),
-                };
-                let detail = format!("{stop:?}");
-                self.refused.get_or_insert(stop);
-                return Err(detail);
-            }
             match good {
                 Some(good) => sample.temperature = good,
-                None => return Err(format!("joint {joint} read {read} degrees")),
+                None => {
+                    let joint = Joint::ALL[index].id();
+                    return Err(format!("joint {joint} read {read} degrees"));
+                }
             }
         }
         Ok(())

@@ -130,6 +130,22 @@ mod implementation {
     }
 
     impl Snapshot {
+        /// The same, with the voice's binary as the file it is, through any
+        /// links: a product unit names `/opt/lampOS/voice/current/lamp-voice`,
+        /// and the running process's `exe` is the build that link points
+        /// to. Compared as written they disagreed, and every run on a product
+        /// lamp refused (Twelve on lamp-cb94, 17 October). A link switched to
+        /// another build while the old one still runs still disagrees.
+        fn resolved(mut self, resolve: impl Fn(&Path) -> io::Result<PathBuf>) -> io::Result<Self> {
+            self.executable = resolve(&self.executable)?;
+            if !self.executable.is_absolute()
+                || self.executable.file_name() != Some(OsStr::new("lamp-voice"))
+            {
+                return Err(refused("the voice's binary resolves to another program"));
+            }
+            Ok(self)
+        }
+
         fn parse(bytes: &[u8], unit: &str, root: &Path) -> io::Result<Self> {
             if !valid_unit(unit) || bytes.len() > MAX_SHOW_BYTES {
                 return Err(refused("invalid unit or oversized manager response"));
@@ -1056,7 +1072,7 @@ mod implementation {
                 let mut command = show_command(unit)?;
                 let bytes =
                     run_bounded(&mut command, deadline.min(Instant::now() + COMMAND_BUDGET))?;
-                Snapshot::parse(&bytes, unit, root)
+                Snapshot::parse(&bytes, unit, root)?.resolved(|path| fs::canonicalize(path))
             },
             |snapshot| scan_processes(Path::new("/proc"), snapshot, root, deadline, observations),
         )
@@ -1260,6 +1276,83 @@ mod implementation {
             assert!(arguments.contains(&OsStr::new("--system")));
             assert!(arguments.contains(&OsStr::new("--all")));
             assert_eq!(arguments.last(), Some(&OsStr::new("lamp-voice.service")));
+        }
+
+        /// Twelve on lamp-cb94 (17 Oct, 08:53 UTC): a product unit starts the
+        /// voice through its `current` link, and the main process's `exe`
+        /// is the file that link points to. Compared as written, every run
+        /// refused ("main process disagrees with manager invocation
+        /// mapping"); with the unit's binary resolved, its own main process
+        /// is found. Once the link points to another build while the old one
+        /// still runs, it disagrees again and refuses.
+        #[test]
+        fn a_voice_started_through_a_current_link_is_its_own_main_process() {
+            let tree = Tree::new();
+            let root = tree.directory("sessions");
+            let build = tree.directory("voice/one");
+            fs::write(build.join("lamp-voice"), b"").unwrap();
+            symlink(&build, tree.0.join("voice/current")).unwrap();
+            let named = tree.0.join("voice/current/lamp-voice");
+            let text = response(&root).replace(BINARY, named.to_str().unwrap());
+            let written = Snapshot::parse(text.as_bytes(), "lamp-voice.service", &root).unwrap();
+            let main = serve(
+                &tree,
+                123,
+                &root.join(CURRENT),
+                "/system.slice/lamp-voice.service",
+            );
+            // The kernel's `exe` is the resolved file.
+            fs::remove_file(main.join("exe")).unwrap();
+            let running = fs::canonicalize(build.join("lamp-voice")).unwrap();
+            symlink(&running, main.join("exe")).unwrap();
+            let scan = |snapshot: &Snapshot| {
+                scan_processes(
+                    &tree.0.join("proc"),
+                    snapshot,
+                    &root,
+                    Instant::now() + TOTAL_BUDGET,
+                    &mut ProcessObservations::default(),
+                )
+            };
+            let error = scan(&written).unwrap_err();
+            assert!(
+                error
+                    .to_string()
+                    .contains("disagrees with manager invocation"),
+                "{error}"
+            );
+            let resolved = written
+                .clone()
+                .resolved(|path| fs::canonicalize(path))
+                .unwrap();
+            assert_eq!(resolved.executable, running);
+            assert_eq!(
+                scan(&resolved).unwrap(),
+                BTreeSet::from([CURRENT.to_owned()])
+            );
+            // An update switches the link while the old build still runs.
+            let next = tree.directory("voice/two");
+            fs::write(next.join("lamp-voice"), b"").unwrap();
+            fs::remove_file(tree.0.join("voice/current")).unwrap();
+            symlink(&next, tree.0.join("voice/current")).unwrap();
+            let switched = written.resolved(|path| fs::canonicalize(path)).unwrap();
+            assert!(scan(&switched).is_err());
+        }
+
+        /// A link that resolves to another program is refused.
+        #[test]
+        fn a_voice_binary_that_resolves_to_another_program_is_refused() {
+            let root = Path::new("/sessions");
+            assert!(
+                snapshot(root)
+                    .resolved(|_| Ok(PathBuf::from("/usr/bin/other")))
+                    .is_err()
+            );
+            assert!(
+                snapshot(root)
+                    .resolved(|_| Err(io::Error::from(io::ErrorKind::NotFound)))
+                    .is_err()
+            );
         }
 
         #[test]

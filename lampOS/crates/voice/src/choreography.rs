@@ -15,6 +15,16 @@ pub const RENEW_INTERVAL_US: u64 = 20_000;
 pub const FEEDBACK_TIMEOUT_US: u64 = 100_000;
 pub const REQUEST_TO_WRITE_TARGET_US: u64 = 50_000;
 const PERMIT_LEASE_US: u64 = 100_000;
+/// A loop or a ring held up a moment (#1178, the lamp's midnight log jobs)
+/// makes one write or one receipt late. The choreography starts afresh after
+/// this many holds in [`RESYNC_WINDOW_US`] rather than leave the lamp
+/// listening with no light; past that the ring is slow, not held up, and
+/// stays off as a failed qualification, as before.
+pub const RESYNCS_PER_WINDOW: u8 = 3;
+pub const RESYNC_WINDOW_US: u64 = 600_000_000;
+/// A held frame whose receipt has not come back by this long after it was
+/// asked for is a hung ring, not a held-up one: a fault no resync forgives.
+pub const HOLD_MOST_US: u64 = 2_000_000;
 
 /// Fixed-size policy state. `last_frame` is renewal metadata, never queued work.
 /// A returned error latches failure; the supervisor owns worker stop/revocation.
@@ -40,6 +50,12 @@ pub struct RingChoreographer {
     /// Stamped into the next frames; see [`RingFrame::accent`].
     accent: u8,
     accent_at_us: u64,
+    /// The frame in flight when a resync forgave its late receipt, until that
+    /// receipt comes back: no frame is asked for meanwhile, so one hold costs
+    /// one resync ([`Self::resync`]).
+    held: Option<RingFrame>,
+    /// When the current resync window began, and how many holds it has used.
+    resyncs: Option<(u64, u8)>,
 }
 
 impl RingChoreographer {
@@ -59,7 +75,37 @@ impl RingChoreographer {
             offline: false,
             accent: 0,
             accent_at_us: 0,
+            held: None,
+            resyncs: None,
         })
+    }
+
+    /// After a late write or a late receipt (a `TimedOut` fault, #1178): go
+    /// on. A frame whose receipt has not come is held: its receipt, when it
+    /// comes, is taken with every check but the 50 ms target, and no new
+    /// frame is asked for until then, so one hold costs one resync. A late
+    /// write whose receipt came holds nothing. False, changing nothing, once
+    /// [`RESYNCS_PER_WINDOW`] holds have been forgiven in
+    /// [`RESYNC_WINDOW_US`]: the ring is slow, not held up, and stays off.
+    pub fn resync(&mut self, now: MonoTime) -> bool {
+        let at = now.as_micros();
+        let (began, used) = match self.resyncs {
+            Some((began, used)) if at.saturating_sub(began) < RESYNC_WINDOW_US => (began, used),
+            _ => (at, 0),
+        };
+        if used >= RESYNCS_PER_WINDOW {
+            return false;
+        }
+        self.resyncs = Some((began, used + 1));
+        self.faulted = false;
+        self.held = self.pending.take();
+        self.last_frame = None;
+        true
+    }
+
+    /// Whether a frame's late receipt is still to come ([`Self::resync`]).
+    pub fn holding(&self) -> bool {
+        self.held.is_some()
     }
 
     /// The face's accent with the lamp's gesture (#940), from `at_us` on
@@ -131,9 +177,10 @@ impl RingChoreographer {
         now: MonoTime,
     ) -> io::Result<Option<RingFrame>> {
         self.advance(now)?;
+        self.deadlines(now)?;
         let current = controller.snapshot(now).map_err(io::Error::other)?;
         self.install_current(current, now)?;
-        if self.pending.is_some() || self.unshown {
+        if self.pending.is_some() || self.held.is_some() || self.unshown {
             return Ok(None);
         }
         let Some(phase) = RingPhase::from_snapshot(current) else {
@@ -215,6 +262,62 @@ impl RingChoreographer {
     ) -> io::Result<()> {
         self.advance(now)?;
         self.install_current(current, now)?;
+        self.receive(report, current, now)?;
+        // Judged after the receipt is taken (the reviewer on #1191): an
+        // on-time receipt read late, behind a held-up loop, answers its frame
+        // and is not lost to the deadline.
+        self.deadlines(now)
+    }
+
+    fn receive(
+        &mut self,
+        report: &RingFeedback,
+        current: Snapshot,
+        now: MonoTime,
+    ) -> io::Result<()> {
+        // The held frame's late receipt (#1178): exactly that frame's, taken
+        // once, with every check but the 50 ms target. Then frames go again.
+        if let Some(held) = self.held {
+            match *report {
+                RingFeedback::Presented {
+                    owner,
+                    phase,
+                    requested_at_us,
+                    write_started_at_us,
+                    write_finished_at_us,
+                } if (owner, phase, requested_at_us)
+                    == (held.permit.owner(), held.phase, held.requested_at_us) =>
+                {
+                    self.validate_write(write_started_at_us, write_finished_at_us, now)?;
+                    if write_started_at_us < requested_at_us {
+                        return Err(invalid("ring write predates its request"));
+                    }
+                    if write_finished_at_us >= held.permit.expires_at().as_micros() {
+                        return Err(invalid(
+                            "ring presentation completed outside its original permit",
+                        ));
+                    }
+                    self.last_write = Some((write_started_at_us, write_finished_at_us));
+                    self.held = None;
+                    return Ok(());
+                }
+                RingFeedback::Rejected {
+                    owner,
+                    phase,
+                    requested_at_us,
+                    reason,
+                } if (owner, phase, requested_at_us)
+                    == (held.permit.owner(), held.phase, held.requested_at_us) =>
+                {
+                    if !supersession_reason(reason) {
+                        return Err(invalid("ring reported an invalid rejection"));
+                    }
+                    self.held = None;
+                    return Ok(());
+                }
+                _ => {}
+            }
+        }
         match *report {
             RingFeedback::Presented {
                 owner,
@@ -243,6 +346,9 @@ impl RingChoreographer {
                     ));
                 }
                 if write_finished_at_us - requested_at_us > REQUEST_TO_WRITE_TARGET_US {
+                    // The receipt is in, late: nothing is left to hold.
+                    self.last_write = Some((write_started_at_us, write_finished_at_us));
+                    self.pending = None;
                     return Err(io::Error::new(
                         io::ErrorKind::TimedOut,
                         "ring request-to-write completion exceeded 50 ms target",
@@ -294,6 +400,11 @@ impl RingChoreographer {
             return Err(invalid("ring choreography clock regressed"));
         }
         self.last_now = Some(now);
+        Ok(())
+    }
+
+    /// A frame's receipt not back within 100 ms, or a held frame's within 2 s.
+    fn deadlines(&self, now: MonoTime) -> io::Result<()> {
         if let Some(frame) = self.pending
             && now.as_micros() - frame.requested_at_us >= FEEDBACK_TIMEOUT_US
         {
@@ -301,6 +412,12 @@ impl RingChoreographer {
                 io::ErrorKind::TimedOut,
                 "ring frame feedback exceeded 100 ms deadline",
             ));
+        }
+        // A hung ring, not a held-up one: no resync forgives this.
+        if let Some(frame) = self.held
+            && now.as_micros().saturating_sub(frame.requested_at_us) >= HOLD_MOST_US
+        {
+            return Err(io::Error::other("ring held its frame 2 s with no receipt"));
         }
         Ok(())
     }
@@ -442,6 +559,87 @@ mod tests {
         policy
             .feedback(&presented(frame, now - 1, now), current, t(now))
             .unwrap();
+    }
+
+    /// #1191's review (#1178): a receipt not back within 100 ms is a timing
+    /// fault. A resync holds that frame: no new frame is asked for until its
+    /// receipt comes, which is taken once, so one hold costs one resync and
+    /// cannot spend the budget by itself. A frame held 2 s with no receipt is
+    /// a hung ring, a fault no resync forgives.
+    #[test]
+    fn a_resync_holds_the_late_frame_until_its_receipt_and_a_hung_ring_is_a_fault() {
+        let mut controller = ready();
+        controller.admit(t(10), AdmittedInput::NewTurn).unwrap();
+        let mut policy = RingChoreographer::new(40).unwrap();
+        let held = policy.prepare(&mut controller, t(10)).unwrap().unwrap();
+        let late = policy.prepare(&mut controller, t(150_010)).unwrap_err();
+        assert_eq!(late.kind(), io::ErrorKind::TimedOut);
+        assert!(policy.is_faulted());
+        assert!(policy.resync(t(150_020)));
+        assert!(!policy.is_faulted() && policy.holding());
+        // Held 400 ms: no new frame, so no second fault in this hold.
+        assert_eq!(policy.prepare(&mut controller, t(400_000)).unwrap(), None);
+        // Its receipt: taken once; a second copy is a fault as before.
+        let current = controller.snapshot(t(400_010)).unwrap();
+        policy
+            .feedback(
+                &rejected(held, RingRejection::ExpiredRequest),
+                current,
+                t(400_010),
+            )
+            .unwrap();
+        assert!(!policy.holding());
+        let next = policy
+            .prepare(&mut controller, t(400_020))
+            .unwrap()
+            .unwrap();
+        acknowledge(&mut policy, &mut controller, next, 400_030);
+        // A frame held with no receipt at all: past 2 s, not a timing fault.
+        let third = policy
+            .prepare(&mut controller, t(500_000))
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            policy
+                .prepare(&mut controller, t(600_010))
+                .unwrap_err()
+                .kind(),
+            io::ErrorKind::TimedOut
+        );
+        assert!(policy.resync(t(600_020)));
+        let hung = policy
+            .prepare(&mut controller, t(third.requested_at_us + HOLD_MOST_US))
+            .unwrap_err();
+        assert_ne!(hung.kind(), io::ErrorKind::TimedOut, "{hung}");
+    }
+
+    /// The reviewer on #1191: a loop held 150 ms reads the ring's on-time
+    /// receipt late. It answers its frame, so it is taken: no timing fault,
+    /// and nothing is held for a receipt already read.
+    #[test]
+    fn an_on_time_receipt_read_late_is_taken_not_lost_to_the_deadline() {
+        let mut controller = ready();
+        controller.admit(t(10), AdmittedInput::NewTurn).unwrap();
+        let mut policy = RingChoreographer::new(40).unwrap();
+        let frame = policy.prepare(&mut controller, t(10)).unwrap().unwrap();
+        let current = controller.snapshot(t(150_010)).unwrap();
+        policy
+            .feedback(&presented(frame, 1_000, 1_010), current, t(150_010))
+            .unwrap();
+        assert!(!policy.is_faulted() && !policy.holding());
+        assert_eq!(policy.pending(), None);
+    }
+
+    /// Three holds forgiven in ten minutes, not four; a new window forgives
+    /// one again.
+    #[test]
+    fn three_holds_are_forgiven_in_ten_minutes_not_four() {
+        let mut policy = RingChoreographer::new(40).unwrap();
+        assert!(policy.resync(t(1)));
+        assert!(policy.resync(t(2)));
+        assert!(policy.resync(t(3)));
+        assert!(!policy.resync(t(4)), "a slow ring stays off");
+        assert!(policy.resync(t(1 + RESYNC_WINDOW_US)));
     }
 
     #[test]
@@ -971,18 +1169,25 @@ mod tests {
             let mut controller = ready();
             controller.admit(t(10), AdmittedInput::NewTurn).unwrap();
             let mut policy = RingChoreographer::new(40).unwrap();
-            let frame = policy.prepare(&mut controller, t(10)).unwrap().unwrap();
+            assert!(policy.prepare(&mut controller, t(10)).unwrap().is_some());
             assert!(
                 policy
                     .prepare(&mut controller, t(100_009))
                     .unwrap()
                     .is_none()
             );
+            // Through feedback, any report but the frame's own receipt (which,
+            // read late, still answers it: #1191) meets the deadline.
             let error = if through_feedback {
                 let current = controller.snapshot(t(100_010)).unwrap();
-                policy
-                    .feedback(&presented(frame, 11, 12), current, t(100_010))
-                    .unwrap_err()
+                let blank = RingFeedback::Blanked {
+                    reason: RingBlankReason::AuthorityLost {
+                        reason: RingRejection::StalePresentation,
+                    },
+                    write_started_at_us: 11,
+                    write_finished_at_us: 12,
+                };
+                policy.feedback(&blank, current, t(100_010)).unwrap_err()
             } else {
                 policy.prepare(&mut controller, t(100_010)).unwrap_err()
             };

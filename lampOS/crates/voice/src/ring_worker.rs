@@ -124,7 +124,8 @@ pub struct RingOptions<'a> {
 }
 
 /// Supervisor-only lifetime selection. This removes the finite test ceiling,
-/// not the installed authority, parent transport or initial-lease watchdogs.
+/// not the parent transport or initial-lease watchdogs; an installed
+/// authority that runs out holds the ring dark until a fresh one (#1178).
 /// With `bus_root`, the lamp's own light is taken from the bus there and
 /// what the ring shows is said on it ([`crate::ring_light`]); a bus that
 /// cannot be used is said once and the ring runs without. With `eye`, the
@@ -405,8 +406,12 @@ fn controls(
                     // lease: blank now, and paint nothing until one newer than
                     // it installs. The ring goes on.
                     Err(AuthorityError::ExpiredState) => {
-                        let receipt = ring.lapse().map_err(io::Error::other)?;
-                        blanked(link, receipt)?;
+                        // Blanked once: the ring is dark from the first, and
+                        // more writes would only add to a bus under stress.
+                        if lapse.late.is_none() {
+                            let receipt = ring.lapse().map_err(io::Error::other)?;
+                            blanked(link, receipt)?;
+                        }
                         let at = monotonic_us();
                         let since = match lapse.late {
                             Some((_, since)) => since,

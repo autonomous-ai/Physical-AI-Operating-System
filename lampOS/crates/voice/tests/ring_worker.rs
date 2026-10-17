@@ -554,6 +554,58 @@ fn newer_expired_privacy_revocation_blanks_before_old_allowed_lease_expires() {
     rig.finish().unwrap();
 }
 
+/// #1182's review: newer authorities that came late blank the ring once,
+/// however many follow; a frame under the older lease is refused; and a
+/// fresh, newer authority brings the light back.
+#[test]
+fn late_authorities_blank_once_and_a_fresh_one_brings_the_light_back() {
+    let mut rig = Rig::start(&[]);
+    rig.ready();
+    let (mut controller, owner) = conversation(rig.boot);
+    let first = frame(&mut controller, owner, 200_000);
+    present(&rig, first);
+    let late = |controller: &mut Controller| {
+        let snapshot = controller.snapshot(now()).unwrap();
+        let mut wire = serde_json::to_value(snapshot).unwrap();
+        wire["expires_at"] = (snapshot.issued_at().as_micros() + 1).into();
+        serde_json::from_value(wire).unwrap()
+    };
+    for _ in 0..2 {
+        rig.control(Control::Authority {
+            snapshot: late(&mut controller),
+        });
+    }
+    assert!(matches!(
+        rig.event(),
+        WorkerEvent::Ring {
+            report: RingFeedback::Blanked {
+                reason: RingBlankReason::AuthorityLost {
+                    reason: RingRejection::ExpiredState
+                },
+                ..
+            }
+        }
+    ));
+    let mut again = first;
+    again.requested_at_us = monotonic_us();
+    rig.frame(again);
+    // The next report is the refusal: the second late one wrote no blank.
+    assert!(matches!(
+        rig.event(),
+        WorkerEvent::Ring {
+            report: RingFeedback::Rejected {
+                reason: RingRejection::ExpiredState,
+                ..
+            }
+        }
+    ));
+    assert_eq!(rig.writes.lock().unwrap().frames.len(), 3);
+    present(&rig, frame(&mut controller, owner, 200_000));
+    assert_eq!(rig.colored(), 2);
+    rig.control(Control::Stop);
+    rig.finish().unwrap();
+}
+
 #[test]
 fn genuinely_older_expired_control_cannot_clear_a_newer_valid_cue() {
     let mut rig = Rig::start(&[]);

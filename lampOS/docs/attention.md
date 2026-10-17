@@ -1417,25 +1417,35 @@ stories, one person and the lamp's own voice in the room.
   quiet" at the end of those lines is only logged.
 
 With the switch:
-- **A line whose Start says it began over the lamp's reply**
-  (`over_the_lamp`, a reply in hand when it was admitted) and that is left
-  unanswered is not counted (`RoomTold::began_over_the_lamp`,
-  `kept_out_over_the_lamp`). The journal says so: "request N, said over the
-  lamp's reply, got no answer in M ms; … not counted toward a busy room".
+- **A line that began while the lamp's own answer could be heard** is
+  marked: its reply had sound or was playing (the Start's
+  `over_the_lamps_voice`). A reply only in hand, the lamp silent while it
+  waits for an answer, doesn't count, so two people talking near a silent
+  lamp count as before (the reviewer on #1291).
+- **Left unanswered, a marked line isn't counted** (`RoomTold::began_over_the_lamp`,
+  `left_unanswered`, which says what each line was). The journal says so:
+  "request N, said over the lamp's reply, got no answer in M ms; … not
+  counted toward a busy room".
+- **A cut-in heard as two or three requests is kept out whole.** Each part
+  keeps its own mark until it's closed, whichever way it closes.
+- **A marked line still keeps a busy room busy**, so people talking over
+  the lamp's answers in a busy office don't turn it quiet. It can't make a
+  room busy.
 - **A line said after the lamp finished still counts,** and so does
   everything else that made a room busy before.
-- **What it costs:** in a busy office, people who keep talking over the
-  lamp's answer aren't counted either, so that room is known as busy later,
-  or not at all.
+- **What it costs:** in an office, people talking over the lamp's answer
+  don't start a busy room any more. That room is known as busy later, or
+  not at all, if nothing else is left unanswered.
 - **The lamp check:** the first builder's ten cut-ins with the switch on
   and off, and a busy office where people talk over the lamp.
 
 Tests: `room_told::tests::with_the_switch_cut_ins_left_unanswered_do_not_make_the_room_busy`
 (three silent cut-ins in a minute, then the "Hold on…" question, with and
-without the switch), `the_cut_ins_switch_is_on_only_and_its_flag_follows_the_room_facts_one`,
-and `provider_worker::tests::a_request_begun_over_the_lamp_is_kept_out_of_the_busy_count_with_the_switch`
-(the Start's mark reaching the room, and the flag's place for both
-workers).
+without the switch), `with_the_switch_a_split_cut_in_is_kept_out_whole_and_keeps_a_busy_room_busy`,
+`the_cut_ins_switch_is_on_only_and_its_flag_follows_the_room_facts_one`,
+and `provider_worker::tests::a_request_begun_over_the_lamps_voice_is_kept_out_of_the_busy_count_with_the_switch`
+(the Start's mark reaching the room, a reply only in hand not marking, and
+the flag's place for both workers).
 
 ## Switch
 
@@ -1484,8 +1494,8 @@ day's own bars (the worker's `--spoken-to-by-day`, right after
 `--spoken-to`). Off by default; not on any lamp.
 
 `LAMP_CUT_INS_NOT_TALK=on` (the worker's `--cut-ins-not-talk`, right
-after `--room-facts`): a line said over the lamp's reply and left
-unanswered is not counted toward a busy room (above). Off by default; not
+after `--room-facts`): a line said while the lamp's answer could be heard,
+and left unanswered, is not counted toward a busy room (above). Off by default; not
 on any lamp.
 
 `LAMP_HEAD_TOUCH=on` (the worker's `--head-touch`, right after the name

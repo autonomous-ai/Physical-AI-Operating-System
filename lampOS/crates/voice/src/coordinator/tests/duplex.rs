@@ -1333,6 +1333,20 @@ fn regressing_hearing_time_is_not_a_successful_resume() {
     assert_eq!(h.events("duplex_yield_end")[0]["outcome"], "session_failed");
 }
 
+/// #828, the reviewer on #1291: a line is over the lamp's voice only when
+/// the reply in hand had sound or is playing. One only in hand, silent while
+/// it waits for its answer, isn't, and nor is no reply.
+#[test]
+fn the_lamps_voice_is_heard_only_from_a_reply_with_sound() {
+    assert!(!lamps_voice_heard(None));
+    let (_, mut current, _) = active_reply();
+    current.had_audio = false;
+    current.playback = None;
+    assert!(!lamps_voice_heard(Some(&current)));
+    current.had_audio = true;
+    assert!(lamps_voice_heard(Some(&current)));
+}
+
 #[test]
 fn provider_pcm_threshold_keeps_exactly_one_terminal_allowance_in_both_modes() {
     for hold in [Hold::STANDARD, Hold::DUPLEX] {
@@ -1350,6 +1364,7 @@ fn provider_pcm_threshold_keeps_exactly_one_terminal_allowance_in_both_modes() {
             over_the_lamp: false,
             after_stop: false,
             follows_on: false,
+            over_the_lamps_voice: false,
         });
         for n in 1..bound {
             queue_input(

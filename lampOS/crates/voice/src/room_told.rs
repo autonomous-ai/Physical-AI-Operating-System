@@ -73,6 +73,22 @@ pub const FLAG: &str = "--room-facts";
 pub const CUT_INS_ENVIRONMENT: &str = "LAMP_CUT_INS_NOT_TALK";
 /// The provider worker's flag for it, right after [`FLAG`].
 pub const CUT_INS_FLAG: &str = "--cut-ins-not-talk";
+/// How many requests begun over the lamp are kept marked at once.
+const OVER_THE_LAMP_KEPT: usize = 8;
+
+/// What a request the lamp left unanswered was ([`RoomTold::left_unanswered`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Left {
+    /// Something said, left alone: it counts toward a busy room.
+    Talk,
+    /// A sound sent on only for the model to judge.
+    Sound,
+    /// A request whose answer the lamp's own rule held.
+    Held,
+    /// A line said while the lamp's own answer could be heard, with
+    /// [`CUT_INS_ENVIRONMENT`].
+    OverTheLamp,
+}
 pub const QUIET: &str = "(For you to know, not to answer: the room around you has gone quiet.)";
 pub const BUSY: &str = "(For you to know, not to answer: the office around you is busy, with people talking to each other.)";
 
@@ -144,10 +160,11 @@ pub struct RoomTold {
     /// When watching began.
     watching_since_us: Option<u64>,
     /// A line said over the lamp's reply and left unanswered is not counted
-    /// ([`CUT_INS_ENVIRONMENT`]): the newest request begun so, until it is
-    /// closed.
+    /// ([`CUT_INS_ENVIRONMENT`]): the requests begun so, each until it is
+    /// closed, the newest [`OVER_THE_LAMP_KEPT`]. A cut-in heard as two or
+    /// three requests is kept out whole (the reviewer on #1291).
     cut_ins_not_talk: bool,
-    over_the_lamp: Option<u64>,
+    over_the_lamp: VecDeque<u64>,
     room: Room,
     /// The session last told, and what it was told.
     told: Option<(u64, Room)>,
@@ -173,7 +190,7 @@ impl RoomTold {
             talk_counted: 0,
             watching_since_us: None,
             cut_ins_not_talk: false,
-            over_the_lamp: None,
+            over_the_lamp: VecDeque::new(),
             room: Room::Unknown,
             told: None,
         }
@@ -234,19 +251,22 @@ impl RoomTold {
         self.cut_ins_not_talk = on;
     }
 
-    /// `request` began over the lamp's own reply (its Start's
-    /// `over_the_lamp`). With [`Self::leave_cut_ins_out`], left unanswered
-    /// it is not talk the lamp left alone.
+    /// `request` began while the lamp's own answer could be heard (its
+    /// Start's `over_the_lamps_voice`). With [`Self::leave_cut_ins_out`],
+    /// left unanswered it is not talk the lamp left alone.
     pub fn began_over_the_lamp(&mut self, request: u64) {
-        if self.cut_ins_not_talk {
-            self.over_the_lamp = Some(request);
+        if self.cut_ins_not_talk && !self.over_the_lamp.contains(&request) {
+            if self.over_the_lamp.len() == OVER_THE_LAMP_KEPT {
+                self.over_the_lamp.pop_front();
+            }
+            self.over_the_lamp.push_back(request);
         }
     }
 
-    /// Whether `request`, left unanswered now, is kept out as said over the
-    /// lamp's reply.
+    /// Whether `request`, left unanswered now, would be kept out as said
+    /// over the lamp's reply.
     pub fn kept_out_over_the_lamp(&self, request: u64) -> bool {
-        self.over_the_lamp == Some(request)
+        self.over_the_lamp.contains(&request)
     }
 
     /// The lamp's own rule held the answer to `request`. With
@@ -302,20 +322,36 @@ impl RoomTold {
     /// `request` ended with the lamp saying nothing. Whether it counts as
     /// something said that the lamp left alone: a sound does not.
     pub fn unanswered(&mut self, request: u64, now_us: u64) -> bool {
+        self.left_unanswered(request, now_us) == Left::Talk
+    }
+
+    /// `request` ended with the lamp saying nothing: what it was, and so
+    /// whether it counts. Only [`Left::Talk`] joins the busy room's run. A
+    /// line kept out as said over the lamp still keeps a busy room busy
+    /// (`last_talk_us`), so people talking over the lamp's answers in a
+    /// busy office don't turn it quiet (the reviewer on #1291); it can't
+    /// make a room busy.
+    pub fn left_unanswered(&mut self, request: u64, now_us: u64) -> Left {
         if self.open.is_some_and(|(open, _)| open == request) {
             self.open = None;
         }
+        let over_the_lamp = self
+            .over_the_lamp
+            .iter()
+            .position(|marked| *marked == request)
+            .map(|at| self.over_the_lamp.remove(at))
+            .is_some();
         if self.sound == Some(request) {
             self.sound = None;
-            return false;
+            return Left::Sound;
         }
         if self.held == Some(request) {
             self.held = None;
-            return false;
+            return Left::Held;
         }
-        if self.over_the_lamp == Some(request) {
-            self.over_the_lamp = None;
-            return false;
+        if over_the_lamp {
+            self.last_talk_us = Some(now_us);
+            return Left::OverTheLamp;
         }
         if request > self.talk_counted {
             self.talk_counted = request;
@@ -326,7 +362,7 @@ impl RoomTold {
         }
         self.unanswered.push_back(now_us);
         self.last_talk_us = Some(now_us);
-        true
+        Left::Talk
     }
 
     /// Whether the latest `run` things left unanswered all fell inside a
@@ -503,6 +539,59 @@ mod tests {
             assert!(room.unanswered(request, (request * 10 + 2) * S));
         }
         assert_eq!(room.at(35 * S), Room::Busy);
+    }
+
+    /// The reviewer on #1291. A cut-in heard as three requests, each
+    /// marked as its Start comes and closed when the next is heard (the
+    /// worker's order), is kept out whole: three such in a minute leave
+    /// the room unknown. A sound begun over the lamp is a sound, its mark
+    /// gone with it. With only talk counted, lines kept out keep a busy
+    /// room busy past the 3 min after the last counted line; they can't
+    /// make one.
+    #[test]
+    fn with_the_switch_a_split_cut_in_is_kept_out_whole_and_keeps_a_busy_room_busy() {
+        let mut room = RoomTold::new();
+        room.leave_cut_ins_out(true);
+        for cut_in in 0..3u64 {
+            for part in 0..3u64 {
+                let request = 1 + cut_in * 3 + part;
+                room.began_over_the_lamp(request);
+                said(&mut room, request, 10 + cut_in * 15 + part * 3);
+            }
+            let last = 3 + cut_in * 3;
+            assert_eq!(
+                room.left_unanswered(last, (20 + cut_in * 15) * S),
+                Left::OverTheLamp
+            );
+        }
+        assert_eq!(room.at(60 * S), Room::Unknown);
+        room.began_over_the_lamp(20);
+        room.heard(20, 70 * S);
+        room.ended_as_sound(20, 71 * S);
+        assert_eq!(room.left_unanswered(20, 72 * S), Left::Sound);
+        assert!(!room.kept_out_over_the_lamp(20));
+        // A busy office, only talk counted: three lines left alone, then for
+        // four minutes a line said over each of the lamp's answers.
+        for keep in [true, false] {
+            let mut room = RoomTold::new();
+            room.count_only_talk(true);
+            room.leave_cut_ins_out(true);
+            for request in 1..=3 {
+                said(&mut room, request, request * 10);
+                assert!(room.unanswered(request, (request * 10 + 2) * S));
+            }
+            assert_eq!(room.at(35 * S), Room::Busy);
+            for (n, at) in (60..=300).step_by(30).enumerate() {
+                let request = 10 + n as u64;
+                if keep {
+                    room.began_over_the_lamp(request);
+                }
+                said(&mut room, request, at);
+                room.left_unanswered(request, (at + 2) * S);
+            }
+            // Busy either way: counted, or kept out and still talk.
+            assert_eq!(room.at(305 * S), Room::Busy, "kept out {keep}");
+        }
     }
 
     #[test]

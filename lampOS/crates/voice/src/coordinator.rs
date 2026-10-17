@@ -7964,6 +7964,13 @@ fn hear_the_call(
     Ok(Some(began))
 }
 
+/// Whether the lamp's own answer could be heard: the reply in hand had sound
+/// or is playing, not only in hand and silent while it waits for an answer
+/// (#828, the reviewer on #1291).
+fn lamps_voice_heard(reply: Option<&Reply>) -> bool {
+    reply.is_some_and(|current| current.had_audio || current.playback.is_some())
+}
+
 #[allow(clippy::too_many_arguments)]
 fn commit_admitted_input(
     owner: &mut Controller,
@@ -7986,6 +7993,7 @@ fn commit_admitted_input(
 ) -> Result<Snapshot> {
     let prefix = accepted.audio;
     let replacing = reply.is_some();
+    let over_the_lamps_voice = lamps_voice_heard(reply.as_ref());
     cancel_reply(owner, reply, trace, "user_interrupted")?;
     let input = if replacing {
         AdmittedInput::Interruption
@@ -8032,6 +8040,8 @@ fn commit_admitted_input(
         // line after a Stop, which is told the lamp's words are over (the
         // reviewer on #1278).
         follows_on: follows_on && after_stop.is_none(),
+        // Begun while the lamp's answer could be heard (#828).
+        over_the_lamps_voice,
     });
     let mut current = Reply {
         owner: turn,
@@ -8360,6 +8370,7 @@ fn continue_after_early_end(
         // in this same session (a continuation never crosses one), so the
         // model has it; marked again, it would be told twice (El on #1278).
         follows_on: false,
+        over_the_lamps_voice: false,
     });
     let mut current = Reply {
         owner: turn,
@@ -9773,6 +9784,7 @@ mod tests {
                 over_the_lamp: false,
                 after_stop: false,
                 follows_on: false,
+                over_the_lamps_voice: false,
             })
             .unwrap();
         request.confirm_start(1).unwrap();
@@ -11077,6 +11089,7 @@ mod tests {
             over_the_lamp: false,
             after_stop: false,
             follows_on: false,
+            over_the_lamps_voice: false,
         }
     }
 

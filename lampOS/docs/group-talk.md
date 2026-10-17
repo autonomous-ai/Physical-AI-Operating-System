@@ -250,10 +250,18 @@ stops. Without the switch it was taken at once, on its trigger; with `on`
 it was let go.
 
 What it costs:
-- the waited sound's audio goes to the relay: the stop words' privacy line
-  (`stop-word.md`, "Privacy: what goes where"), accepted for lamp-4ace only,
-  covers it no further, and is to be decided for this too before home
-  lamps;
+- **privacy:** the audio of any sound that waits goes to the second voice's
+  speech-to-text (`LAMP_VOICE_SECOND_CONFIG`; on lamp-4ace the company
+  relay, with Deepgram's `nova-3` behind it):
+  - any sound the detector starts on in the 3 s after a request ends while
+    its answer is unheard, asked or not: the person's "No.", a cough, a
+    television, a colleague's words to someone else;
+  - at most about 1.3 s of each: its 300 ms of pre-roll, and up to 1 s
+    after it set the detector off.
+
+  The stop words' privacy line (`stop-word.md`, "Privacy: what goes
+  where"), accepted for lamp-4ace only, doesn't cover it, and it is to be
+  decided for this too before home lamps;
 - someone else's short words (a television, a colleague) in the gap take
   the turn as a follow-up would, where `on` let them go, unless they only
   laugh or acknowledge;

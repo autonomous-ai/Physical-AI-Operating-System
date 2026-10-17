@@ -772,13 +772,21 @@ It is to be decided again before home lamps ship.
 - **Not covered: `LAMP_WAIT_KEEPS_ANSWER=words`** (#1123 step 2,
   `group-talk.md`) sends something else to the same relay, through the same
   driver (`RelayEars::for_waits`):
-  - what: a short sound said while an answer is awaited and the lamp is
-    silent, from its pre-roll until its words are asked for (100 ms after it
-    stops);
-  - when its stream is open: while an answer is awaited unheard, and while
-    a sound is in hand;
-  - closed: as the stop words' stream is, and kept: `wait_words`, with a
-    count and no words.
+  - **what:** the audio of **any sound** the detector starts on in the 3 s
+    after a person's request ends, while its answer hasn't been heard yet
+    and the lamp is silent. That is asked or not: the person's own "No.", a
+    cough, a television, or a colleague's words to someone else. It goes
+    from its 300 ms of pre-roll, each block once, until its words are asked
+    for (100 ms after it stops) or until it is decided (at most 1 s after
+    it set the detector off). So at most about 1.3 s of a sound.
+  - **to which service:** the second voice's speech-to-text, as
+    `LAMP_VOICE_SECOND_CONFIG` names it: Deepgram itself, or a relay at its
+    `stt_base_url`. On lamp-4ace that is the company relay, with Deepgram's
+    `nova-3` behind it, the same service as the stop words.
+  - **when its stream is open:** in those 3 s while the answer is unheard,
+    and while a sound is in hand; nothing is sent while no sound waits.
+  - **closed:** as the stop words' stream is. **Kept:** `wait_words`, with
+    a count and no words.
 
   The decision above doesn't cover it.
 

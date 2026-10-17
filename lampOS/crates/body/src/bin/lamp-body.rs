@@ -561,6 +561,25 @@ fn gesture_asked(
     Some((clip, asker))
 }
 
+/// Of a gesture already read this step and one read after it, the one the
+/// body is handed: under `--arbitration on` the higher priority, the newer
+/// on a tie, and the other's name and why it is dropped, naming who holds
+/// the body; off, the newer, as before, and nothing said.
+#[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
+type Gesture = (&'static lamp_body::clips::Clip, lamp_body::moves::Priority);
+#[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
+fn kept_of(
+    held: Option<Gesture>,
+    asked: Gesture,
+    arbitration: bool,
+) -> (Gesture, Option<(&'static str, &'static str)>) {
+    match held {
+        Some(old) if arbitration && old.1 > asked.1 => (old, Some((asked.0.name, old.1.busy()))),
+        Some(old) if arbitration => (asked, Some((old.0.name, asked.1.busy()))),
+        _ => (asked, None),
+    }
+}
+
 /// What one datagram on the mood socket asks.
 #[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
 #[derive(Debug, PartialEq)]
@@ -831,12 +850,34 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
                     let sent = &datagram[..length];
                     match heard_asked(sent, &moves, &mut moves_sent, arbitration) {
                         (Heard::Gesture(clip), asker) => {
-                            gesture_asked.set(Some((clip, asker.priority())));
-                            // ponytail: only the last asker is kept; a fate
-                            // said after another ask names no source.
-                            *asked_by.borrow_mut() = asker.source.map(|source| {
-                                (clip.name, source.chars().take(64).collect::<String>())
-                            });
+                            let asked = (clip, asker.priority());
+                            let source = asker
+                                .source
+                                .map(|source| source.chars().take(64).collect::<String>());
+                            let (kept, dropped) = kept_of(gesture_asked.get(), asked, arbitration);
+                            gesture_asked.set(Some(kept));
+                            if let Some((name, why)) = dropped {
+                                let by = match (&source, &*asked_by.borrow()) {
+                                    (Some(source), _) if name == clip.name => {
+                                        format!(" (asked by {source})")
+                                    }
+                                    (_, Some((held, source))) if *held == name => {
+                                        format!(" (asked by {source})")
+                                    }
+                                    _ => String::new(),
+                                };
+                                let line = format!("lamp-body: gesture {name} {why}{by}");
+                                if let Some(line) =
+                                    unknown_said.due(line, std::time::Instant::now())
+                                {
+                                    eprintln!("{line}");
+                                }
+                            }
+                            // ponytail: only the last asker kept is known; a
+                            // fate said after another ask names no source.
+                            if kept == asked {
+                                *asked_by.borrow_mut() = source.map(|source| (clip.name, source));
+                            }
                         }
                         (Heard::Mood(mood, level), _) => moods_heard.push((mood, level)),
                         // An unknown gesture, most often: said, as the
@@ -1939,6 +1980,31 @@ mod tests {
             let (said, _) = heard(not_read, false);
             assert!(matches!(said, Heard::Dropped(_)), "{not_read}: {said:?}");
         }
+    }
+
+    /// Two gestures read in one step: under --arbitration on the higher is
+    /// handed to the body and the other said dropped, naming who holds it;
+    /// on a tie the newer. Off, the newer, as before.
+    #[test]
+    fn of_two_gestures_in_one_step_the_higher_is_kept_and_the_other_said() {
+        use lamp_body::clips::{NOD, STRETCHING};
+        use lamp_body::moves::Priority::{Conversation, Person, Skill};
+        let (nod, stretch) = ((&NOD, Person), (&STRETCHING, Skill));
+        assert_eq!(
+            kept_of(Some(nod), stretch, true),
+            (nod, Some(("stretching", "dropped: busy, person")))
+        );
+        assert_eq!(
+            kept_of(Some(stretch), nod, true),
+            (nod, Some(("stretching", "dropped: busy, person")))
+        );
+        let talk = (&STRETCHING, Conversation);
+        assert_eq!(
+            kept_of(Some((&NOD, Conversation)), talk, true),
+            (talk, Some(("nod", "dropped: busy, conversation")))
+        );
+        assert_eq!(kept_of(None, stretch, true), (stretch, None));
+        assert_eq!(kept_of(Some(nod), stretch, false), (stretch, None));
     }
 
     /// A line asked again and again is said once in five seconds, then with

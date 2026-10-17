@@ -132,6 +132,7 @@ const POLICY_KEYS: &[&str] = &[
 const PARTS: &[&str] = &[
     "lamp-actions",
     "lamp-air",
+    "lamp-air-clock",
     "lamp-body",
     "lamp-controls",
     "lamp-ears",

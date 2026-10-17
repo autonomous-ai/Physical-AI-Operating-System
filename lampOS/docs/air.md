@@ -35,6 +35,48 @@ within ten minutes, or at once after `systemctl restart lamp-air`. A bus
 that cannot be opened (no `/dev/i2c-0`, or no permission) makes no
 transaction, so it is looked at again every five seconds.
 
+### The bus's clock
+
+The SEN6x take I2C's standard mode only, 100 kHz (Sensirion's datasheet),
+and the board runs bus 0 at 400 kHz; this keeps the bus within the sensor's
+limit. It is not shown to be what made the sensor fail: on lamp-4ace on
+17 Oct its answers came back with filler `0xff` bytes at 18:28, but from
+18:36 they read clean at 400 kHz as at 100 kHz (0 filler bytes in 3,360,
+20 of 20 readings each), after a start measurement sent by hand; a sensor
+that was not measuring is the likelier cause (#1366). The
+Allwinner controller takes a new rate at run time: `lamp-air limit-clock`
+(`src/clock.rs`) reads the rate from
+`/sys/class/i2c-adapter/i2c-0/device/info` (`twi->freqency`, the kernel's
+spelling; the device tree's `clock-frequency` is only the rate it booted
+with), writes `100000` to `device/freq` when it is faster, and reads it
+back. A rate still above 100 kHz, a refused write, no rate, or no adapter after
+10 s is an error,
+and the unit fails; a bus already that slow is never written, and another
+controller is left. V1's HAL does the same (`hal/drivers/environment/i2c.py`).
+The product runs it as root at every start, before `lamp-air` and
+`lamp-controls` (`deploy/product/lamp-air-clock.service`); a reboot puts the
+device tree's rate back. Neither reader needs it to start.
+
+The base's touch strip (the MPR121, 0x5A) is on the same bus and works at
+100 kHz. The product reads no MPR121 today: `lamp-controls` starts its strip
+worker only when the pins file sets `base` (`crates/controls/src/main.rs`),
+and neither the product's nor lamp-4ace's does (#711). When it does, each
+read checks the whole configuration, about 1,000 clock bits worked out (not
+measured): about 2.6 ms a sample at 400 kHz and 10.5 ms at 100 kHz (#1374
+checks a part of it per read). The strip's rules are times, not counts
+(`crates/controls/src/base.rs`, which already allows an 11 ms poll). The
+adapter is waited for up to 10 s, in case its driver binds late; on a board
+with no `i2c-0` at all, that holds the air and the controls back by about
+9 s at boot, since both start after it. Started by hand while the air and
+the controls run, the rate changes under them: at worst one transfer should
+fail, and both try again (a change mid-transfer could in principle leave a
+device holding SDA). Seen once on lamp-4ace (17 Oct, 19:25): written by hand
+with both running, then no controls error and no failed air read. Proven on lamp-4ace (17 Oct, 20:13):
+`limit-clock` lowered 400000 to 100000 and a second run left it; a 48-byte
+read of the sensor took a median 4.60 ms at 100 kHz against 1.30 ms at
+400 kHz, so the real clock changed. The strip is not read there (no `base`),
+so it has not been seen at 100 kHz.
+
 The temperature and humidity are those inside the base, warmed by the
 lamp itself (33 °C on 2026-10-14 in a cooler office): they are not the
 room's, and nothing should speak of them as if they were.
@@ -53,6 +95,7 @@ feels as a stuffy room; they are round figures, not a standard.
 
     lamp-air --bus-number 0 --bus-root /run/lampos-bus
     lamp-air once        # the sensor's name and one reading, no bus
+    lamp-air limit-clock --bus-number 0   # the bus at 100 kHz (root)
 
 Unit `lamp-air.service` in the first builder's deploy folder. Running on
 lamp-4ace since 2026-10-14 17:43: CO2 1,856 to 1,872 ppm ("stuffy"), PM2.5

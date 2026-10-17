@@ -2,6 +2,7 @@
 //! and carbon dioxide. No I/O here. See `docs/air.md`.
 use lamp_msgs::{AirFeel, AirState};
 
+pub mod clock;
 pub mod watch;
 
 /// The sensor's I2C address.

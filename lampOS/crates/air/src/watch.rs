@@ -25,6 +25,19 @@ pub const TICK: Duration = Duration::from_millis(200);
 /// The health report's pace.
 const REPORT_EVERY: Duration = Duration::from_millis(950);
 
+/// What the report says while a sensor nobody has heard from is looked
+/// for, in its first [`QUICK_LOOKS`]. The self-test reads these words
+/// (`lamp-selftest`'s `air_silent`), so they are kept here, once.
+pub const LOOKING: &str = "the sensor does not answer";
+/// What it says once a sensor that never answered since `lamp-air` started
+/// counts as absent: on a lamp without one fitted (lamp-06c1, lamp-cb94).
+pub const ABSENT: &str = "no air sensor answers";
+/// What it says instead once the sensor has answered since start, by name
+/// or with a reading that failed its CRC, and then stopped giving readings:
+/// a fitted sensor that is faulty or unseated (lamp-4ace), never taken for
+/// an absent one (the Seventh and the reviewer on #1324).
+pub const NO_READING: &str = "the air sensor answered but gives no reading";
+
 /// Why a look found no sensor.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Missing {
@@ -91,15 +104,17 @@ fn missed(
     what: &str,
     error: &str,
     bus_number: u32,
+    ever_answered: bool,
 ) -> (Duration, String, bool) {
     *misses += 1;
     if *misses < QUICK_LOOKS {
         (now + EVERY, format!("{what}: {error}"), *misses == 1)
     } else {
+        let gone = if ever_answered { NO_READING } else { ABSENT };
         (
             now + LOOK_EVERY,
             format!(
-                "no air sensor answers on I2C bus {bus_number} ({error}); looked for again every {} min",
+                "{gone} on I2C bus {bus_number} ({error}); looked for again every {} min",
                 LOOK_EVERY.as_secs() / 60
             ),
             *misses == QUICK_LOOKS,
@@ -116,6 +131,9 @@ pub fn run(
     until: Duration,
 ) {
     let mut found = false;
+    // Whether the sensor has answered since start: by name, or with words
+    // that failed their CRC (something on the bus spoke). Never cleared.
+    let mut ever_answered = false;
     // Looks and readings in a row that gave no reading, counted out only by a
     // good reading, so a sensor that answers its name and then fails backs
     // off as one that never answers (eighth and the reviewer on #1163).
@@ -136,6 +154,7 @@ pub fn run(
         if !found && now >= look_at {
             match sensor.find() {
                 Ok(name) => {
+                    ever_answered = true;
                     if !answered {
                         say.log(&format!("the sensor answers: {name}"));
                         answered = true;
@@ -161,13 +180,9 @@ pub fn run(
                     look_at = now + EVERY;
                 }
                 Err(Missing::NoAnswer(error)) => {
-                    let (at, line, tell) = missed(
-                        &mut misses,
-                        now,
-                        "the sensor does not answer",
-                        &error,
-                        bus_number,
-                    );
+                    ever_answered |= error.contains("CRC");
+                    let (at, line, tell) =
+                        missed(&mut misses, now, LOOKING, &error, bus_number, ever_answered);
                     if tell {
                         say.log(&line);
                     }
@@ -215,6 +230,7 @@ pub fn run(
                         "the sensor stopped answering",
                         &error,
                         bus_number,
+                        ever_answered,
                     );
                     if tell {
                         say.log(&line);
@@ -413,7 +429,7 @@ mod tests {
             [
                 "the sensor answers: SEN63C".to_owned(),
                 "the sensor stopped answering: word 0 fails its CRC".to_owned(),
-                "no air sensor answers on I2C bus 0 (word 0 fails its CRC); looked for again every 10 min"
+                "the air sensor answered but gives no reading on I2C bus 0 (word 0 fails its CRC); looked for again every 10 min"
                     .to_owned(),
             ]
         );
@@ -464,7 +480,7 @@ mod tests {
         assert_eq!(
             said.lines
                 .iter()
-                .filter(|line| line.starts_with("no air sensor answers"))
+                .filter(|line| line.starts_with(NO_READING))
                 .count(),
             1
         );

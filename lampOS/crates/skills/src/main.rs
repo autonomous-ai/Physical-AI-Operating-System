@@ -475,7 +475,10 @@ fn serve(
                 }
                 let names: Vec<&str> = skills.iter().map(|skill| skill.name.as_str()).collect();
                 eprintln!("lamp-skills: loaded {names:?}");
-                engine.replace(skills);
+                // A held dim whose skill or trigger is gone is given back.
+                for run in engine.replace(skills) {
+                    handle(run, &mut runs, &mut out, &runner);
+                }
                 if let Some(tools) = tools {
                     write_tools(tools, &engine);
                 }

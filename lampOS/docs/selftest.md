@@ -79,8 +79,17 @@ at boot, as `orangepi` with `CAP_SYSLOG` and no other capability,
 `--occasion on-demand` on `/run/lampos-bus`, keeping its runs in
 `/var/lib/lamp-selftest` (its own `StateDirectory`: the other parts keep
 theirs under `/var/lib/lampOS`, which is root's alone, so `orangepi` cannot
-reach a directory made inside it; lamp-4ace, 2026-10-16 06:43). The first boot (#806) can
-run the same binary with `--occasion first-boot`.
+reach a directory made inside it; lamp-4ace, 2026-10-16 06:43).
+
+On a product lamp (#812) the passive run is `deploy/product/lamp-selftest.service`, started only by
+`lamp-selftest.timer`: five minutes after the lamp starts (so the first boot after setup, #806,
+once its parts have had time to say how they are) and every six hours after, while the lamp runs.
+It is `--occasion first-boot`: nothing lit, played or moved, every part judged from what it
+already says. As `lampos` with `CAP_SYSLOG` alone, keeping its runs in `/var/lib/lamp-selftest`.
+The timer is in `lampos.target` and waits for setup's marker; the service has no `[Install]`, so
+nothing else starts it. Exit 3 (a part not checked) counts as the unit's success; 1 does not.
+`lamp-health` then carries the newest run in `lamp/health`, so a part that failed since is said
+before its person finds out. The factory's run and an on-demand one are started by hand.
 
 Exit status: 0 every part passed or is not fitted, 1 a part failed, 3 a
 part could not be checked, 2 the arguments were wrong.

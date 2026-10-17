@@ -90,6 +90,7 @@ differs. Folders are what the unit makes or names.
 | air | `lamp-air` | orangepi, `/dev/i2c-0` | none | none | the bus |
 | tasks | `lamp-tasks serve` | orangepi | `/var/lib/lampos-tasks/` (0700); `/run/lampos-tasks/` (0700) | `targets.json` in its state folder; the Harness program in the user's home | `request.sock`, `voice.sock` |
 | records | `lamp-records check` (a timer, hourly) | root | `/run/lamp-records/` | `/etc/lampOS/records.json` (it does nothing without it) | `last.json` |
+| selftest | `lamp-selftest --occasion first-boot` (a timer: 5 min after the lamp starts, then every 6 h; #812) | lampos, `CAP_SYSLOG` | `/var/lib/lamp-selftest/` (its own `StateDirectory`) | none | the bus (`lamp/selftest`), its runs' reports |
 | update | `lamp-update serve` | root | `/var/lib/lampos-update/` (0700) | `/etc/lampOS/update/key.pub` | none |
 | keeper | `lamp-keeper serve` | root | its service data folder | none | `lampos.target.d/keeper.conf`; the bus root |
 | skills | `lamp-skills` | lampos (product unit, #811) | none | the skill folders, `/var/lib/lampOS/skills/` (Welcome back from install) | its tools, `/run/lampos-actions/skills/` |
@@ -427,7 +428,9 @@ As root, on a lamp with the base image (`crates/update/src/install.rs`):
    `lampos.conf` is written (step 5), and after anything else changed.
 8. If systemd is owed: `systemd-tmpfiles --create`, `systemctl
    daemon-reload`, and `systemctl enable` of every part, `lampos.target`,
-   `lamp-update.service` and `lamp-records.timer`; then records the debt
+   `lamp-update.service`, `lamp-records.timer` and `lamp-selftest.timer`
+   (its service is started by the timer alone, as the records' check is);
+   then records the debt
    paid. It starts nothing and never writes setup's marker. A run whose
    enable fails, or that is stopped anywhere after its first unit is
    written, leaves the debt, and the next run pays it though it writes

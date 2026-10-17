@@ -116,6 +116,16 @@ pub const PRODUCT: &[(&str, &str)] = &[
         "lamp-update.service",
         include_str!("../../../deploy/product/lamp-update.service"),
     ),
+    // The passive self-test, five minutes after the lamp starts and every
+    // six hours (#812). Its service is started by its timer alone.
+    (
+        "lamp-selftest.service",
+        include_str!("../../../deploy/product/lamp-selftest.service"),
+    ),
+    (
+        "lamp-selftest.timer",
+        include_str!("../../../deploy/product/lamp-selftest.timer"),
+    ),
     // Setup at first boot, its reset, and the start of the lamp once it is
     // set up (#806, #811).
     (
@@ -259,15 +269,19 @@ const HARNESS_DONE: &str = "harness-at-boot";
 /// starts its turn-end worker from its own (docs/endpoint-detection.md).
 const BESIDE: &[(&str, &[&str])] = &[("lamp-voice", &["lamp-turn-end"])];
 
+/// Services started by a timer of their own, and never enabled themselves.
+const TIMED: &[&str] = &["lamp-records.service", "lamp-selftest.service"];
+
 /// The units enabled: the target, and what starts outside it.
 fn enabled() -> Vec<String> {
     PRODUCT
         .iter()
         .map(|(name, _)| *name)
-        .filter(|name| name.ends_with(".service") && *name != "lamp-records.service")
+        .filter(|name| name.ends_with(".service") && !TIMED.contains(name))
         .chain([
             "lampos.target",
             "lamp-records.timer",
+            "lamp-selftest.timer",
             "lampos-setup-done.path",
         ])
         .map(str::to_owned)
@@ -1194,6 +1208,30 @@ mod tests {
             let name = part.binary.trim_start_matches("lamp-");
             assert_eq!(part.folder, format!("/opt/lampOS/{name}/"), "{part:?}");
         }
+    }
+
+    /// #812: the passive self-test is started by its timer alone, which the
+    /// lamp's target wants, as the records' check is by its own.
+    #[test]
+    fn a_timed_service_is_never_enabled_and_its_timer_is() {
+        let enabled = enabled();
+        for timed in TIMED {
+            assert!(!enabled.iter().any(|name| name == timed), "{timed}");
+            let timer = timed.replace(".service", ".timer");
+            assert!(enabled.contains(&timer), "{timer}");
+            assert!(PRODUCT.iter().any(|(name, _)| *name == timer), "{timer}");
+        }
+        let (_, timer) = PRODUCT
+            .iter()
+            .find(|(name, _)| *name == "lamp-selftest.timer")
+            .unwrap();
+        assert!(timer.contains("WantedBy=lampos.target"), "{timer}");
+        let (_, service) = PRODUCT
+            .iter()
+            .find(|(name, _)| *name == "lamp-selftest.service")
+            .unwrap();
+        assert!(!service.contains("[Install]"), "{service}");
+        assert!(service.contains("--occasion first-boot"), "{service}");
     }
 
     #[test]

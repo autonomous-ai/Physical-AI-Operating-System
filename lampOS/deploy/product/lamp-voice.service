@@ -20,7 +20,7 @@ Group=root
 Slice=lampos-voice.slice
 WorkingDirectory=/
 UMask=0077
-ExecStart=/opt/lampOS/voice/current/lamp-voice serve /etc/lampOS/voice/provider.json /var/lib/lampOS/voice/sessions/${INVOCATION_ID} --noise-suppression off --turn-taking duplex --faint-floor-db -28 --microphone mic2 --reference-clock capture --reference-recovery bounded --provider-continuation kept-start --playout-start-ms 350 --ring-channel-ceiling 24 --end-silence-ms 600 --controls-stop --endpoint smart-turn-fast --call-wait-ms 2000
+ExecStart=/opt/lampOS/voice/current/lamp-voice serve /etc/lampOS/voice/provider.json /var/lib/lampOS/voice/sessions/${INVOCATION_ID} --noise-suppression off --turn-taking duplex --faint-floor-db -28 --microphone mic2 --reference-clock capture --reference-recovery bounded --provider-continuation kept-start --playout-start-ms 350 --ring-channel-ceiling 24 --end-silence-ms 600 --controls-stop --endpoint smart-turn-fast --call-wait-ms 2000 --controls-mute /var/lib/lampOS/voice/mute/record.json
 # Microphone and speaker threads may not wait behind other work (lamp-4ace, 2026-10-13).
 CPUSchedulingPolicy=rr
 CPUSchedulingPriority=20
@@ -61,10 +61,9 @@ Environment=LAMP_SESSION_FACT=on
 # Switched on lamp-4ace through 16 and 17 October and run there all day; several only in the groups of #1238's
 # census, so their lamp record is that day's running, not a run of their own (install.md).
 # Not here: those that need the second voice's configuration (stop words, the second voice's down-line and wait
-# cue, the voice link: a product lamp has none), the office's own (its Harness target, its say group), and
-# head touch, which needs Controls' and Expression's flags too (#711); those that need another part's flag the product
-# doesn't pass (the Policy holding actions, its hello and progress news, the full look, a restored mute); and "that
-# was weird", a builder's review tool whose marks the reset doesn't wipe (#1332's review).
+# cue, the voice link: a product lamp has none), the office's own (its Harness target, its say group); those that
+# need another part's flag the product doesn't pass (the Policy holding actions, its hello and progress news, the full
+# look); and "that was weird", a builder's review tool whose marks the reset doesn't wipe (#1332's review).
 Environment=LAMP_TOOL_LEAD_IN=on
 Environment=LAMP_WAIT_KEEPS_ANSWER=on
 Environment=LAMP_STOP_TOLD=on
@@ -77,6 +76,13 @@ Environment=LAMP_LIGHT_REQUESTS=on
 Environment=LAMP_QUIET_PACE=on
 Environment=LAMP_START_OFFLINE=on
 Environment=LAMP_RING_ASLEEP=on
+# Head touch (#711), whole: a tap on the head stops the answer or calls the lamp, a hand kept 3 s puts it to sleep
+# with the microphones off (--controls-mute, its record in /var/lib/lampOS/voice/mute), and a tap opens a mute the
+# restart guard left after a fault (LAMP_RESTORED_MUTE). It goes with Expression's --head-touch and the pins without
+# legacy_head, as install's head_touch_comes_whole_and_never_beside_the_old_engines_head holds. Merged only after
+# the owner's try on Sunday 18 Oct (the first builder, #705, 15:48).
+Environment=LAMP_HEAD_TOUCH=on
+Environment=LAMP_RESTORED_MUTE=on
 Environment=LAMP_OTHER_LANGUAGE=sorry
 Environment=LAMP_NAME_IN_PASSING=ignored
 Environment=LAMP_FIRST_WORDS=kept

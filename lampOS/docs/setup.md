@@ -105,6 +105,8 @@ targets), schedule `/var/lib/lampos-schedule/store`, voice sessions
 `/run/lampos-voice/thread.json`, the voice's first-output log
 `/var/lib/lampOS/voice/first-output`, what the voice has told of tasks
 `/var/lib/lampOS/voice/tasks-told` (its default, `LAMP_TASKS_TOLD`), the
+voice's software mute and sleep from the head (`/var/lib/lampOS/voice/mute`,
+`--controls-mute`, #711), the
 policy's log `/var/lib/lampos-policy`, the person's parts of Harness under
 the tasks part's home (`/var/lib/lampos-tasks/.harness/` `auth`,
 `connections`, `computer-id`, `cli/data`, `agent-messages`, `hook-routes`

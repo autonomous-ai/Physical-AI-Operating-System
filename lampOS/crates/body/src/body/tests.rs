@@ -8334,6 +8334,42 @@ fn a_skill_move_ended_for_a_conversation_gesture_eases_out_and_then_it_plays() {
     }
 }
 
+/// A speaking lamp leaned in when a skill's stretch begins: the lean
+/// eases out under the stretch, the stretch ended by the conversation's
+/// nod eases back on top of it, and the lean comes back after the nod.
+/// Every step of the arm stays within the 50 counts the wire takes, so
+/// the run ends as asked and not on the wire.
+#[test]
+fn a_speaking_lean_and_an_arbitration_ease_out_never_step_past_the_arm() {
+    let ms = Duration::from_millis;
+    let asks = vec![
+        (ms(8_000), &crate::clips::STRETCHING, Priority::Skill),
+        (ms(11_200), &crate::clips::NOD, Priority::Conversation),
+    ];
+    let (report, fates, seen) = arbitrated_run(true, asks, 18);
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(
+        fates.contains(&("stretching", "ended: by conversation")),
+        "{fates:?}"
+    );
+    let at = |when: Duration| seen.iter().rfind(|step| step.0 < when).unwrap().3;
+    let stood = at(ms(5_000));
+    for (when, share) in [(ms(7_900), 1.0), (ms(11_900), 0.0), (ms(16_900), 1.0)] {
+        for (index, lean) in LEAN.iter().enumerate() {
+            let by = f32::from(at(when)[index]) - f32::from(stood[index]);
+            assert!((by - lean * share).abs() <= 2.0, "{when:?} {:?}", at(when));
+        }
+    }
+    for pair in seen.windows(2) {
+        for joint in 0..2 {
+            assert!(
+                pair[1].3[joint].abs_diff(pair[0].3[joint]) <= 50,
+                "{pair:?}"
+            );
+        }
+    }
+}
+
 /// A skill's move asked while a hand holds the lamp is dropped, naming
 /// the hand.
 #[test]

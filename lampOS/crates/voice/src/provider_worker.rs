@@ -122,6 +122,9 @@ pub struct Files {
     pub session_fact: bool,
     /// Whether the session is told how busy the room is (`--room-facts`).
     pub room_facts: bool,
+    /// Whether a line said over the lamp's reply and left unanswered is
+    /// kept out of the busy room's count (`--cut-ins-not-talk`).
+    pub cut_ins_not_talk: bool,
     /// Whether a stuffy room is told beside what a person says
     /// (`--air-facts`, `crate::air_told`).
     pub air_facts: bool,
@@ -235,6 +238,7 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
     let (thread, flags) = crate::thread::take_file(flags)?;
     let (session_fact, flags) = crate::session_fact::take(flags);
     let (room_facts, flags) = crate::room_told::take(flags);
+    let (cut_ins_not_talk, flags) = crate::room_told::take_cut_ins(flags);
     let (air_facts, flags) = crate::air_told::take(flags);
     let (keep_link, flags) = take_keep_link(flags);
     let (wait_for_room, flags) = take_wait_for_room(flags);
@@ -267,6 +271,7 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
         thread,
         session_fact,
         room_facts,
+        cut_ins_not_talk,
         air_facts,
         keep_link,
         wait_for_room,
@@ -940,6 +945,9 @@ pub async fn run_with_continuation(
     LOOK_FULL.store(files.look_full, std::sync::atomic::Ordering::Relaxed);
     SESSION_FACT.store(files.session_fact, std::sync::atomic::Ordering::Relaxed);
     ROOM_FACTS.store(files.room_facts, std::sync::atomic::Ordering::Relaxed);
+    if let Ok(mut room) = crate::room_told::room().lock() {
+        room.leave_cut_ins_out(files.cut_ins_not_talk);
+    }
     AIR_FACTS.store(files.air_facts, std::sync::atomic::Ordering::Relaxed);
     NAME_NOTE.store(files.name_note, std::sync::atomic::Ordering::Relaxed);
     HEAD_TOUCH.store(files.head_touch, std::sync::atomic::Ordering::Relaxed);
@@ -2993,11 +3001,19 @@ fn forward_origin(
             // not a request the session failed to answer, and is not talk.
             // A reminder attempt has no heard input at all. It must neither
             // change the room nor renew the session as unanswered speech.
+            let mut over_the_lamp = false;
             let said = heard_input
                 && crate::room_told::room().lock().map_or(true, |mut room| {
+                    over_the_lamp = room.kept_out_over_the_lamp(lineage.request.get());
                     room.unanswered(lineage.request.get(), monotonic_us())
                 });
-            if said {
+            if over_the_lamp {
+                eprintln!(
+                    "lamp-voice provider: request {}, said over the lamp's reply, got no answer in {} ms; closed, connection kept, and not counted toward a busy room",
+                    lineage.request.get(),
+                    waited.as_millis()
+                );
+            } else if said {
                 unanswered_requests().fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 eprintln!(
                     "lamp-voice provider: request {} got no answer in {} ms; closed as unanswered, connection kept",
@@ -3861,6 +3877,9 @@ impl InputHandoff {
                 }
                 if over_the_lamp {
                     self.over_the_lamp = Some(request.get());
+                    if let Ok(mut room) = crate::room_told::room().lock() {
+                        room.began_over_the_lamp(request.get());
+                    }
                 }
                 if let Some(voices) = self.voices.as_mut() {
                     voices.began(request.get(), !over_the_lamp);
@@ -7639,6 +7658,55 @@ mod tests {
             "{note}"
         );
         rig.stop().await;
+    }
+
+    /// #828: a request whose Start says it began over the lamp's reply is
+    /// marked so in the room, with `--cut-ins-not-talk` (the room's
+    /// switch), so that left unanswered it is not counted toward a busy
+    /// room; a request begun after the lamp finished is not. The flag is
+    /// taken right after `--room-facts`, by both workers.
+    #[tokio::test]
+    async fn a_request_begun_over_the_lamp_is_kept_out_of_the_busy_count_with_the_switch() {
+        let dir = std::path::Path::new("/run/lamp-voice");
+        let flags = [
+            crate::room_told::FLAG,
+            crate::room_told::CUT_INS_FLAG,
+            crate::attention::FLAG,
+        ]
+        .map(str::to_owned);
+        let (_, _, files, _) = parse_flags(dir, &flags).unwrap();
+        assert!(files.room_facts && files.cut_ins_not_talk && files.attention);
+        let (_, _, files, _) = crate::second_provider::worker::parse_flags(dir, &flags).unwrap();
+        assert!(files.cut_ins_not_talk);
+        let (_, _, files, _) = parse_flags(dir, &flags[..1]).unwrap();
+        assert!(!files.cut_ins_not_talk);
+        let old = std::mem::take(&mut *crate::room_told::room().lock().unwrap());
+        crate::room_told::room()
+            .lock()
+            .unwrap()
+            .leave_cut_ins_out(true);
+        let mut rig = LiveRig::start_with(quick_policy(), Options::reporting(Reporting::Typed));
+        let mut dial = rig.ready().await;
+        let after = rig
+            .speak_as(&mut dial, false, true, false, false, false)
+            .await;
+        assert!(
+            !crate::room_told::room()
+                .lock()
+                .unwrap()
+                .kept_out_over_the_lamp(after)
+        );
+        let over = rig
+            .speak_as(&mut dial, true, false, false, false, true)
+            .await;
+        assert!(
+            crate::room_told::room()
+                .lock()
+                .unwrap()
+                .kept_out_over_the_lamp(over)
+        );
+        rig.stop().await;
+        *crate::room_told::room().lock().unwrap() = old;
     }
 
     /// The reviewer on #1173: a request begun over the lamp's own answer

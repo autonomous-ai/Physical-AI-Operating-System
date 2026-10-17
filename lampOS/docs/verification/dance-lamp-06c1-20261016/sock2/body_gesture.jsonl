@@ -1,0 +1,5 @@
+{"topic":"body/gesture","declaration":{"type":"lamp_msgs/BodyGesture","version":1,"kind":"event"}}
+{"header":{"topic":"body/gesture","kind":"event","enc":"json","type":"lamp_msgs/BodyGesture","source":"body","boot":"4c872b605b36a734","seq":5,"at_us":247232808,"at_unix_ms":1792204952663},"payload_b64":"eyJuYW1lIjoiZGFuY2VfY2hpbGwiLCJzdGF0ZSI6ImJlZ2FuIn0="}
+{"header":{"topic":"body/gesture","kind":"event","enc":"json","type":"lamp_msgs/BodyGesture","source":"body","boot":"4c872b605b36a734","seq":6,"at_us":256232971,"at_unix_ms":1792204961663},"payload_b64":"eyJuYW1lIjoiZGFuY2VfY2hpbGwiLCJzdGF0ZSI6Im92ZXIifQ=="}
+{"header":{"topic":"body/gesture","kind":"event","enc":"json","type":"lamp_msgs/BodyGesture","source":"body","boot":"4c872b605b36a734","seq":7,"at_us":256273612,"at_unix_ms":1792204961704},"payload_b64":"eyJuYW1lIjoiZGFuY2VfY2hpbGwiLCJzdGF0ZSI6ImJlZ2FuIn0="}
+{"header":{"topic":"body/gesture","kind":"event","enc":"json","type":"lamp_msgs/BodyGesture","source":"body","boot":"4c872b605b36a734","seq":8,"at_us":265273227,"at_unix_ms":1792204970703},"payload_b64":"eyJuYW1lIjoiZGFuY2VfY2hpbGwiLCJzdGF0ZSI6Im92ZXIifQ=="}

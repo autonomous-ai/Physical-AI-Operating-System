@@ -9,9 +9,10 @@
 //! as the stop words use it (`crate::stop_words::RelayEars::for_waits`), and
 //! its words are asked for once it has been quiet for 100 ms
 //! ([`ASK_AFTER_QUIET_BLOCKS`]), well before its endpoint (600 ms). Then:
-//! - words back, past fillers ([`FILLERS`]): it is decided as a sound that
+//! - words back, past those that ask nothing ([`FILLERS`],
+//!   [`ACKNOWLEDGEMENTS`], hums and laughs): it is decided as a sound that
 //!   went on is, at once;
-//! - words back with nothing past fillers: `on` decides it, as before;
+//! - words back with nothing past those: `on` decides it, as before;
 //! - where `on` would let it go and its words are not back, it waits for
 //!   them while it has not ended and is short of its own deadline; then it
 //!   is let go, as with `on`. An ended sound cannot be held: the next one's
@@ -38,20 +39,35 @@ pub const ASK_AFTER_QUIET_BLOCKS: u16 = 10;
 /// Sounds a person makes that ask nothing: a waited sound of only these is
 /// judged as one of no words is.
 pub const FILLERS: &[&str] = &[
-    "um", "uh", "er", "erm", "hm", "hmm", "mm", "mhm", "mmm", "ah", "oh", "huh",
+    "um", "uh", "er", "erm", "eh", "hm", "hmm", "mm", "mhm", "mmm", "ah", "oh", "huh",
 ];
 
-/// How many words of `text` ask something: its words past [`FILLERS`], and
-/// past any hum of only m and h ("mm-hm", "hmmm").
+/// What a person says to show they are listening, or to someone else,
+/// while an answer is awaited: on their own they ask nothing, and a waited
+/// sound of only these and [`FILLERS`] is judged as one of no words is (the
+/// seventh's P2 on #1277: the asker's "Okay." must not cut off the answer
+/// it waits for). "No", "wait", "stop" and "what" are not among them: they
+/// ask something.
+pub const ACKNOWLEDGEMENTS: &[&str] = &[
+    "okay", "ok", "yeah", "yes", "yep", "yup", "right", "alright", "sure",
+];
+
+/// Whether `word`, one of `crate::not_speech::plain_words`'s, asks nothing:
+/// a filler, an acknowledgement, a hum of only m and h ("hmmm"; "mm-hm"
+/// comes split in two), or a laugh of only h, a and e ("haha", "heh").
+fn asks_nothing(word: &str) -> bool {
+    FILLERS.contains(&word)
+        || ACKNOWLEDGEMENTS.contains(&word)
+        || word.chars().all(|c| c == 'm' || c == 'h')
+        || (word.contains('h') && word.chars().all(|c| matches!(c, 'h' | 'a' | 'e')))
+}
+
+/// How many words of `text` ask something: its words past those that ask
+/// nothing (fillers, acknowledgements, hums and laughs).
 pub fn words_in(text: &str) -> usize {
     crate::not_speech::plain_words(text)
         .iter()
-        .filter(|word| {
-            let bare = word.replace('-', "");
-            !FILLERS.contains(&word.as_str())
-                && !FILLERS.contains(&bare.as_str())
-                && !bare.chars().all(|c| c == 'm' || c == 'h')
-        })
+        .filter(|word| !asks_nothing(word))
         .count()
 }
 
@@ -360,17 +376,27 @@ pub(crate) mod tests {
         assert_eq!(words.verdict(first), Verdict::Pending);
     }
 
-    /// Fillers say nothing; words decide at once, even before `on` would;
-    /// where `on` lets it go, missing words hold it only while it has not
-    /// ended and is short of its deadline.
+    /// Fillers, acknowledgements, hums and laughs ask nothing, alone; words
+    /// decide at once, even before `on` would; where `on` lets it go, missing
+    /// words hold it only while it has not ended and is short of its deadline.
     #[test]
     fn words_decide_and_missing_ones_hold_only_an_unended_sound() {
         for (said, count) in [
             ("", 0),
             ("Um.", 0),
             ("Hmm, mm-hm.", 0),
+            ("Uh-huh.", 0),
+            ("Haha.", 0),
+            ("Ha ha, heh.", 0),
+            ("Okay.", 0),
+            ("Yeah, yeah.", 0),
+            ("Yes.", 0),
+            ("Alright.", 0),
             ("Uh, no.", 1),
             ("Wait, what?", 2),
+            ("Okay, stop.", 1),
+            ("Yeah, no.", 1),
+            ("Hey.", 1),
         ] {
             assert_eq!(words_in(said), count, "{said:?}");
         }

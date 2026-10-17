@@ -4474,6 +4474,7 @@ fn conversation_with_gate(
                         words.lamp_said(
                             &text,
                             crate::stop_words::plays_at_us(monotonic_us(), queued),
+                            queued > 0,
                         );
                     }
                     // The model keeping quiet aloud: an answer that opens

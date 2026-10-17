@@ -234,8 +234,8 @@ microphone's block before the canceller, and the capture worker is given
 `--raw-blocks` in its argv, only then. Off by default.
 
 `LAMP_STOP_WORDS_HOLD=own-words`, with `heard-always`: a stop heard is
-acted on only once the lamp's own words cover its block, at most 150 ms
-later, so the lamp's own "stop" whose text comes late stops nothing
+acted on only once the lamp's own words, stamped ahead of when they were
+written, cover the block its result arrived in, at most 150 ms later, so the lamp's own "stop" whose text comes late stops nothing
 ([stop-word.md](stop-word.md#a-stop-word-heard-over-the-lamps-voice-828-16-october)).
 Off by default.
 

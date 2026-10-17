@@ -279,10 +279,16 @@ pub struct StopWords {
     /// ([`Self::with_hold`]), and the one held.
     hold: bool,
     held: Option<Held>,
+    /// With `hold`: the latest stamp of the lamp's words stamped ahead of
+    /// when they were written, and this reply's held stops, each with how
+    /// long it waited (ms) and whether it acted.
+    ahead_at: u64,
+    holds: Vec<(u64, bool)>,
 }
 
 /// A stop heard over the lamp and held ([`HOLD_US`]): what was heard,
-/// the capture time of the block it came in, and its results' numbers.
+/// the capture time of the block its result arrived in (after the words
+/// were said, by the relay's answer), and its results' numbers.
 struct Held {
     heard: String,
     at_us: u64,
@@ -316,6 +322,8 @@ impl StopWords {
             since_asked: 0,
             hold: false,
             held: None,
+            ahead_at: 0,
+            holds: Vec::new(),
         }
     }
 
@@ -364,10 +372,16 @@ impl StopWords {
         self.always
     }
 
-    /// The lamp said `text`, as its words were written, at `at_us`.
-    pub fn lamp_said(&mut self, text: &str, at_us: u64) {
+    /// The lamp said `text`, as its words were written, at `at_us`: when
+    /// they play, `ahead` of when they were written when the reply's audio
+    /// is queued before them. Only such words can end a held stop early:
+    /// stamped as written, a piece can be text for audio played before it.
+    pub fn lamp_said(&mut self, text: &str, at_us: u64, ahead: bool) {
         if self.always {
             self.lamp.push_back((at_us, text.to_owned()));
+            if ahead {
+                self.ahead_at = self.ahead_at.max(at_us);
+            }
         }
     }
 
@@ -401,6 +415,8 @@ impl StopWords {
             self.since_asked = 0;
             self.heard.clear();
             self.held = None;
+            self.ahead_at = 0;
+            self.holds.clear();
         }
         self.replying = replying;
         if replying && (sounding || yielded) {
@@ -477,25 +493,27 @@ impl StopWords {
 
     /// The stop held, at a block captured at `now_us`: let go if the lamp's
     /// words now hold it or the reply is over; acted on once they cover
-    /// the block it came in (a word of theirs stamped at or after it), or
-    /// [`HOLD_US`] after it. Own words later still than that stop the lamp:
-    /// a person's stop is never held longer.
+    /// the block its result arrived in (a word of theirs stamped ahead of
+    /// when it was written, at or after that block), or [`HOLD_US`] after
+    /// it. Own words later still than that stop the lamp: a person's stop
+    /// is never held longer.
     fn decide_held(&mut self, replying: bool, now_us: u64) {
         let Some(held) = self.held.as_ref() else {
             return;
         };
+        let waited_ms = now_us.saturating_sub(held.at_us) / 1000;
         let lamp: Vec<&str> = self.lamp.iter().map(|(_, text)| text.as_str()).collect();
         if !replying || !stop_over(&held.heard, &lamp.join(" ")) {
             if replying {
                 eprintln!(
-                    "lamp-voice: stop words: a stop phrase heard was the lamp's own, its words came within {} ms",
-                    now_us.saturating_sub(held.at_us) / 1000
+                    "lamp-voice: stop words: a stop phrase heard was the lamp's own, let go after {waited_ms} ms held"
                 );
             }
+            self.holds.push((waited_ms, false));
             self.held = None;
             return;
         }
-        let covered = self.lamp.iter().any(|(at, _)| *at >= held.at_us);
+        let covered = self.ahead_at >= held.at_us;
         if covered || now_us >= held.at_us.saturating_add(HOLD_US) {
             if let Some(held) = self.held.take() {
                 for kept in &mut self.heard {
@@ -504,6 +522,15 @@ impl StopWords {
                     }
                 }
             }
+            eprintln!(
+                "lamp-voice: stop words: a held stop phrase acts after {waited_ms} ms held{}",
+                if covered {
+                    ", the lamp's words covering it"
+                } else {
+                    ""
+                }
+            );
+            self.holds.push((waited_ms, true));
             self.stop();
         }
     }
@@ -532,6 +559,9 @@ impl StopWords {
                     "asked_every_ms": self.cadence.then_some(u64::from(CADENCE_BLOCKS) * 10),
                     "results": self.results,
                     "stop_heard": self.stop_heard,
+                    "held": self.hold.then(|| self.holds.iter().map(|(waited_ms, acted)| {
+                        serde_json::json!({"waited_ms": waited_ms, "acted": acted})
+                    }).collect::<Vec<_>>()),
                     "heard": self.heard.iter().map(|kept| {
                         serde_json::json!({"n": kept.n, "text": kept.text, "stopped_the_lamp": kept.stopped})
                     }).collect::<Vec<_>>(),
@@ -549,7 +579,7 @@ impl StopWords {
         self.lamp.clear();
         // Counts only: whether anything was sent and heard back.
         eprintln!(
-            "lamp-voice: stop words: the reply's {} blocks went to the speech-to-text, its words asked for at {} pauses, {} results came back{}",
+            "lamp-voice: stop words: the reply's {} blocks went to the speech-to-text, its words asked for at {} pauses, {} results came back{}{}",
             self.sent,
             self.flushes,
             self.results,
@@ -557,6 +587,11 @@ impl StopWords {
                 ", a stop phrase among them"
             } else {
                 ""
+            },
+            if self.hold {
+                format!(", {} stops held", self.holds.len())
+            } else {
+                String::new()
             }
         );
     }
@@ -657,6 +692,7 @@ impl StopWords {
         self.closed = true;
         self.stopped = false;
         self.held = None;
+        self.ahead_at = 0;
         self.lamp.clear();
     }
 }
@@ -1651,7 +1687,7 @@ mod tests {
         let script = Arc::new(Mutex::new(Script::default()));
         let mut words =
             StopWords::always_counted(Box::new(Scripted(Arc::clone(&script))), Some(path.clone()));
-        words.lamp_said("Once upon a time there was a fox.", 0);
+        words.lamp_said("Once upon a time there was a fox.", 0, false);
         let mut at = 0u64;
         for _ in 0..30 {
             at += 10_000;
@@ -1828,7 +1864,7 @@ mod tests {
         let stops = |stamped_at_us: u64| {
             let script = Arc::new(Mutex::new(Script::default()));
             let mut words = StopWords::always(Box::new(Scripted(Arc::clone(&script))));
-            words.lamp_said("And so the fox had to wait.", stamped_at_us);
+            words.lamp_said("And so the fox had to wait.", stamped_at_us, true);
             let mut at = 12_000_000u64;
             for _ in 0..50 {
                 at += 10_000;
@@ -2109,7 +2145,7 @@ mod tests {
             words.block(true, true, false, None, None, at(1), &block(1)),
             Tell::Nothing
         );
-        words.lamp_said("And so the fox had to wait.", at(1));
+        words.lamp_said("And so the fox had to wait.", at(1), false);
         script.lock().unwrap().words = Some("the fox had to wait".into());
         words.block(true, true, false, None, None, at(2), &block(2));
         assert!(!words.spoken_stop());
@@ -2150,19 +2186,25 @@ mod tests {
     /// stamped as they come. The delay from the words to the stop, in ms,
     /// or `None` if nothing was stopped in the 400 ms after them.
     fn stop_delay_ms(hold: bool, heard: &str, own: Option<(&str, u64)>) -> Option<u64> {
+        stop_delay_pieces_ms(hold, heard, own.as_slice())
+    }
+
+    /// The same, with the lamp's own words written in pieces, each
+    /// `(text, after_ms)`, as transcripts come.
+    fn stop_delay_pieces_ms(hold: bool, heard: &str, own: &[(&str, u64)]) -> Option<u64> {
         let script = Arc::new(Mutex::new(Script::default()));
         let mut words = StopWords::always_counted(Box::new(Scripted(Arc::clone(&script))), None)
             .with_hold(hold);
         let at = |ms: u64| 20_000_000 + ms * 1000;
-        words.lamp_said("Once upon a time,", at(0));
+        words.lamp_said("Once upon a time,", at(0), false);
         for ms in (0..=500).step_by(10) {
             if ms == 100 {
                 script.lock().unwrap().words = Some(heard.into());
             }
-            if let Some((text, after_ms)) = own
-                && ms == 100 + after_ms
-            {
-                words.lamp_said(text, at(ms));
+            for (text, after_ms) in own {
+                if ms == 100 + after_ms {
+                    words.lamp_said(text, at(ms), false);
+                }
             }
             words.block(true, true, false, None, None, at(ms), &block(1));
             if words.spoken_stop() {
@@ -2184,6 +2226,16 @@ mod tests {
             stop_delay_ms(true, "Wait.", Some(("Wait for me, said the owl.", 80))),
             None
         );
+        // The reviewer's probe on #1353 at 17:34: its text in two pieces, the
+        // first, for audio played before the stop, ends no hold.
+        assert_eq!(
+            stop_delay_pieces_ms(
+                true,
+                "the owl said stop",
+                &[("And the owl said:", 20), ("stop, little fox.", 60)]
+            ),
+            None
+        );
     }
 
     /// (b) A person's stop with no such words of the lamp's acts at 150 ms,
@@ -2195,13 +2247,13 @@ mod tests {
         assert_eq!(HOLD_US, 150_000);
         assert_eq!(
             stop_delay_ms(true, "Lamp, stop.", Some(("the owl flew home", 40))),
-            Some(40)
+            Some(150)
         );
         let script = Arc::new(Mutex::new(Script::default()));
         let mut words = StopWords::always_counted(Box::new(Scripted(Arc::clone(&script))), None)
             .with_hold(true);
         words.block(true, true, false, None, None, 1_000_000, &block(1));
-        words.lamp_said("and the owl flew home", 9_000_000);
+        words.lamp_said("and the owl flew home", 9_000_000, true);
         script.lock().unwrap().words = Some("Stop.".into());
         words.block(true, true, false, None, None, 1_010_000, &block(1));
         assert!(words.spoken_stop(), "covered already: no delay");
@@ -2227,6 +2279,41 @@ mod tests {
     fn the_lamps_own_words_later_than_the_hold_stop_it_at_150_ms() {
         let own = Some(("And the owl said: stop, little fox.", 200));
         assert_eq!(stop_delay_ms(true, "the owl said stop", own), Some(150));
+    }
+
+    /// The first builder's and the reviewer's P3 on #1353: each held stop,
+    /// how long it waited and whether it acted, is in the reply's counts.
+    #[test]
+    fn each_held_stop_and_its_wait_is_in_the_replys_counts() {
+        let dir = std::env::temp_dir().join(format!("lamp-voice-stop-held-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("stop-words.json");
+        let script = Arc::new(Mutex::new(Script::default()));
+        let mut words =
+            StopWords::always_counted(Box::new(Scripted(Arc::clone(&script))), Some(path.clone()))
+                .with_hold(true);
+        let at = |ms: u64| 20_000_000 + ms * 1000;
+        for ms in (0..=600).step_by(10) {
+            match ms {
+                100 => script.lock().unwrap().words = Some("the owl said stop".into()),
+                180 => words.lamp_said("And the owl said: stop.", at(ms), false),
+                300 => script.lock().unwrap().words = Some("Lamp, wait.".into()),
+                _ => {}
+            }
+            words.block(true, true, false, None, None, at(ms), &block(1));
+            if words.spoken_stop() {
+                assert_eq!(ms, 450);
+            }
+        }
+        words.block(false, false, false, None, None, at(610), &block(1));
+        let written: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        assert_eq!(
+            written["reply"]["held"],
+            serde_json::json!([{"waited_ms": 80, "acted": false}, {"waited_ms": 150, "acted": true}]),
+            "{written}"
+        );
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     /// (d) With the switch off, as before: every stop the lamp did not say

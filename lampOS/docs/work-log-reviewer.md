@@ -4,6 +4,48 @@
 
 Newest first. Times from `date` (+07). 00:12 to 01:40: the review agents stopped at a usage limit.
 
+- 17:29 merged #1343 (the light's tools say white and warm are colours, not brightness; the first builder's lamp-4ace run)
+- 17:25 #1347 re-checked at 452c1ba0a: P1 and P3s fixed; new P2 (noise within 10 of a good value that returns every 3-12 reads still never ends the run); no lamp run yet
+- 17:24 #1352 reviewed at 973e42484: P2 ("Wait, ... what about tomorrow?" with a comma pause is judged on "Wait." alone and the question is dropped) + 2 P3s; off unless set
+- 17:24 merged #1348 (a stop during the hotspot start keeps the script's error in its line; ARM64 green on the one re-run after #1351's flake)
+- 17:23 #1354 reviewed at 9d5dcc8e8: no blocking finding (the replay is refused by the order mark, checked); merge on green ARM64
+- 17:18 #1350 reviewed at 5ed6e9948: P2 (the rig's receive can still be refused after the worker has gone, as #1351 failed; tolerate it too and both flakes close)
+- 17:17 merged #1346 (lamp-update check-units says whether a lamp runs exactly the product's units; read-only)
+- 17:11 merged #1349 (Expression forgets the oldest of 32 retired voice sessions instead of stopping after 32 restarts)
+- 17:07 merged #1335 (switches.md's product column as #1332 sets it; docs only)
+- 17:07 #1340 re-checked at 287653a34: P3s fixed, ARM64 green; stays with the first builder (no lamp run)
+- 17:06 opened #1351 (a held-up speaker test's receive is refused after the worker has gone; with #1344 the second capture flake); re-ran #1348's ARM64 once; noted both on #705
+- 17:03 #1347 reviewed at 1aa3810cd: P1 (a flap read never counts toward BadTemperature and holds the heat streak, so a 64/70 flap after a good 60 never stops; undoes #1270's limit) + 2 P3s; then waits for lamp-52e6
+- 16:54 #1348 reviewed at 77fbf84e4: no finding (the stop line keeps the hotspot script's error; my #1341 P3); merge on green ARM64
+- 16:52 #1346 reviewed at 51970c801: P2 (a unit line equal to its own path header restarts the file, so an extra line before it still reads "same") + 3 P3s; read-only, PRODUCT has all 26 units
+- 16:52 merged #1324 (the self-test's air is not_fitted only where no sensor ever answered since boot; a sensor that answered and fails stays a fail)
+- 16:51 #1335 re-checked at 1e2fd3a85: rebased, matches #1332's merged unit (109 switches, 48 on); merge on green ARM64
+- 16:50 merged #1345 (the supervisor tests send one Authority once the child's first Progress says it reads)
+- 16:47 #1335 re-checked at c3ca60647: matches #1332's merged unit; needs a rebase (conflicts with #1323's and #1277's rows)
+- 16:47 #1343 reviewed at e9aaceefd: code right; the lamp run's "cooler" miss was the model (no tool call reached lamp-actions); merge on green ARM64 per the first builder's 16:44
+- 16:43 merged #1341 (a systemd stop during the hotspot start exits 0, light black; my #1336 P3)
+- 16:42 merged #1337 (lamp-health show names zones and parts plainly; my #1327 P3s and El's points)
+- 16:42 merged #1342 (the first-output test's FIFO write is bounded too)
+- 16:42 merged #1332 (the product voice runs lamp-4ace's switches of 17 October that a product lamp can carry, bounded reference recovery and the call's wait)
+- 16:25 #1340 reviewed at 05187daad: code right (rest jitter fits the half-count rule), 2 P3s; for the first builder (factory self-test on hardware, the tenth has no lamp). ARM64 red on a new flake: opened #1344, re-ran once
+- 16:25 merged #1277 (with LAMP_WAIT_KEEPS_ANSWER=words a sound while an answer waits is judged by its words; off unless set; on the first builder's privacy yes)
+- 16:24 merged #1316 (light_warmer and light_cooler; on the first builder's lamp-4ace run)
+- 16:24 merged #1328 (records looks again at a process with no arguments, resolves the unit's binary through its link, and install places records.json; on the first builder's terms)
+- 16:23 #1342 reviewed at 50f4c725a: no finding, tests only (the FIFO write is bounded too); merge on green ARM64
+- 16:20 #1337 re-checked at 17adc646f: both P2s fixed, no finding; merge on green ARM64
+- 16:19 merged #1338 (a stop word over the lamp's speech clears LAMP_FOLLOWS_ON's clock; off unless set; my #1278 P3)
+- 16:18 merged #1313 (lamp-4ace's hardware notes: about 20 °C hotter than cb94 the same morning, one SD host timeout; docs only)
+- 16:14 merged #1323 (the voice tells the model the name typed at setup and says hello by it; on the first builder's terms)
+- 16:10 merged #1336 (setup listens for a stop before its light starts, so an early stop ends black; my #1325 P3)
+- 16:10 #1115 re-checked at 2c88dab21: the lowering's P2 fixed (a press lets go within 0.1 s; a misread is neither a hand nor an end); waits only for lamp step 4
+- 16:09 #1324 re-checked at 274827f7a: P1 fixed (a sensor that answered once is a fail); P2 (no test pins the CRC half of ever_answered), P3 (ever_answered lost on a lamp-air restart)
+- 16:08 #1337 re-checked at e16082a69: zone P2 fixed; new P2 (a zone right after "(" loses the bracket and reads "the board", garbling lamp-4ace's likely first line)
+- 16:08 #1332 re-checked at a9c9153ac: all six fixed (20 switches left, each with its other half on a product lamp), 2 doc P3s; merge on green ARM64. #1335 still matches #1332's old head
+- 16:07 #1338 reviewed at bcb454506: one P3 (no test pins the clear), off unless set; merge on green ARM64
+- 16:03 #1067 re-checked at 7c63b1631: all four fixed (an old sway_roll is ignored; about 2 in 5 pauses sway, the side picked each time); waits for a lamp run (step 4b Sunday on lamp-4ace, or the fifth on lamp-52e6)
+- 16:02 merged #1334 (the first-output test proves the hash runs off the caller's thread with a FIFO, not a 50 ms bound)
+- 16:00 #1337 reviewed at 42090b719: my #1327 P3s fixed; P2 (zone names after a comma, skin_zone and idle zones still shown raw)
+- 16:00 merged #1333 (Stuffy air's docs row: no lamp with a working air sensor has run it)
 - 15:59 #1332 reviewed at 72a183819: 2 P1 (LAMP_POLICY_HOLDS_ACTIONS without the product policy's --act attention delays every nameless call 2 s; LAMP_MARK_WEIRD keeps transcripts a reset doesn't wipe), 2 P2 (LAMP_LOOK_FULL and LAMP_LIGHT_REQUESTS half-set), P3s; #1335 matches it, 4 P3s
 - 15:58 merged #1331 (the voice mic note is the latest capture start's and follows the link warning; my #1326 P3s)
 - 15:58 #1331 reviewed at 3e259ff6c: no finding (my #1326 P3s fixed); merge on green ARM64

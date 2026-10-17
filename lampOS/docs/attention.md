@@ -972,7 +972,15 @@ the lamp's own question, in a conversation going on", when all three hold:
 - the lamp's own last line before the request ended in a question
   (`Thread::lamp_asked`, as #926 reads it).
 
-Then the model judges it. A room sound with no question before it is held
+Then the model judges it. "Right after" is as wide as the conversation:
+the lamp's newest line with a word in it ended in `?`, and some line of the
+lamp's began within the last 45 s (`GOING_ON_FOR`). So a question nobody
+answered still lets a sound with a word in it through for up to 45 s (Twelve
+on #1355). The thread times an exchange from when the lamp's line began, not
+when it ended, so a tighter bound would cut the question at the end of a long
+answer. Only an ASCII `?` counts as a question (`Thread::lamp_asked`, #926's
+own): a line ending in a full-width `？` would not, which doesn't matter for
+the English the lamp speaks. A room sound with no question before it is held
 as before: of the 17 requests held this way on lamp-4ace from 16 to 17
 October, only 3 came in a conversation (the first builder's count on #828).
 What it lets through is a sound heard as words in that one moment, "¿Qué?"

@@ -4,6 +4,63 @@
 
 Newest first. Times from `date` (+07). 00:12 to 01:40: the review agents stopped at a usage limit.
 
+- 14:37 merged #1299 (PR runs include the realtime group, one at a time and first; +8 tests, about 8-10 s)
+- 14:36 merged #1311 (the worker environment test fails on any extra variable; doc on late words; P3: the failure message prints values)
+- 14:35 merged #1305 (capture retries a mic off USB at start; privacy path cleared by the first builder at 14:11; busy retry 50 ms)
+- 14:34 merged #1310 (the muted wait's closures moved into a tested function; a pure move)
+- 14:31 #1299 (PR runs include the realtime group) and #1316 (the light steps warmer and cooler; the character file says the light can change) ready, first reviews started; #1313 moved
+- 14:27 #1314 reviewed (test fixture reorder; no finding): merge on green ARM64
+- 14:25 #1313 (lamp-4ace heat and SD timeout, docs): checked what I can; left for Jarvis's peer review as the first builder asked
+- 14:25 merged #1309 (a held dim is given back when a reload finds its skill or trigger gone; #1066's P3)
+- 14:20 #1308 moved (wording P3s), #1306 moved, #1311 (#1295/#1297 P3s) ready: reviews started
+- 14:18 #1305: the first builder said merge on my clean check (14:11); moved to 03f9b0c59 (four P3s taken), re-check started
+- 14:15 #1310 (#1288's P3: the muted wait's closures moved into a tested function; no behaviour change claimed) ready, first review started
+- 14:12 merged #1307 (the motor worker stamps Ready when it sends it; authority expiry unchanged)
+- 14:11 #1291 green but conflicts (carries #1278's original commits): rebase asked
+- 14:11 #1306 (stop-word counts keep the last 16 results and every stop said; heard words in a file) ready, first review started
+- 14:10 #1305 left to the first builder (privacy path: a mic open retry at start, on by default); no privacy defect found; 5 P3s
+- 14:09 #1308 reviewed: my three #1304 P3s fixed; merge on green ARM64; #1309 (a held dim given back when a reload finds its skill gone; #1066's P3) ready, first review started
+- 14:06 #1308 (#1304's P3s: the mic USB check fails only where a Jieli is the mic) ready, first review started
+- 14:04 merged #1283 (memory says once its reports are off without --bus-root; its env-alone test leaves the realtime group)
+- 14:03 #1307 reviewed: no finding (the Ready stamp is a receipt time only; authority expiry never uses it); merge on green ARM64
+- 14:03 merged #1294 (the self-test's ring check on a stepped clock; the lamp keeps the real clock)
+- 14:01 merged #1304 (the self-test says whether the voice mic is on USB and how often it fell off; read-only; P3: needs the device_micro2 udev name)
+- 14:01 merged #1303 (#1293's P3s: one open with O_NOFOLLOW and fchmod; the key's narrowing tested; cb94 readings clean)
+- 13:59 #1298 first review: P2 doc (a third end rule fired on cb94: the speaker's last reported queue ran out, so with recovery off a speaker one block late ends the voice, not 40 ms); only the error text changes on a lamp
+- 13:59 #1291 rebased onto #1278 (now merged); only the wiring test P3 left; merge on green ARM64
+- 13:58 merged #1301 (#1282's last P3s: a still-muted word keeps the tap's mark; an unknown or invalid privacy lease counts as closed)
+- 13:57 merged #1278 (LAMP_FOLLOWS_ON: a line within 20 s of the lamp's words may follow on; off unless set; both P2s fixed)
+- 13:57 merged #1285 (LAMP_QUIET_EVIDENCE: skip the echo search while the speaker is silent; exact; off unless set)
+- 13:56 #1304 (the self-test says whether the voice mic is on USB and how often it fell off) ready, first review started
+- 13:55 merged #1288 (muted, a tap shows the asleep face about a second; the slide now counts; off unless LAMP_HEAD_TOUCH=on)
+- 13:54 #1307 (the motor worker stamps Ready when it sends it; a slow-ARM64 supervisor test) ready, first review started; #1291 moved
+- 13:51 #1291 re-checked at 3f77b25cd: both P2s fixed (only the lamp's audible voice counts; up to 8 marks kept); waits for #1278, then a rebase, plus a wiring test (P3)
+- 13:50 #1303 (#1293's P3s: one open with O_NOFOLLOW; cb94 readings) and #1305 (capture retries a mic off USB at start; likely the privacy path) ready, first reviews started
+- 13:50 #1296 re-checked at 690716e55: no finding; waits for ARM64 and the owed lamp-52e6 run
+- 13:47 #1294 rebased (merge on green); #1298 (lamp-cb94's voice end: a refused send names its socket; capture worker test) ready, first review started
+- 13:38 merged #1290 and #1286 (Tests); #1285 rebased and #1288 moved: re-checks started
+- 13:38 #1294 and #1283 ready but conflict in realtime-tests.md after #1290/#1286: rebases asked (my #1283 comment corrected: it had said merged)
+- 13:38 merged #1286 (Tests: real-clock test off the clock / bounded; lamp behaviour unchanged)
+- 13:38 merged #1290 (Tests: real-clock test off the clock / bounded; lamp behaviour unchanged)
+- 13:32 #1296 re-checked at 6d35e0fa5: P2 fixed (a flagged servo is let go at once, never re-powered); waits for the owed lamp-52e6 run and ARM64
+- 13:31 merged #1302 (lamp-4ace note: #1300's P3s and Nine's corrections)
+- 13:30 #1301 reviewed: both #1282 P3s fixed; P3 left (a failed-check lease still counts as open); merge on green ARM64
+- 13:27 #1301 (#1282's last P3s) ready, first review started; #1291 and #1296 moved with fixes, re-checks started
+- 13:26 merged #1297 (#1284's P3s: the late line pinned once a request; a late answer's words reach no request, tested through session.rs)
+- 13:24 merged #1199 (Dance's long dance sends its second clip on body/gesture's over; shown on lamp-06c1)
+- 13:24 merged #1300 (lamp-4ace hardware note: the mic's own-voice level, the USB drops, the air sensor's failed reads)
+- 13:18 merged #1230 (body/gesture: began, over or dropped; the fifth's yes; the same-step drop fixed)
+- 13:14 #1296 first review: P2 (a servo's own protection flag keeps the fold going and re-powers that servo every 20 ms for up to 15 s, where lamp-voice let go at once); no lamp run
+- 13:14 merged #1282 (muted, a tap gets no look-up; a stale mute keeps its last value; the slide only with LAMP_PRIVACY_CONTROLS, said in the docs)
+- 13:13 #1285 reviewed at 9939c056a: the skip is exact (54,000 blocks probed); needs a rebase onto #1295's worker_command (P2) with its switch in the real-command test
+- 13:13 merged #1293 (install gives its own default files their mode; secrets only ever narrowed; cb94's evidence clean)
+- 13:12 #1278 re-checked at 71566dd40: took_over P2 fixed (probed); new P2 (the sound let through gets the follows-on mark itself, so s-0857's three sounds would each be told 'may follow on')
+- 13:10 #1297 (#1284's P3s: late line wording, say-once pinned, late words reach no request) ready, first review started
+- 13:06 #1199 rebased onto #1230's head (merges clean), re-check started; #1283 moved again
+- 13:02 #1282 re-checked at 3cd94b69e: both P2s fixed (a stale mute keeps its last value; the docs say the slide needs LAMP_PRIVACY_CONTROLS; closing the slide mid-look ends it); merge on green ARM64
+- 12:59 #1296 (a refused standing lamp folds before letting go; #1281 follow-up; on by default) ready, first review started
+- 12:59 merged #1276 earlier note; #1293 (install gives its own default files their mode; always on; cb94 evidence) ready, first review started; #1282 moved, re-check started
+- 12:58 merged #1276 (#983's follow-up: the self-test's head move needs a fresh joint state)
 - 12:55 merged #1295 (#1158's P3s: the worker command one tested function, identical for 64 of 64 cases; no secret reaches a worker)
 - 12:52 #1276 (#983 follow-up: the head move needs a fresh joint state) ready, first review started; #1278 moved, re-check started
 - 12:48 #1288 first review: P2 (a closed privacy slide doesn't count as muted for the tap face; fails safe but misses the slide; fix in the voice: keep the last PrivacyState); not the privacy path (draws a face only)

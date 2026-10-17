@@ -107,7 +107,16 @@ impl Channel {
             sent_at_us: monotonic_us(),
             payload,
         })?;
-        self.endpoint.try_send(&data)?;
+        self.endpoint.try_send(&data).map_err(|error| {
+            if error.kind() == io::ErrorKind::WouldBlock {
+                return error;
+            }
+            // Said with the socket's name, as a refused receive is. On
+            // lamp-cb94 a bare "Connection refused (os error 111)" ended the
+            // voice and could not say whose peer had gone (#1178): a send
+            // to a peer that has closed its socket is refused.
+            io::Error::new(error.kind(), format!("{}: {error}", self.name))
+        })?;
         self.send_sequence = sequence;
         #[cfg(test)]
         self.probe
@@ -378,5 +387,49 @@ mod tests {
             ..message(2)
         };
         assert!(!order.is_next(&other));
+    }
+
+    /// #1178, lamp-cb94: a send to a peer that has closed its socket (a
+    /// worker that ended) is refused, and the error says which socket, so
+    /// the journal says whose peer had gone. A full queue is still a plain
+    /// `WouldBlock`, for the callers that wait on it.
+    #[test]
+    fn a_send_to_a_peer_that_has_gone_is_refused_with_the_sockets_name() {
+        let dir = SessionDirectory::create().unwrap();
+        let (mut sender, receiver) = pair(&dir.path);
+        sender.send(1u32).unwrap();
+        drop(receiver);
+        let error = sender.send(2u32).unwrap_err();
+        assert_ne!(error.kind(), io::ErrorKind::WouldBlock);
+        assert!(error.to_string().starts_with("s: "), "{error}");
+        #[cfg(target_os = "linux")]
+        assert_eq!(error.kind(), io::ErrorKind::ConnectionRefused, "{error}");
+        let dir = SessionDirectory::create().unwrap();
+        let (mut sender, _receiver) = pair(&dir.path);
+        let full = (0..100_000)
+            .find_map(|n: u32| sender.send(n).err())
+            .expect("the queue fills");
+        assert_eq!(full.kind(), io::ErrorKind::WouldBlock);
+        assert!(!full.to_string().starts_with("s: "), "{full}");
+    }
+
+    /// #1178: on Linux a send refused because its peer has gone also drops
+    /// what that peer had sent and was not yet read. So a worker's last word,
+    /// its fault, can be lost to the controller's next send, and the voice
+    /// then ends on the refusal and not on the fault, as lamp-cb94's did.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_refused_send_drops_what_the_gone_peer_had_sent() {
+        let dir = SessionDirectory::create().unwrap();
+        let (mut sender, mut receiver) = pair(&dir.path);
+        receiver.send(7u32).unwrap();
+        drop(receiver);
+        let refused = sender.send(1u32).unwrap_err();
+        assert_eq!(
+            refused.kind(),
+            io::ErrorKind::ConnectionRefused,
+            "{refused}"
+        );
+        assert_eq!(sender.receive::<u32>().unwrap(), None);
     }
 }

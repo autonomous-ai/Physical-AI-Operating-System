@@ -1,0 +1,6 @@
+--- controls (as lampos, no --enable, bus /tmp/twelve-bus.KYWk)
+lamp-controls: Permission denied (os error 13)
+exit 1
+--- expression (as lampos, no --enable, bus /tmp/twelve-bus.KYWk)
+lamp-expression: Permission denied (os error 13)
+exit 1

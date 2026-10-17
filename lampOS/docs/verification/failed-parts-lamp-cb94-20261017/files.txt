@@ -1,0 +1,23 @@
+2026-10-16 10:08:12
+-rw------- 1 root root 116 Oct 16 04:03 /etc/lampOS/controls/controls.json
+-rw------- 1 root root 305 Oct 16 04:03 /etc/lampOS/controls/controls-pins.json
+ls: cannot access '/etc/lampOS/body/lamp.env': No such file or directory
+crw-rw---- 1 root dialout 166, 0 Oct 16 11:05 /dev/ttyACM0
+-rw------- 1 root root 44 Oct 16 04:03 /etc/lampOS/zone.env
+-rw------- 1 root root 11197 Oct 16 04:03 /etc/lampOS/expression/expression.json
+ls: cannot access '/opt/lampOS/name/models': No such file or directory
+ls: cannot access '/usr/local/bin/harness': No such file or directory
+ls: cannot access '/var/lib/lampos-tasks/targets.json': No such file or directory
+-rw------- 1 root root 0 Oct 16 11:06 /var/lib/lampos-setup/done
+ls: cannot access '/opt/lampOS/name/models': No such file or directory
+lrwxrwxrwx 1 root root 64 Oct 16 11:05 /opt/lampOS/controls/current -> 9d8dc903113cd0177ce40b60195bbeabc513c42a1c26a5b46468bb6f3d5779c5
+lrwxrwxrwx 1 root root 64 Oct 16 11:05 /opt/lampOS/body/current -> 3786ecff5ef1bc62e18fc1d53667d99df3a23c60bf27bcb60b6e977618559863
+lrwxrwxrwx 1 root root 64 Oct 16 11:05 /opt/lampOS/expression/current -> 13a7ee0567b6c54bd8c1c63a6eb8e70c9e88484c4b0dab75ab775e9debae757b
+lrwxrwxrwx 1 root root 64 Oct 16 11:05 /opt/lampOS/name/current -> 4cc8e4cbc9faef67136bf2221f7521be9d34b02cfb3079af8a5e7e4b71fd37c9
+lrwxrwxrwx 1 root root 64 Oct 16 11:05 /opt/lampOS/tasks/current -> 6bfeb09f9a3508d841141591d939cd237495f55d754063814a7cd8889c655eb4
+2026-10-16T15:22:38+0000 lamp-cb94 sudo[20476]: orangepi : PWD=/home/orangepi ; USER=root ; COMMAND=/usr/bin/journalctl -o json --since '60 minutes ago' -t lamp-voice -t lamp-policy -t lamp-body -t lamp-skills --no-pager
+2026-10-16T15:23:15+0000 lamp-cb94 sudo[21977]: orangepi : PWD=/home/orangepi ; USER=root ; COMMAND=/usr/bin/journalctl -u lamp-body --no-pager -o cat -n 60
+2026-10-16T15:23:15+0000 lamp-cb94 sudo[22031]: orangepi : PWD=/home/orangepi ; USER=root ; COMMAND=/usr/bin/journalctl -u lamp-controls --no-pager -o cat -n 60
+2026-10-16T15:23:15+0000 lamp-cb94 sudo[22109]: orangepi : PWD=/home/orangepi ; USER=root ; COMMAND=/usr/bin/journalctl -u lamp-expression --no-pager -o cat -n 60
+2026-10-16T15:23:15+0000 lamp-cb94 sudo[22158]: orangepi : PWD=/home/orangepi ; USER=root ; COMMAND=/usr/bin/journalctl -u lamp-name --no-pager -o cat -n 60
+2026-10-16T15:23:15+0000 lamp-cb94 sudo[22173]: orangepi : PWD=/home/orangepi ; USER=root ; COMMAND=/usr/bin/journalctl -u lamp-tasks --no-pager -o cat -n 60

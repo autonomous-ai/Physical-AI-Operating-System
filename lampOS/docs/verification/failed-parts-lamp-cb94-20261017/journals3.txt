@@ -1,0 +1,156 @@
+IDX BOOT ID                          FIRST ENTRY                 LAST ENTRY
+  0 38f7c51d1edd4cde989cdde4d551bdf2 Fri 2026-10-16 15:22:11 UTC Sat 2026-10-17 03:16:54 UTC
+Archived and active journals take up 8.9M in the file system.
+2026-10-17T03:16:54+0000 lamp-cb94 sudo[44369]: pam_unix(sudo:session): session opened for user root(uid=0) by (uid=1000)
+2026-10-16T15:22:11+0000 lamp-cb94 systemd[1]: Starting systemd-timedated.service - Time & Date Service...
+=== lamp-controls
+[Unit]
+Description=lampOS controls (lamp-controls)
+PartOf=lampos.target
+ConditionPathExists=/var/lib/lampos-setup/done
+After=lamp-voice.service
+StartLimitIntervalSec=600
+StartLimitBurst=5
+[Service]
+Type=simple
+User=lampos
+Group=lampos
+Slice=lampos-parts.slice
+Nice=5
+ExecStart=/opt/lampOS/controls/current/lamp-controls serve --config /etc/lampOS/controls/controls.json --pins /etc/lampOS/controls/controls-pins.json --bus-root /run/lampos-bus --enable
+Restart=on-failure
+RestartSec=5s
+StandardInput=null
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lamp-controls
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/run/lampos-bus
+ProtectHome=yes
+PrivateTmp=yes
+[Install]
+WantedBy=lampos.target
+=== lamp-body
+[Unit]
+Description=lampOS body (lamp-body)
+PartOf=lampos.target
+ConditionPathExists=/var/lib/lampos-setup/done
+After=lamp-voice.service
+StartLimitIntervalSec=600
+StartLimitBurst=3
+[Service]
+Type=notify
+NotifyAccess=main
+WatchdogSec=5
+User=lampos
+Group=lampos
+SupplementaryGroups=dialout
+Slice=lampos-parts.slice
+WorkingDirectory=/
+RuntimeDirectory=lampos-body
+RuntimeDirectoryMode=0755
+Environment=LAMP_BUS=on
+Environment=LAMP_EXPRESSION_BODY=on
+EnvironmentFile=/etc/lampOS/body/lamp.env
+ExecStart=/opt/lampOS/body/current/lamp-body --device /dev/ttyACM0 --unit-id %H --lock-directory /run/lampos-locks/motor --mood-socket /run/lampos-body/mood.sock --gaze-socket /run/lampos-body/gaze.sock --reach 150,15,1,250 --speed 120 --servo-speed 1000 --servo-acceleration 60 --gaze-reach 480,120 --stand-share 100 --stand-seconds 6 --awake-seconds 90 --idle on --force-limit 600 --wake on --rest-glance on --look-at-name on $BODY_POSES
+Restart=on-failure
+RestartSec=15s
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=25s
+StandardInput=null
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lamp-body
+NoNewPrivileges=yes
+[Install]
+WantedBy=lampos.target
+=== lamp-expression
+[Unit]
+Description=lampOS expression (lamp-expression)
+PartOf=lampos.target
+ConditionPathExists=/var/lib/lampos-setup/done
+After=lamp-voice.service lamp-body.service
+StartLimitIntervalSec=600
+StartLimitBurst=5
+[Service]
+Type=simple
+User=lampos
+Group=lampos
+Slice=lampos-parts.slice
+Nice=5
+EnvironmentFile=/etc/lampOS/zone.env
+ExecStart=/opt/lampOS/expression/current/lamp-expression serve --enable --bus-root /run/lampos-bus --catalogue /etc/lampOS/expression/expression.json --utc-offset-minutes ${LAMP_UTC_OFFSET_MINUTES} --kernel-clock
+Restart=on-failure
+RestartSec=5s
+StandardInput=null
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lamp-expression
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/run/lampos-bus
+ProtectHome=yes
+PrivateTmp=yes
+[Install]
+WantedBy=lampos.target
+=== lamp-name
+[Unit]
+Description=lampOS name (lamp-name)
+PartOf=lampos.target
+ConditionPathExists=/var/lib/lampos-setup/done
+After=lamp-voice.service
+StartLimitIntervalSec=600
+StartLimitBurst=5
+[Service]
+Type=simple
+User=lampos
+Group=lampos
+Slice=lampos-parts.slice
+CPUAffinity=6 7
+Nice=5
+ExecStart=/opt/lampOS/name/current/lamp-name --models /opt/lampOS/name/models --microphone mic2 --least 0.9 --bus-root /run/lampos-bus
+Restart=on-failure
+RestartSec=5s
+StandardInput=null
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lamp-name
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/run/lampos-bus
+ProtectHome=yes
+PrivateTmp=yes
+[Install]
+WantedBy=lampos.target
+=== lamp-tasks
+[Unit]
+Description=lampOS tasks (lamp-tasks serve)
+PartOf=lampos.target
+ConditionPathExists=/var/lib/lampos-setup/done
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=600
+StartLimitBurst=5
+[Service]
+Type=exec
+User=lampos
+Group=lampos
+Slice=lampos-parts.slice
+Environment=HOME=/var/lib/lampos-tasks
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+RuntimeDirectory=lampos-tasks
+RuntimeDirectoryMode=0700
+StateDirectory=lampos-tasks
+StateDirectoryMode=0700
+ExecStart=/opt/lampOS/tasks/current/lamp-tasks serve --enable --watch --harness-as-person --dir /var/lib/lampos-tasks/store --socket /run/lampos-tasks/request.sock --voice-socket /run/lampos-tasks/voice.sock --targets /var/lib/lampos-tasks/targets.json --harness /usr/local/bin/harness
+Restart=on-failure
+RestartSec=5s
+StandardInput=null
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lamp-tasks
+NoNewPrivileges=yes
+[Install]
+WantedBy=lampos.target

@@ -1,0 +1,31 @@
+/etc/lampOS/:
+total 24
+drwxr-xr-x 2 root root 4096 Oct 16 04:03 controls
+drwxr-xr-x 2 root root 4096 Oct 16 04:03 expression
+drwxr-xr-x 2 root root 4096 Oct 16 11:05 policy
+drwxr-xr-x 2 root root 4096 Oct 16 10:55 update
+drwxr-xr-x 2 root root 4096 Oct 16 04:03 voice
+-rw------- 1 root root   44 Oct 16 04:03 zone.env
+
+/etc/lampOS/voice/:
+total 20
+-rw------- 1 root root   37 Oct 16 04:03 credential
+-rw------- 1 root root 9982 Oct 16 04:03 persona.txt
+-rw------- 1 root root  388 Oct 16 11:08 provider.json
+uid=996(lampos) gid=995(lampos) groups=995(lampos),20(dialout),29(audio),44(video),108(i2c)
+lampos CANNOT read /etc/lampOS/controls/controls.json
+lampos CANNOT read /etc/lampOS/controls/controls-pins.json
+lampos CANNOT read /etc/lampOS/expression/expression.json
+/opt/lampOS/name/:
+total 16
+drwxr-xr-x  3 root root 4096 Oct 16 11:05 .
+drwxr-xr-x 20 root root 4096 Oct 16 11:05 ..
+drwxr-xr-x  2 root root 4096 Oct 16 11:05 4cc8e4cbc9faef67136bf2221f7521be9d34b02cfb3079af8a5e7e4b71fd37c9
+lrwxrwxrwx  1 root root   64 Oct 16 11:05 current -> 4cc8e4cbc9faef67136bf2221f7521be9d34b02cfb3079af8a5e7e4b71fd37c9
+
+/opt/lampOS/name/current/:
+total 23548
+drwxr-xr-x 2 root root     4096 Oct 16 11:05 .
+/etc/systemd/journald.conf:#Storage=auto
+/etc/systemd/journald.conf:SystemMaxUse=20M
+/etc/systemd/journald.conf:#RuntimeMaxUse=

@@ -1,0 +1,29 @@
+-rw------- 1 root root   44 2026-10-16 04:03:32.662772375 +0000 /etc/lampOS/zone.env
+
+/etc/lampOS/controls/:
+-rw------- 1 root root 116 2026-10-16 04:03:32.650772140 +0000 controls.json
+-rw------- 1 root root 305 2026-10-16 04:03:32.658772297 +0000 controls-pins.json
+
+/etc/lampOS/expression/:
+-rw------- 1 root root 11197 2026-10-16 04:03:32.658772297 +0000 expression.json
+
+/etc/lampOS/policy/:
+-rw------- 1 root root 37 2026-10-16 11:05:53.441168475 +0000 jev.key
+
+/etc/lampOS/update/:
+-rw-r--r-- 1 root root 45 2026-10-16 10:55:55.721341923 +0000 key.pub
+
+/etc/lampOS/voice/:
+-rw------- 1 root root   37 2026-10-16 04:03:32.634771825 +0000 credential
+-rw------- 1 root root 9982 2026-10-16 04:03:32.638771904 +0000 persona.txt
+-rw------- 1 root root  388 2026-10-16 11:08:22.831973267 +0000 provider.json
+total 16
+drwx------  3 root root 4096 2026-10-16 11:05:54.049179938 +0000 .
+drwxr-xr-x 48 root root 4096 2026-10-16 11:06:18.045632313 +0000 ..
+-rw-------  1 root root    0 2026-10-16 11:05:50.093105359 +0000 lock
+drwx------  2 root root 4096 2026-10-16 11:05:50.093105359 +0000 previous
+-rw-------  1 root root 2656 2026-10-16 11:05:54.037179711 +0000 state.json
+
+wtmp begins Sat Oct 17 00:00:22 2026
+2026-10-16 04:03:32.650772140 +0000 2026-10-16 04:03:32.650772140 +0000 /etc/lampOS/controls/controls.json
+2026-10-16 04:03:32.630771747 +0000 2026-10-16 10:55:55.721341923 +0000 /etc/lampOS

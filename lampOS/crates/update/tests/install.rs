@@ -1116,6 +1116,57 @@ fn a_setting_changed_on_the_lamp_is_kept_when_install_runs_again() {
     );
 }
 
+/// lamp-cb94 (the first builder on #705, 12:13): its settings were there
+/// before any install, install's own bytes but closed (0600), so the parts
+/// run as `lampos` never read them and Controls and Expression failed.
+/// Install takes such a default for its own and opens it; a lamp's own
+/// closed setting is kept as it is, and said.
+#[test]
+fn a_default_found_closed_is_opened_and_a_lamps_own_found_closed_is_said() {
+    use std::os::unix::fs::PermissionsExt;
+    const CONTROLS: &str = "/etc/lampOS/controls/controls.json";
+    let mut lamp = Lamp::new(188, &[]);
+    let default = SETTINGS.iter().find(|(path, _)| *path == PINS).unwrap().1;
+    let own = "{\"the lamp's\": \"own\"}\n";
+    fs::create_dir_all(lamp.on("/etc/lampOS/controls")).unwrap();
+    for (path, text) in [(PINS, default), (CONTROLS, own)] {
+        fs::write(lamp.on(path), text).unwrap();
+        fs::set_permissions(lamp.on(path), fs::Permissions::from_mode(0o600)).unwrap();
+    }
+
+    let first = lamp.install().unwrap();
+    assert_eq!(mode_of(&lamp.on(PINS)), 0o644);
+    assert_eq!(fs::read_to_string(lamp.on(PINS)).unwrap(), default);
+    assert_eq!(lamp.state().settings[PINS], sha256_hex(default.as_bytes()));
+    assert!(
+        first.changed.contains(&format!("made {PINS} 644, was 600")),
+        "{:?}",
+        first.changed
+    );
+    assert_eq!(mode_of(&lamp.on(CONTROLS)), 0o600);
+    assert_eq!(fs::read_to_string(lamp.on(CONTROLS)).unwrap(), own);
+    let closed = format!("{CONTROLS} is closed to other users (600)");
+    assert!(
+        lamp.said.iter().any(|line| line.starts_with(&closed)),
+        "{:?}",
+        lamp.said
+    );
+    assert!(
+        !lamp
+            .said
+            .iter()
+            .any(|line| line.contains(&format!("{PINS} is closed"))),
+        "{:?}",
+        lamp.said
+    );
+
+    // Once open, nothing more to do; the lamp's own is still said.
+    lamp.said.clear();
+    let again = lamp.install().unwrap();
+    assert_eq!(again.changed, Vec::<String>::new());
+    assert!(lamp.said.iter().any(|line| line.starts_with(&closed)));
+}
+
 /// #811: `--setup on` writes setup's two settings, exactly the setup crate's
 /// own-page and product reset files, so `lamp-setup.service` starts on a
 /// blank lamp with no file by hand. Without it, none is written. A serve

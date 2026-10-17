@@ -325,13 +325,14 @@ impl Harness {
         self.commit_with(accepted, false)
     }
     fn commit_with(&mut self, accepted: Accepted, cut_in: bool) -> VecDeque<ProviderInput> {
-        self.commit_told(accepted, cut_in, false)
+        self.commit_told(accepted, cut_in, false, false)
     }
     fn commit_told(
         &mut self,
         accepted: Accepted,
         cut_in: bool,
         after_stop: bool,
+        follows_on: bool,
     ) -> VecDeque<ProviderInput> {
         let mut queue = VecDeque::new();
         commit_admitted_input(
@@ -344,6 +345,7 @@ impl Harness {
             false,
             cut_in,
             after_stop.then_some((1, 1)),
+            follows_on,
             PlayoutStart::default(),
             &mut self.trace,
             |_| Ok(()),
@@ -806,7 +808,7 @@ fn the_first_request_after_a_stop_says_so_in_its_start() {
         for n in 1..=6 {
             accepted = h.feed(n * 10_000, 0.99).unwrap().or(accepted);
         }
-        let queue = h.commit_told(accepted.unwrap(), false, after_stop);
+        let queue = h.commit_told(accepted.unwrap(), false, after_stop, false);
         assert!(
             matches!(queue.front(), Some(ProviderInput::Start { after_stop: told, .. }) if *told == after_stop),
             "{queue:?}"
@@ -819,6 +821,36 @@ fn the_first_request_after_a_stop_says_so_in_its_start() {
         assert_eq!(
             admitted.get("after_stop").is_some(),
             after_stop,
+            "{admitted}"
+        );
+    }
+}
+
+/// A request begun soon after the lamp's words finished says so in its
+/// Start, for the model to be told it may follow on, and in its record
+/// (`LAMP_FOLLOWS_ON=on`, #829, the first builder at 09:01); any other
+/// says nothing.
+#[test]
+fn a_request_begun_soon_after_the_lamps_words_says_so_in_its_start() {
+    for follows_on in [true, false] {
+        let mut h = Harness::new(TurnTaking::V1Baseline);
+        let mut accepted = None;
+        for n in 1..=6 {
+            accepted = h.feed(n * 10_000, 0.99).unwrap().or(accepted);
+        }
+        let queue = h.commit_told(accepted.unwrap(), false, false, follows_on);
+        assert!(
+            matches!(queue.front(), Some(ProviderInput::Start { follows_on: told, .. }) if *told == follows_on),
+            "{queue:?}"
+        );
+        let admitted = h
+            .trace
+            .iter()
+            .find(|row| row["kind"] == "input_admitted")
+            .unwrap();
+        assert_eq!(
+            admitted.get("follows_on").is_some(),
+            follows_on,
             "{admitted}"
         );
     }

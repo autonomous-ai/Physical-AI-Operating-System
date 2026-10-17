@@ -1,5 +1,24 @@
 # Tests work log
 
+## 2026-10-17 12:03:11 +0700 — eight merged; three of the ten out of the group; two flakes
+
+Ready for lamp-voice: #1271, #1273 and #1279 (green, waiting for peer reviews); #1283 waits for its run
+
+**Merged:** #1222 at 06:25 (hand controls stepped, #1220), #1233 at 08:21 (`service_mute`'s stepped peers, #1232), #1248 at 08:32 (the privacy worker's freshness asserts), #1235 at 08:33 (hand controls' teardown), #1258 at 09:33 (the stepped peers of three more modules), #1267 at 10:00 (`hung_worker`), #1240 at 10:02 (the dance test's bounded wait), #1250 at 10:25 (`service_privacy_controls`' stop hook; rebased once, El's P3 taken).
+
+**#823, the ten real-clock tests left (first builder, 09:29):**
+- `hung_worker` (6.4 s): stepped, waiting on its real worker's hang and respawn. Merged in #1267, 1.152 s on ARM64.
+- `lamp-actions::server`'s light test (4.1 s): the server's two periods are on a clock its caller gives (`serve_with_clock`), and the test moves its own on after events on the bus. #1273, 1.219 s on ARM64.
+- `lamp-memory::health`'s env-alone test (4.4 s): the program says once that reports are off without `--bus-root`, and the test waits for that line. #1283, stacked on #1273. That's a change of method, put to the reviewer.
+- Kept by name, reasons on #823 (10:2x): `lamp-health::program` (it checks the real 5 s period against the real lease) and `endpoint_fixture_reaps` (the real 1.5 s grace and kill). Next: a design for `capture_hold_worker`'s six (the production capture loop on the host clock).
+
+**Flakes:**
+- #1269 (the twelfth's remember flake): the test read with the lamp's real 300 ms against a stand-in thread. A 400 ms stall reproduced it. #1271 passes the test's own 2 s; the lamp keeps 300 ms.
+- #1272 (the seventh's P2 on #1240): fixed by the seventh's #1274. Its P3 comment is #1279.
+- #1280: memory's timed-out-mutation test timed out under load 21 here (2 of 3 crate runs) and passes alone. Filed with a plan.
+
+**Not done:** from about 10:30 to 11:40 I stopped (usage limit), and #1271 and #1273 waited ready-but-unmarked until 11:4x. #1271's pull-request run never started (as Second saw), so it was started by hand. At 30 copies at once, memory's env-alone test fails on this Mac before and after #1283, at the program's 8 s readiness wait. No lamp was touched.
+
 ## 2026-10-17 05:56:16 +0700 — seven merged; #1222 (#1220) and the #1218 review
 
 Ready for lamp-voice: #1222 once its run on the rebased head is green

@@ -79,6 +79,19 @@ fn inert_child() {
     // The worker only once connected: Worker::new starts its
     // INITIAL_AUTHORITY_US clock, which must not run during the connect.
     let worker = Worker::new(core, SystemClock, parent, own, own, 1_000_000).unwrap();
+    // Then a Progress, the worker's own heartbeat, says it reads from here
+    // (`ready`): an Authority sent at the parent's connect could wait past
+    // MAX_AGE_US behind a stall in this child.
+    let n = SystemClock.now();
+    channels
+        .control
+        .send(
+            &Event::Progress {
+                at_us: n.as_micros(),
+            },
+            n,
+        )
+        .unwrap();
     let result = if mode == "hang_after_ready" {
         struct HangAfterReady(Channels);
         impl worker::Link for HangAfterReady {
@@ -149,14 +162,20 @@ fn until(s: &mut Supervisor, mut f: impl FnMut(&mut Supervisor) -> bool) {
         std::thread::sleep(Duration::from_millis(1));
     }
 }
+/// One Authority, as production sends one per revision (`send_authority`),
+/// once the child's first Progress says it is reading (`inert_child`). One
+/// per poll from the connect filled the child's socket, and one at the
+/// connect went stale behind a stall in the child.
 fn ready(s: &mut Supervisor, c: &mut Controller) {
+    let mut sent = false;
     until(s, |s| {
-        s.poll().unwrap();
-        if s.connected() && !s.ready {
+        let reading = matches!(s.poll().unwrap(), Some(Event::Progress { .. }));
+        if reading && !sent {
             s.send_control(&Control::Authority {
                 snapshot: c.snapshot(SystemClock.now()).unwrap(),
             })
             .unwrap();
+            sent = true;
         }
         s.is_ready()
     });
@@ -514,12 +533,14 @@ fn inert_child_stop_timing_samples_are_host_ipc_only() {
     let mut bound_expired = Vec::new();
     for _ in 0..12 {
         let (mut s, mut c) = fixture("normal");
+        let mut sent = false;
         until(&mut s, |s| {
-            let _ = s.poll();
-            if s.connected() && !s.ready && s.failure().is_none() {
+            let reading = matches!(s.poll(), Ok(Some(Event::Progress { .. })));
+            if reading && !sent && s.failure().is_none() {
                 let _ = s.send_control(&Control::Authority {
                     snapshot: c.snapshot(SystemClock.now()).unwrap(),
                 });
+                sent = true;
             }
             s.is_ready() || s.failure().is_some()
         });

@@ -171,9 +171,8 @@ impl EchoProcessor {
         self.observer.skip_while_render_silent(on);
     }
 
-    /// Capture blocks processed since construction, and how many of them the
-    /// echo evidence's search was skipped on.
-    pub fn evidence_skipped(&self) -> (u64, u64) {
+    /// What the echo evidence's skip did since construction.
+    pub fn evidence_skipped(&self) -> evidence::Skipped {
         self.observer.skipped()
     }
 

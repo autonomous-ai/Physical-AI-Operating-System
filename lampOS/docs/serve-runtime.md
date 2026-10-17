@@ -334,7 +334,9 @@ then: the evidence is the same block for block (no echo, the held
 alignment's age, the search's place moved on), which a test runs both ways
 to show. With the switch on, capture says once a minute in the journal how
 often it applied: `the echo search was skipped on 5700 of 6000 blocks in the
-last 60 s`. Measured on a laptop (`measure_a_silent_render_block`), the
+last 60 s, 4100 of them loud or with an alignment held`. Only the second
+number saved work: a quiet room with nothing held is skipped, but would not
+have been searched. Measured on a laptop (`measure_a_silent_render_block`), the
 evidence took 12-15 us a block in a -26 dBFS room, with or without an
 alignment held, and 4.4 us in a quiet room with one held; 1.4-1.8 us with
 the skip.

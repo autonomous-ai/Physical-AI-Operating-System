@@ -74,6 +74,10 @@ fn inert_child() {
     )
     .unwrap();
     let worker = Worker::new(core, SystemClock, parent, own, own, 1_000_000).unwrap();
+    // Built: from here the child reads its packets at once (`ready`).
+    if let Ok(built) = std::env::var("LAMP_MOTOR_TEST_BUILT") {
+        fs::write(built, b"").unwrap();
+    }
     let result = if mode == "hang_after_ready" {
         struct HangAfterReady(Channels);
         impl worker::Link for HangAfterReady {
@@ -109,6 +113,11 @@ fn inert_child() {
         result.unwrap();
     }
 }
+/// Where the child says it has built its control and worker, outside the
+/// socket directory.
+fn built_marker(worker: BootId) -> PathBuf {
+    PathBuf::from("/tmp").join(format!("mw-{}.built", boot_text(worker)))
+}
 fn fixture(mode: &str) -> (Supervisor, Controller) {
     let parent = new_boot().unwrap();
     let worker = new_boot().unwrap();
@@ -122,6 +131,7 @@ fn fixture(mode: &str) -> (Supervisor, Controller) {
     .env("LAMP_MOTOR_TEST_DIRECTORY", &directory)
     .env("LAMP_MOTOR_TEST_PARENT", boot_text(parent))
     .env("LAMP_MOTOR_TEST_WORKER", boot_text(worker))
+    .env("LAMP_MOTOR_TEST_BUILT", built_marker(worker))
     .env("LAMP_MOTOR_TEST_MODE", mode);
     let supervisor = Supervisor::spawn_command(cmd, &directory, parent, worker).unwrap();
     let mut controller = Controller::new(parent, SystemClock.now());
@@ -144,10 +154,16 @@ fn until(s: &mut Supervisor, mut f: impl FnMut(&mut Supervisor) -> bool) {
         std::thread::sleep(Duration::from_millis(1));
     }
 }
+/// The child connects before it builds its control and worker, and reads
+/// its first packet only after. The channel refuses a packet older than
+/// `MAX_AGE_US`, so an Authority sent at the connection could be stale by
+/// then on a slow host (#1312). The first is sent once the child says it
+/// has built them.
 fn ready(s: &mut Supervisor, c: &mut Controller) {
+    let built = built_marker(s.worker);
     until(s, |s| {
         s.poll().unwrap();
-        if s.connected() && !s.ready {
+        if s.connected() && !s.ready && built.exists() {
             s.send_control(&Control::Authority {
                 snapshot: c.snapshot(SystemClock.now()).unwrap(),
             })
@@ -155,6 +171,7 @@ fn ready(s: &mut Supervisor, c: &mut Controller) {
         }
         s.is_ready()
     });
+    let _ = fs::remove_file(built);
 }
 
 #[test]
@@ -529,6 +546,8 @@ fn inert_child_stop_timing_samples_are_host_ipc_only() {
             }
             s.reaped() && (s.stopped || s.failure().is_some())
         });
+        // Reaped: the child's mark that it was built (`ready`) is not needed.
+        let _ = fs::remove_file(built_marker(s.worker));
         assert!(s.directory.peers_cleaned);
         match s.failure() {
             Some(why) => bound_expired.push(why.to_owned()),

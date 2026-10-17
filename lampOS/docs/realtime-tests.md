@@ -1212,3 +1212,24 @@ counts each journal's lines exactly, and now counts the new one (5, not 4).
 It takes about 1.8 s on the Intel Mac, almost all of it the program starting
 twice in a debug build. It left the group, in all three filtersets, on
 2026-10-17.
+
+## The body supervisor's first Authority waits for its child (#1312)
+
+`lamp-body`'s supervisor tests start a real child (`inert_child`, the test
+binary run again). The child connects to its channels, then builds its
+`MotorControl` and `Worker`, and only then reads. The fixture's `ready()`
+sent `Control::Authority` from the moment it saw the connection, and the
+channel refuses a packet older than `MAX_AGE_US` (100 ms). A child that took
+over 100 ms to start read a stale first Authority and exited, and the test
+failed with `motor inhibited: ControlLost` (the seventh's diagnosis on
+#1296; it failed 4 of 5 under ARM64 emulation).
+
+The child now writes a mark outside the socket directory
+(`/tmp/mw-<worker>.built`) once it has built its control and worker, and
+`ready()` sends the first Authority only after that. The mark is removed
+once the child is ready, or reaped in the one test that doesn't use
+`ready()`. Every assertion is unchanged, and so is the product's start
+(`native.rs` hands over its first snapshot in-process). With a 400 ms sleep
+in the child before `MotorControl::new`, `lamp-voice` fails four of the 21
+supervisor tests and this passes all 21. The seventh's 150 ms fails the
+channel-loss test 3 of 3 before and passes it 3 of 3 after.

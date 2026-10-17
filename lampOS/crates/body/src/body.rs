@@ -2720,10 +2720,13 @@ fn run_on<P: PortIo, R: Runtime>(
     };
     // One glitch on the first read must not let go of a lamp, which may be
     // standing: a joint found hot is read again until two reads in a row
-    // agree within `TEMPERATURE_JUMP`, and heat is acted on only if they
-    // agree hot, or never agree. Only the joints the found-hot checks below
-    // judge are read for it: the three commanded, and the arm of a lamp
-    // that may stand. Nothing has been written yet.
+    // agree within `TEMPERATURE_JUMP`, and heat is acted on only if both
+    // are hot, or reads never agree and one was. A read over
+    // `TEMPERATURE_MAX` is a glitch, never heat and never agreeing: one on
+    // every read is a temperature that cannot be read, and the run is
+    // refused with nothing written and nothing let go. Only the joints the
+    // found-hot checks below judge are read for it: the three commanded,
+    // and the arm of a lamp that may stand. Nothing has been written yet.
     let arm_judged = standing.is_some() && home.is_some();
     let judged = |read: &[Sample; 5]| {
         let commanded =
@@ -2733,18 +2736,43 @@ fn run_on<P: PortIo, R: Runtime>(
             .into_iter()
             .chain(arm.into_iter().filter(|_| arm_judged))
     };
-    let hot = |read: &[Sample; 5]| judged(read).any(|(temperature, limit)| temperature >= limit);
-    if hot(&found) {
-        let mut hottest = found;
+    let over =
+        |read: &[Sample; 5]| judged(read).any(|(temperature, _)| temperature > TEMPERATURE_MAX);
+    let hot = |read: &[Sample; 5]| {
+        judged(read).any(|(temperature, limit)| (limit..=TEMPERATURE_MAX).contains(&temperature))
+    };
+    if hot(&found) || over(&found) {
+        let mut hottest = hot(&found).then_some(found);
+        let mut cool = (!over(&found)).then_some(found);
         loop {
             if report.hot_rereads.len() >= FIRST_HEAT_REREADS {
-                found = hottest;
+                match (hottest, cool) {
+                    (Some(read), _) | (None, Some(read)) => found = read,
+                    (None, None) => {
+                        let (joint, temperature) = Joint::ALL
+                            .into_iter()
+                            .map(|joint| (joint, found[joint.index()].temperature))
+                            .filter(|(joint, _)| COMMANDED.contains(joint) || arm_judged)
+                            .max_by_key(|(_, temperature)| *temperature)
+                            .unwrap_or((Joint::WristPitch, 0));
+                        report.stop = refused(format!(
+                            "temperature unreadable at start: {joint} reads {temperature}"
+                        ));
+                        return report;
+                    }
+                }
                 break;
             }
             bus.forget_temperatures();
-            let again = match bus.samples() {
-                Ok(again) => again,
-                Err(detail) => {
+            // A read again that fails acts on the hottest read, so a hot
+            // joint is let go and not left held.
+            let again = match (bus.samples(), hottest) {
+                (Ok(again), _) => again,
+                (Err(_), Some(read)) => {
+                    found = read;
+                    break;
+                }
+                (Err(detail), None) => {
                     report.stop = refused(format!("first read: {detail}"));
                     return report;
                 }
@@ -2752,17 +2780,22 @@ fn run_on<P: PortIo, R: Runtime>(
             report
                 .hot_rereads
                 .push(again.map(|sample| sample.temperature));
-            let agree = judged(&found)
-                .zip(judged(&again))
-                .all(|((before, _), (now, _))| before.abs_diff(now) <= TEMPERATURE_JUMP);
+            let agree = !over(&found)
+                && !over(&again)
+                && judged(&found)
+                    .zip(judged(&again))
+                    .all(|((before, _), (now, _))| before.abs_diff(now) <= TEMPERATURE_JUMP);
             if agree {
-                if !hot(&found) || hot(&again) {
+                // Both hot: acted on. Otherwise the cool one starts.
+                if hot(&found) && hot(&again) || !hot(&again) {
                     found = again;
                 }
                 break;
             }
             if hot(&again) {
-                hottest = again;
+                hottest = Some(again);
+            } else if !over(&again) {
+                cool = Some(again);
             }
             found = again;
         }

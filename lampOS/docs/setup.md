@@ -369,7 +369,11 @@ so a retry that comes due during the fade out never takes the device after
 the marker. If saving then fails, the hotspot comes back and so does the
 ring, amber, and the next press shows blue at once. When serving ends,
 after setup or on a stop (`systemctl stop`, a shutdown: SIGTERM ends serving
-the same way), the light ends with black.
+the same way), the light ends with black. The stop is listened for before
+the light starts: one during the first network look ends setup before the
+hotspot, and one while the hotspot comes up ends serving as soon as it has
+begun, so a stop in the first seconds also ends in black (the reviewer on
+#1325).
 
 It is painted by `lamp_setup::light` from a thread of `lamp-setup`, through
 `lamp_ring::setup::SetupRing`, a writer like the asleep face's that needs no

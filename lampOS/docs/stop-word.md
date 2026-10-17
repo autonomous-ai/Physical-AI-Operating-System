@@ -956,7 +956,7 @@ asked.
     had the played request only 8 dB over the floor, and no words even in
     the request.
   - **Played three times, and no person's stop came through.** On
-    lamp-4ace on 16 October at 01:46 (the first builder), 8 of 10 cut-ins
+    lamp-4ace on 17 October at 01:46 (the first builder), 8 of 10 cut-ins
     stopped the story against 7 of 10 on the canceller's output, mostly by
     Gemini's own yield, and "Lamp, stop." alone never did. On lamp-52e6 on
     17 October at 06:53 and 07:20 (the sixth, the Mac's speaker at 45, 70
@@ -983,14 +983,28 @@ Tests: `stop_words::tests::a_stop_word_the_lamp_did_not_say_itself_is_heard_over
 (the driver) and `listening_always_gives_the_words_as_they_come_through_the_thread`
 (the relay's real thread, against a stand-in speech-to-text that gives an
 interim result), `with_the_raw_blocks_the_words_are_asked_for_every_half_second`,
-`a_stop_that_closes_the_reply_is_in_its_counts` and
+`a_stop_that_closes_the_reply_is_in_its_counts`,
+`the_lamps_words_play_after_the_audio_queued_ahead_of_them` (the stamp
+the coordinator gives them, `plays_at_us`) and
 `the_lamps_own_words_count_from_when_they_play`. The lamp's own words are
 stamped with when they will play, the reply's queued audio ahead of them
 (the voice holds up to 30 s of it): stamped as their text came, a story's
 own "wait" read back from the raw microphone stopped the lamp (the
 reviewer on #1047). `tests/capture_hold_worker.rs::raw_blocks_carry_the_microphone_before_the_canceller_only_when_asked`
-is Linux only and in a binary the pull-request runs skip, so it first runs
-on `lamp-voice`'s own run.
+is Linux only, in a binary the `pr` profile skips, and pushes to
+`lamp-voice` use that profile too (`lampos-arm64.yml`). It runs in the
+nightly full run at 02:00, or before then with `gh workflow run
+lampos-arm64.yml --ref <branch> -f full=true`. The lamp's own words are
+counted as its own from when their text arrives, even when they play up
+to 30 s later. A person's "wait" early in a story whose later text says
+"wait" is passed over, which costs a missed stop and never a false one.
+Counting only words stamped at most a moment ahead would turn an
+estimate that runs late into a false stop, since the play time is
+estimated from the queued audio, not measured. On a stop, `close()`
+writes the reply's counts before it revokes the stream, because the
+stream's thread adds its own counts when it rests; with
+`LAMP_STOP_WORDS_COUNTS` on `/run` that write takes well under a
+millisecond.
 Not exercised: the coordinator's loop taking the stop
 (`spoken_stop`), and the relay with a person's voice under the lamp's.
 

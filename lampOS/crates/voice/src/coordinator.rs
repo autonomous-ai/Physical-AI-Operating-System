@@ -4160,14 +4160,14 @@ fn conversation_with_gate(
                     if request.is_some()
                         && let Some(words) = stop_words.as_mut()
                     {
-                        let queued_us = reply
+                        let queued = reply
                             .as_ref()
                             .filter(|current| Some(current.owner.turn()) == request)
-                            .map_or(0, |current| {
-                                current.pcm.len() as u64 * 1_000_000
-                                    / u64::from(lamp_audio::RENDER_RATE)
-                            });
-                        words.lamp_said(&text, monotonic_us() + queued_us);
+                            .map_or(0, |current| current.pcm.len());
+                        words.lamp_said(
+                            &text,
+                            crate::stop_words::plays_at_us(monotonic_us(), queued),
+                        );
                     }
                     // The model keeping quiet aloud: an answer that opens
                     // with no word in it ("...") while none of it has been

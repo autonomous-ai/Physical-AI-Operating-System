@@ -100,6 +100,15 @@ fn listen_for(value: Option<&str>) -> Listen {
 /// through. Its words are written a moment before they are played.
 pub const LAMP_WORDS_US: u64 = 6_000_000;
 
+/// When words whose text came at `now_us` will be heard: after the
+/// `queued_samples` of the reply's audio ahead of them, at the render rate.
+/// The voice holds up to 30 s of a reply ahead of playback, so its words
+/// are stamped with this for [`StopWords::lamp_said`] (the reviewer on
+/// #1047).
+pub fn plays_at_us(now_us: u64, queued_samples: usize) -> u64 {
+    now_us.saturating_add(queued_samples as u64 * 1_000_000 / u64::from(lamp_audio::RENDER_RATE))
+}
+
 /// Blocks of stillness in a yield after which its words are asked for:
 /// 100 ms, so that they come back inside the 400 ms after which stillness
 /// would resume the reply.
@@ -1546,6 +1555,17 @@ mod tests {
     /// the coordinator stamps them with when they will play. Stamped then,
     /// the story's own "wait" read back from the raw microphone at 12.5 s
     /// stops nothing; stamped as its text came, at 1 s, it stopped the lamp.
+    /// The stamp the coordinator gives the lamp's words: their text's
+    /// arrival, plus the reply's audio queued ahead of them at 24 kHz (the
+    /// reviewer on #1047 at 09:10: the sum had no test).
+    #[test]
+    fn the_lamps_words_play_after_the_audio_queued_ahead_of_them() {
+        assert_eq!(plays_at_us(1_000_000, 0), 1_000_000);
+        assert_eq!(plays_at_us(1_000_000, 240_000), 11_000_000);
+        assert_eq!(plays_at_us(1_000_000, 24), 1_001_000);
+        assert_eq!(plays_at_us(u64::MAX, 240_000), u64::MAX);
+    }
+
     #[test]
     fn the_lamps_own_words_count_from_when_they_play() {
         let stops = |stamped_at_us: u64| {

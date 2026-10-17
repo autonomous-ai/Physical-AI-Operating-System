@@ -540,41 +540,73 @@ fn a_pause_in_a_reply_is_said_to_be_silent_at_the_echo() {
     assert!(matched_blocks > 90, "{matched_blocks}");
 }
 
-/// What a capture block costs while the speaker is silent and the room is
-/// loud enough to search (a fan, an office: -26 dBFS), with the search and
-/// with it skipped: `cargo test --release -p lamp-audio --test evidence
-/// measure_a_silent_render_block -- --ignored --nocapture`.
+/// What a capture block costs while the speaker is silent, with the search
+/// and with it skipped: in a room loud enough to search (a fan, an office:
+/// -26 dBFS) before the lamp has spoken, and, after it has spoken and an
+/// alignment is held, in that room and in a quiet one, where no search runs
+/// but the held alignment is still fitted every block: `cargo test --release
+/// -p lamp-audio --test evidence measure_a_silent_render_block -- --ignored
+/// --nocapture`.
 #[test]
 #[ignore]
 fn measure_a_silent_render_block() {
-    const BLOCKS: u32 = 3_000;
+    const BLOCKS: u64 = 3_000;
+    const SPOKEN: u64 = 100;
     let silent = [0i16; RENDER_SAMPLES];
-    let room = |block: u32| -> CaptureBlock {
+    // The lamp speaking, and the microphone hearing it 100 ms later.
+    let speaking = |block: u64| -> (RenderBlock, CaptureBlock) {
+        let render = std::array::from_fn(|index| {
+            let sample = block * RENDER_SAMPLES as u64 + index as u64;
+            float_to_pcm(0.5 * voice(1, sample as f64 / RENDER_RATE as f64))
+        });
+        let capture = std::array::from_fn(|index| {
+            let sample = block * CAPTURE_SAMPLES as u64 + index as u64;
+            float_to_pcm(-0.25 * voice(1, sample as f64 / CAPTURE_RATE as f64 - 0.1))
+        });
+        (render, capture)
+    };
+    let room = |level: f32, block: u64| -> CaptureBlock {
         std::array::from_fn(|index| {
-            float_to_pcm(0.05 * noise(7, u64::from(block) * CAPTURE_SAMPLES as u64 + index as u64))
+            float_to_pcm(level * noise(7, block * CAPTURE_SAMPLES as u64 + index as u64))
         })
     };
-    for skip in [false, true] {
-        let mut observer = EchoObserver::new();
-        observer.skip_while_render_silent(skip);
-        let started = std::time::Instant::now();
-        for block in 0..BLOCKS {
-            observer.render(&silent);
-            let raw = room(block);
-            observer.capture(&raw, &raw);
+    for (name, level, spoken) in [
+        ("-26 dBFS, nothing held", 0.05, false),
+        ("-26 dBFS, an alignment held", 0.05, true),
+        ("quiet, an alignment held", 0.0, true),
+    ] {
+        for skip in [false, true] {
+            let mut observer = EchoObserver::new();
+            observer.skip_while_render_silent(skip);
+            let mut processor = EchoProcessor::new(false);
+            processor.skip_evidence_while_render_silent(skip);
+            if spoken {
+                for block in 0..SPOKEN {
+                    let (render, capture) = speaking(block);
+                    observer.render(&render);
+                    observer.capture(&capture, &capture);
+                    processor.render(&render).unwrap();
+                    processor.capture(&capture, 0).unwrap();
+                }
+                assert!(observer.echo_delay().is_some(), "{name}: nothing held");
+            }
+            let started = std::time::Instant::now();
+            for block in SPOKEN..SPOKEN + BLOCKS {
+                observer.render(&silent);
+                let raw = room(level, block);
+                observer.capture(&raw, &raw);
+            }
+            let observing = started.elapsed() / BLOCKS as u32;
+            let started = std::time::Instant::now();
+            for block in SPOKEN..SPOKEN + BLOCKS {
+                processor.render(&silent).unwrap();
+                processor.capture(&room(level, block), 0).unwrap();
+            }
+            let whole = started.elapsed() / BLOCKS as u32;
+            println!(
+                "{name}, skipped {skip}: a 10 ms block takes the evidence {observing:?}, \
+                 the canceller and the evidence {whole:?}"
+            );
         }
-        let observing = started.elapsed() / BLOCKS;
-        let mut processor = EchoProcessor::new(false);
-        processor.skip_evidence_while_render_silent(skip);
-        let started = std::time::Instant::now();
-        for block in 0..BLOCKS {
-            processor.render(&silent).unwrap();
-            processor.capture(&room(block), 0).unwrap();
-        }
-        let whole = started.elapsed() / BLOCKS;
-        println!(
-            "skipped {skip}: a 10 ms block takes the evidence {observing:?}, \
-             the canceller and the evidence {whole:?}"
-        );
     }
 }

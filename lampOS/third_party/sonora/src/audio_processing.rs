@@ -9,6 +9,8 @@
 use std::error;
 use std::fmt;
 
+use sonora_common_audio::audio_util;
+
 use crate::audio_processing_impl::AudioProcessingImpl;
 use crate::config::{Config, PlayoutAudioDeviceInfo, RuntimeSetting};
 use crate::stats::AudioProcessingStats;
@@ -606,6 +608,37 @@ impl AudioProcessing {
     /// The internal capture processing sample rate.
     pub fn proc_sample_rate_hz(&self) -> usize {
         self.inner.proc_sample_rate_hz()
+    }
+
+    /// Copies AEC3's linear output for the last processed capture frame
+    /// into `output`, one array per channel the echo canceller processes
+    /// (one unless `pipeline.multi_channel_capture`), with values in
+    /// `[-1.0, 1.0]` as for [`process_capture_f32`](Self::process_capture_f32).
+    ///
+    /// This is the capture signal less the echo that AEC3's adaptive linear
+    /// filter predicts, before its residual echo suppressor and comfort
+    /// noise and before noise suppression or gain control. It is at 16 kHz
+    /// (the lowest split band), 160 samples per 10 ms frame, whatever the
+    /// stream rates. Before AEC3 has received render audio it does not
+    /// process capture, and this keeps its previous (initially zero) value,
+    /// as in WebRTC.
+    ///
+    /// Returns `false`, leaving `output` unchanged, unless the echo
+    /// canceller is enabled with
+    /// [`EchoCanceller::export_linear_aec_output`](crate::config::EchoCanceller::export_linear_aec_output)
+    /// and `output` has one array per channel. Ported from
+    /// `AudioProcessingImpl::GetLinearAecOutput` (lampOS patch).
+    pub fn linear_aec_output(&self, output: &mut [[f32; 160]]) -> bool {
+        let Some(linear) = self.inner.linear_aec_output() else {
+            return false;
+        };
+        if linear.num_channels() != output.len() || linear.num_frames() != 160 {
+            return false;
+        }
+        for (channel, target) in output.iter_mut().enumerate() {
+            audio_util::float_s16_to_float_slice(linear.channel(channel), target);
+        }
+        true
     }
 
     /// Processes a capture audio frame (float, deinterleaved).

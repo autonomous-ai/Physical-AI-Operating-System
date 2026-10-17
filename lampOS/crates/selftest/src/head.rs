@@ -961,6 +961,7 @@ mod tests {
     }
 
     /// How a fake body treats what it is asked.
+    #[cfg(target_os = "linux")]
     #[derive(Clone, Copy)]
     enum Fake {
         Follows,
@@ -982,6 +983,7 @@ mod tests {
     /// lifting head's goal 40 counts ahead, where the head stops 30 short
     /// (`GLANCE_LIFT_LEAD`), cuts the roll to one count, lets the joints
     /// follow, and says it rests, standing, until stopped.
+    #[cfg(target_os = "linux")]
     fn body(
         root: std::path::PathBuf,
         fake: Fake,
@@ -1082,6 +1084,7 @@ mod tests {
         })
     }
 
+    #[cfg(target_os = "linux")]
     fn run_against(fake: Fake, name: &str) -> PartResult {
         let root = std::path::PathBuf::from(format!("/tmp/hm-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);

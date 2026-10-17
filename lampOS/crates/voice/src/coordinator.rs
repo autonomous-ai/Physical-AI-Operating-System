@@ -3671,6 +3671,7 @@ fn conversation_with_gate(
                     if always {
                         crate::stop_words::StopWords::always(Box::new(ears))
                             .with_cadence(crate::stop_words::raw_source())
+                            .with_hold(crate::stop_words::holds_for_own_words())
                     } else {
                         crate::stop_words::StopWords::new(Box::new(ears))
                     }

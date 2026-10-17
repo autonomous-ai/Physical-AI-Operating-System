@@ -87,6 +87,27 @@ fn raw_source_for(value: Option<&str>) -> bool {
     value == Some("raw")
 }
 
+/// Where the coordinator reads whether a stop heard over the lamp is held
+/// for the lamp's own words (`own-words`, #828 section 2): at a reply's
+/// start, with nothing queued, the lamp's text for a block can come after
+/// the speech-to-text's words for it, and its own "stop" stopped it. Off
+/// unless set.
+pub const HOLD_ENVIRONMENT: &str = "LAMP_STOP_WORDS_HOLD";
+
+/// Whether a stop heard over the lamp waits for its own words.
+pub fn holds_for_own_words() -> bool {
+    hold_for(std::env::var(HOLD_ENVIRONMENT).ok().as_deref())
+}
+
+fn hold_for(value: Option<&str>) -> bool {
+    value == Some("own-words")
+}
+
+/// With [`holds_for_own_words`], the longest a stop heard over the lamp
+/// waits for the lamp's own words to cover the block it came in, on the
+/// blocks' capture clock: what a person's real stop is delayed by, at most.
+pub const HOLD_US: u64 = 150_000;
+
 fn listen_for(value: Option<&str>) -> Listen {
     match value {
         Some("heard") => Listen::InYields,
@@ -254,6 +275,18 @@ pub struct StopWords {
     /// sent since they last were.
     cadence: bool,
     since_asked: u16,
+    /// With `always`: a stop heard is held for the lamp's own words
+    /// ([`Self::with_hold`]), and the one held.
+    hold: bool,
+    held: Option<Held>,
+}
+
+/// A stop heard over the lamp and held ([`HOLD_US`]): what was heard,
+/// the capture time of the block it came in, and its results' numbers.
+struct Held {
+    heard: String,
+    at_us: u64,
+    results: Vec<usize>,
 }
 
 impl StopWords {
@@ -281,7 +314,18 @@ impl StopWords {
             heard: Vec::new(),
             cadence: false,
             since_asked: 0,
+            hold: false,
+            held: None,
         }
+    }
+
+    /// With `on`, listening to everything, a stop heard is acted on only
+    /// once the lamp's own words cover the block it came in, or after
+    /// [`HOLD_US`]: if they then say it themselves, it is the lamp's own
+    /// and stops nothing (#828 section 2).
+    pub fn with_hold(mut self, on: bool) -> Self {
+        self.hold = on && self.always;
+        self
     }
 
     /// With `on`, listening to everything, the words are asked for every
@@ -356,6 +400,7 @@ impl StopWords {
             self.flushes = 0;
             self.since_asked = 0;
             self.heard.clear();
+            self.held = None;
         }
         self.replying = replying;
         if replying && (sounding || yielded) {
@@ -388,11 +433,20 @@ impl StopWords {
         while let Some(heard) = self.ears.words() {
             self.results += 1;
             let lamp: Vec<&str> = self.lamp.iter().map(|(_, text)| text.as_str()).collect();
-            let stops = replying && !self.stop_heard && stop_over(&heard, &lamp.join(" "));
-            if stops {
-                self.stop_heard = true;
-                self.stopped = true;
-                eprintln!("lamp-voice: stop words: a stop phrase was heard over the lamp's voice");
+            let mut stops = replying && !self.stop_heard && stop_over(&heard, &lamp.join(" "));
+            if stops && self.hold {
+                // Decided below, against the lamp's words as they then are.
+                let held = self.held.get_or_insert_with(|| Held {
+                    heard: String::new(),
+                    at_us: captured_at_us,
+                    results: Vec::new(),
+                });
+                held.heard.push(' ');
+                held.heard.push_str(&heard);
+                held.results.push(self.results);
+                stops = false;
+            } else if stops {
+                self.stop();
             }
             if self.counts.is_some() {
                 let says_stop = stop_phrase(&heard);
@@ -415,9 +469,50 @@ impl StopWords {
                 );
             }
         }
+        self.decide_held(replying, captured_at_us);
         if !replying && !self.rested {
             self.end_reply();
         }
+    }
+
+    /// The stop held, at a block captured at `now_us`: let go if the lamp's
+    /// words now hold it or the reply is over; acted on once they cover
+    /// the block it came in (a word of theirs stamped at or after it), or
+    /// [`HOLD_US`] after it. Own words later still than that stop the lamp:
+    /// a person's stop is never held longer.
+    fn decide_held(&mut self, replying: bool, now_us: u64) {
+        let Some(held) = self.held.as_ref() else {
+            return;
+        };
+        let lamp: Vec<&str> = self.lamp.iter().map(|(_, text)| text.as_str()).collect();
+        if !replying || !stop_over(&held.heard, &lamp.join(" ")) {
+            if replying {
+                eprintln!(
+                    "lamp-voice: stop words: a stop phrase heard was the lamp's own, its words came within {} ms",
+                    now_us.saturating_sub(held.at_us) / 1000
+                );
+            }
+            self.held = None;
+            return;
+        }
+        let covered = self.lamp.iter().any(|(at, _)| *at >= held.at_us);
+        if covered || now_us >= held.at_us.saturating_add(HOLD_US) {
+            if let Some(held) = self.held.take() {
+                for kept in &mut self.heard {
+                    if held.results.contains(&kept.n) {
+                        kept.stopped = true;
+                    }
+                }
+            }
+            self.stop();
+        }
+    }
+
+    /// A stop phrase heard over the lamp stops this reply.
+    fn stop(&mut self) {
+        self.stop_heard = true;
+        self.stopped = true;
+        eprintln!("lamp-voice: stop words: a stop phrase was heard over the lamp's voice");
     }
 
     /// The reply is over, by its end or by a close ([`Self::close`]):
@@ -561,6 +656,7 @@ impl StopWords {
         self.replying = false;
         self.closed = true;
         self.stopped = false;
+        self.held = None;
         self.lamp.clear();
     }
 }
@@ -2045,6 +2141,109 @@ mod tests {
                 "hear 8", "hear 9"
             ]
         );
+    }
+
+    /// #828 section 2, on the blocks' 10 ms capture clock, no sleeps: a
+    /// reply begins at block 0 with "Once upon a time," written as it came
+    /// (nothing queued); the stream's `heard` comes at the block 100 ms in;
+    /// the lamp's `own` words, if any, are written `after_ms` after that,
+    /// stamped as they come. The delay from the words to the stop, in ms,
+    /// or `None` if nothing was stopped in the 400 ms after them.
+    fn stop_delay_ms(hold: bool, heard: &str, own: Option<(&str, u64)>) -> Option<u64> {
+        let script = Arc::new(Mutex::new(Script::default()));
+        let mut words = StopWords::always_counted(Box::new(Scripted(Arc::clone(&script))), None)
+            .with_hold(hold);
+        let at = |ms: u64| 20_000_000 + ms * 1000;
+        words.lamp_said("Once upon a time,", at(0));
+        for ms in (0..=500).step_by(10) {
+            if ms == 100 {
+                script.lock().unwrap().words = Some(heard.into());
+            }
+            if let Some((text, after_ms)) = own
+                && ms == 100 + after_ms
+            {
+                words.lamp_said(text, at(ms));
+            }
+            words.block(true, true, false, None, None, at(ms), &block(1));
+            if words.spoken_stop() {
+                return Some(ms - 100);
+            }
+        }
+        None
+    }
+
+    /// (a) The lamp's own "stop", its text written 80 ms after the stream's
+    /// words for it, as at a reply's start with nothing queued: held, it is
+    /// the lamp's own and stops nothing. Without the hold it stopped the
+    /// lamp at once.
+    #[test]
+    fn the_lamps_own_stop_whose_text_comes_80_ms_late_stops_nothing() {
+        let own = Some(("And the owl said: stop, little fox.", 80));
+        assert_eq!(stop_delay_ms(true, "the owl said stop", own), None);
+        assert_eq!(
+            stop_delay_ms(true, "Wait.", Some(("Wait for me, said the owl.", 80))),
+            None
+        );
+    }
+
+    /// (b) A person's stop with no such words of the lamp's acts at 150 ms,
+    /// the most it is delayed; sooner once the lamp's words cover its
+    /// block, and at once if they already did (its audio queued ahead).
+    #[test]
+    fn a_persons_stop_is_held_at_most_150_ms() {
+        assert_eq!(stop_delay_ms(true, "Lamp, stop.", None), Some(150));
+        assert_eq!(HOLD_US, 150_000);
+        assert_eq!(
+            stop_delay_ms(true, "Lamp, stop.", Some(("the owl flew home", 40))),
+            Some(40)
+        );
+        let script = Arc::new(Mutex::new(Script::default()));
+        let mut words = StopWords::always_counted(Box::new(Scripted(Arc::clone(&script))), None)
+            .with_hold(true);
+        words.block(true, true, false, None, None, 1_000_000, &block(1));
+        words.lamp_said("and the owl flew home", 9_000_000);
+        script.lock().unwrap().words = Some("Stop.".into());
+        words.block(true, true, false, None, None, 1_010_000, &block(1));
+        assert!(words.spoken_stop(), "covered already: no delay");
+        // A reply that ends while its stop is held stops nothing, and the
+        // next begins with none held.
+        let script = Arc::new(Mutex::new(Script::default()));
+        let mut words = StopWords::always_counted(Box::new(Scripted(Arc::clone(&script))), None)
+            .with_hold(true);
+        words.block(true, true, false, None, None, 1_000_000, &block(1));
+        script.lock().unwrap().words = Some("Stop.".into());
+        words.block(true, true, false, None, None, 1_010_000, &block(1));
+        words.block(false, false, false, None, None, 1_020_000, &block(1));
+        words.block(true, true, false, None, None, 2_000_000, &block(1));
+        words.block(true, true, false, None, None, 2_200_000, &block(1));
+        assert!(!words.spoken_stop());
+    }
+
+    /// (c) The lamp's own words later than the hold: its own "stop" stops it
+    /// at 150 ms. That is the safe side: a stop the person meant is never
+    /// held longer than 150 ms nor dropped, and a false one ends the reply
+    /// as a hand Stop does, with the lamp listening again.
+    #[test]
+    fn the_lamps_own_words_later_than_the_hold_stop_it_at_150_ms() {
+        let own = Some(("And the owl said: stop, little fox.", 200));
+        assert_eq!(stop_delay_ms(true, "the owl said stop", own), Some(150));
+    }
+
+    /// (d) With the switch off, as before: every stop the lamp did not say
+    /// by then acts at once. The hold is only for listening to everything,
+    /// and only for `own-words`.
+    #[test]
+    fn without_the_hold_a_stop_acts_at_once() {
+        let own = Some(("And the owl said: stop, little fox.", 80));
+        assert_eq!(stop_delay_ms(false, "the owl said stop", own), Some(0));
+        assert_eq!(stop_delay_ms(false, "Lamp, stop.", None), Some(0));
+        assert!(hold_for(Some("own-words")));
+        for value in [None, Some(""), Some("on"), Some("OWN-WORDS")] {
+            assert!(!hold_for(value), "{value:?}");
+        }
+        let yields = StopWords::new(Box::new(Scripted(Arc::new(Mutex::new(Script::default())))))
+            .with_hold(true);
+        assert!(!yields.hold);
     }
 
     /// With `heard-always`, through the real thread: a reply's audio goes

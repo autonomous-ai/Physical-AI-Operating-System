@@ -57,6 +57,22 @@ use std::{collections::VecDeque, sync::Mutex};
 pub const ENVIRONMENT: &str = "LAMP_ROOM_FACTS";
 /// The provider worker's flag for it.
 pub const FLAG: &str = "--room-facts";
+/// Where the coordinator reads whether a line said over the lamp's own
+/// reply and left unanswered is kept out of the busy room's count. `on`
+/// only; off unless set.
+///
+/// Why: on lamp-4ace on 17 October at 09:21 the first builder's ten
+/// cut-ins over the lamp's stories made the room busy, with one person and
+/// the lamp's own voice in it. Each cut-in the lamp left without a word (a
+/// stop it obeyed, one that took no yield) counted as talk left alone, and
+/// three in a minute make a busy room. Then "Hold on, I have a question.
+/// What day comes after Monday?", heard whole, was held as office talk
+/// (#828, the first builder at 09:27 and 10:14). What it costs: people who
+/// keep talking over the lamp's answer in a busy office are not counted
+/// either, so that room is known as busy later or not at all.
+pub const CUT_INS_ENVIRONMENT: &str = "LAMP_CUT_INS_NOT_TALK";
+/// The provider worker's flag for it, right after [`FLAG`].
+pub const CUT_INS_FLAG: &str = "--cut-ins-not-talk";
 pub const QUIET: &str = "(For you to know, not to answer: the room around you has gone quiet.)";
 pub const BUSY: &str = "(For you to know, not to answer: the office around you is busy, with people talking to each other.)";
 
@@ -127,6 +143,11 @@ pub struct RoomTold {
     talk_counted: u64,
     /// When watching began.
     watching_since_us: Option<u64>,
+    /// A line said over the lamp's reply and left unanswered is not counted
+    /// ([`CUT_INS_ENVIRONMENT`]): the newest request begun so, until it is
+    /// closed.
+    cut_ins_not_talk: bool,
+    over_the_lamp: Option<u64>,
     room: Room,
     /// The session last told, and what it was told.
     told: Option<(u64, Room)>,
@@ -151,6 +172,8 @@ impl RoomTold {
             talk_since_spoke: 0,
             talk_counted: 0,
             watching_since_us: None,
+            cut_ins_not_talk: false,
+            over_the_lamp: None,
             room: Room::Unknown,
             told: None,
         }
@@ -203,6 +226,27 @@ impl RoomTold {
     /// [`BUSY_ENDS_AFTER_US`] after the last talk.
     pub fn count_only_talk(&mut self, on: bool) {
         self.talk_only = on;
+    }
+
+    /// Keep lines said over the lamp's reply out of the count from now on
+    /// ([`CUT_INS_ENVIRONMENT`]).
+    pub fn leave_cut_ins_out(&mut self, on: bool) {
+        self.cut_ins_not_talk = on;
+    }
+
+    /// `request` began over the lamp's own reply (its Start's
+    /// `over_the_lamp`). With [`Self::leave_cut_ins_out`], left unanswered
+    /// it is not talk the lamp left alone.
+    pub fn began_over_the_lamp(&mut self, request: u64) {
+        if self.cut_ins_not_talk {
+            self.over_the_lamp = Some(request);
+        }
+    }
+
+    /// Whether `request`, left unanswered now, is kept out as said over the
+    /// lamp's reply.
+    pub fn kept_out_over_the_lamp(&self, request: u64) -> bool {
+        self.over_the_lamp == Some(request)
     }
 
     /// The lamp's own rule held the answer to `request`. With
@@ -267,6 +311,10 @@ impl RoomTold {
         }
         if self.held == Some(request) {
             self.held = None;
+            return false;
+        }
+        if self.over_the_lamp == Some(request) {
+            self.over_the_lamp = None;
             return false;
         }
         if request > self.talk_counted {
@@ -360,9 +408,14 @@ impl Default for RoomTold {
     }
 }
 
-/// The provider worker's argument for the switch in the environment.
+/// The provider worker's arguments for the two switches in the
+/// environment.
 pub fn arguments_from_environment() -> Vec<String> {
-    arguments(std::env::var(ENVIRONMENT).ok().as_deref())
+    let mut arguments = arguments(std::env::var(ENVIRONMENT).ok().as_deref());
+    arguments.extend(cut_ins_arguments(
+        std::env::var(CUT_INS_ENVIRONMENT).ok().as_deref(),
+    ));
+    arguments
 }
 
 fn arguments(value: Option<&str>) -> Vec<String> {
@@ -373,10 +426,27 @@ fn arguments(value: Option<&str>) -> Vec<String> {
     }
 }
 
+fn cut_ins_arguments(value: Option<&str>) -> Vec<String> {
+    if value == Some("on") {
+        vec![CUT_INS_FLAG.to_owned()]
+    } else {
+        Vec::new()
+    }
+}
+
 /// Take a leading `--room-facts` off a worker's flags.
 pub fn take(flags: &[String]) -> (bool, &[String]) {
     match flags {
         [flag, rest @ ..] if flag == FLAG => (true, rest),
+        _ => (false, flags),
+    }
+}
+
+/// Take a leading `--cut-ins-not-talk` off a worker's flags, after
+/// [`take`].
+pub fn take_cut_ins(flags: &[String]) -> (bool, &[String]) {
+    match flags {
+        [flag, rest @ ..] if flag == CUT_INS_FLAG => (true, rest),
         _ => (false, flags),
     }
 }
@@ -392,6 +462,59 @@ mod tests {
         room.heard(request, at * S);
         room.hearing((at + 1) * S);
         room.ended(request, (at + 2) * S);
+    }
+
+    /// #828, the first builder at 10:14: three cut-ins over the lamp's
+    /// stories, each left without a word, within a minute. With the switch
+    /// the room stays unknown, and "Hold on, I have a question. What day
+    /// comes after Monday?", with no name, is played by the busy form of
+    /// the rule. Without it the room is busy and the question is held, as
+    /// on lamp-4ace at 09:21. A line not said over the lamp still counts.
+    #[test]
+    fn with_the_switch_cut_ins_left_unanswered_do_not_make_the_room_busy() {
+        use crate::attention::{Attention, Verdict};
+        let question = |room: Room| {
+            let mut attention = Attention::default();
+            attention.began_at(4, 3, 40 * S);
+            attention.heard("Hold on, I have a question. What day comes after Monday?");
+            attention.first_output_busy(4, room, false, true, Some(false))
+        };
+        for switch in [true, false] {
+            let mut room = RoomTold::new();
+            room.leave_cut_ins_out(switch);
+            for request in 1..=3 {
+                room.began_over_the_lamp(request);
+                said(&mut room, request, request * 10);
+                assert_eq!(room.kept_out_over_the_lamp(request), switch);
+                assert_eq!(room.unanswered(request, (request * 10 + 2) * S), !switch);
+            }
+            let now = room.at(35 * S);
+            assert_eq!(now == Room::Busy, !switch, "switch {switch}");
+            assert_eq!(
+                matches!(question(now), Some(Verdict::Play(_))),
+                switch,
+                "switch {switch}"
+            );
+        }
+        let mut room = RoomTold::new();
+        room.leave_cut_ins_out(true);
+        for request in 1..=3 {
+            said(&mut room, request, request * 10);
+            assert!(room.unanswered(request, (request * 10 + 2) * S));
+        }
+        assert_eq!(room.at(35 * S), Room::Busy);
+    }
+
+    #[test]
+    fn the_cut_ins_switch_is_on_only_and_its_flag_follows_the_room_facts_one() {
+        assert_eq!(cut_ins_arguments(Some("on")), [CUT_INS_FLAG]);
+        for value in [None, Some(""), Some("off"), Some("ON")] {
+            assert!(cut_ins_arguments(value).is_empty(), "{value:?}");
+        }
+        let both = [FLAG.to_owned(), CUT_INS_FLAG.to_owned(), "rest".to_owned()];
+        let (facts, rest) = take(&both);
+        assert_eq!((facts, take_cut_ins(rest)), (true, (true, &both[2..])));
+        assert_eq!(take_cut_ins(&both), (false, &both[..]));
     }
 
     #[test]

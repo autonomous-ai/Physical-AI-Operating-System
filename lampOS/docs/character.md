@@ -145,7 +145,9 @@ The telling is the runtime's (`crates/voice/src/room_told.rs`,
 said (a bump or a click is not something said, nor is one sent on only for
 the model to judge and left alone: [not-speech.md](not-speech.md)), busy after three things in a row inside a minute that the lamp
 said nothing to, or two inside a minute when the room was quiet (since
-2026-10-14: [attention.md](attention.md), "A meeting beside the lamp"),
+2026-10-14: [attention.md](attention.md), "A meeting beside the lamp";
+with `LAMP_CUT_INS_NOT_TALK=on` a line said over the lamp's own reply is
+not one of them, [attention.md](attention.md), "Cut-ins are not talk"),
 each given to the session in a turn that asks for no
 answer ([speaking-first.md](speaking-first.md), "Telling it something
 that needs no answer") or, when no quiet moment comes, inside the next

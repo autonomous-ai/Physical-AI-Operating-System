@@ -1416,7 +1416,10 @@ the journal (`skill:<name>`, `voice`); `priority` is one of `person`,
 `safety`, `conversation`, `skill` and `idle`, in that order
 ([skills.md](skills.md)). With neither, it is `conversation`, as every
 caller was before. Any other priority, or any other field, is not read and
-is dropped as `not a mood or a gesture this body has`.
+is dropped as `not a mood or a gesture this body has`. Nothing sends either
+yet: `lamp-skills` and the voice send the datagrams of before, so with the
+switch on a skill's move is still the conversation's until the skill runner
+stamps `skill:<name>` and `skill` ([skills.md](skills.md)).
 
 - Safety wins without asking: the anti-tip rule, the guard on every arm
   goal (`ARM_GOAL_STEP`) and the stop for a hot or loaded joint act on

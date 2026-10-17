@@ -768,6 +768,19 @@ fn corrupt_records_are_set_aside_and_never_bring_back_a_key_a_reset_removed() {
         lamp.said
     );
     assert!(lamp.said.iter().all(|line| !line.contains(OLD)));
+    // What the set-aside means lasts (Third on #1263): the next install
+    // does not take the missing keys for ones never written either.
+    lamp.install().unwrap();
+    assert!(!lamp.on(install::CREDENTIAL_PATH).exists());
+    assert!(!lamp.on(install::JEV_KEY_PATH).exists());
+    // The user's key, written by setup, is then kept as the lamp's own.
+    fs::write(lamp.on(install::CREDENTIAL_PATH), "new-users-key").unwrap();
+    lamp.install().unwrap();
+    assert_eq!(
+        fs::read_to_string(lamp.on(install::CREDENTIAL_PATH)).unwrap(),
+        "new-users-key"
+    );
+    assert!(!lamp.on(install::JEV_KEY_PATH).exists());
     // A blank lamp with no records at all still gets V1's key, as before.
     let mut blank = Lamp::new(193, &[]);
     fs::create_dir_all(blank.on("/root/config")).unwrap();
@@ -1877,6 +1890,20 @@ fn prepare_sets_corrupt_records_aside_and_leaves_unreadable_ones_alone() {
         "{said:?}"
     );
     assert!(said.iter().all(|line| !line.contains(&DEVICE_KEY[..6])));
+    // What the set-aside means lasts (Third on #1263): the next prepare
+    // finds the keys recorded as once written and still puts nothing back.
+    for run in 0..2 {
+        let (wrote, said) = prepare(lamp.path());
+        assert!(wrote.unwrap().is_empty(), "run {run} wrote V1's key back");
+        for path in [install::CREDENTIAL_PATH, install::JEV_KEY_PATH] {
+            assert!(!key_of(lamp.path(), path).exists(), "{path}");
+        }
+        assert!(
+            said.iter()
+                .any(|line| line.contains("V1's key is not put back")),
+            "{said:?}"
+        );
+    }
 
     // Records that cannot be read: said, nothing written, nothing refused.
     let lamp = v1_lamp(Some(&v1_config()));

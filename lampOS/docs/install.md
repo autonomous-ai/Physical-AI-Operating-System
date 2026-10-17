@@ -421,9 +421,12 @@ As root, on a lamp with the base image (`crates/update/src/install.rs`):
    (`Records::state`): one that cannot be read stops install, never written
    over; a corrupt one is set aside as `state.json.corrupt-<ms>`, said, and
    begun again. Then what install wrote before is not known, so V1's key is
-   not copied into a missing key file in that run (said instead): a reset
-   may have removed the user's, and V1's config may still hold the previous
-   owner's (#1094's review). That systemd is owed
+   not copied into a missing key file (said instead): a reset may have
+   removed the user's, and V1's config may still hold the previous owner's
+   (#1094's review). Each key file missing then is recorded as once written
+   (`SET_ASIDE`, no hash a file can match), so later runs keep to the rule
+   for a key removed since it was written, and a key setup writes is kept
+   as the lamp's own (Third on #1263). That systemd is owed
    (`systemd_owed`) is recorded earlier still, before the first unit or
    `lampos.conf` is written (step 5), and after anything else changed.
 8. If systemd is owed: `systemd-tmpfiles --create`, `systemctl

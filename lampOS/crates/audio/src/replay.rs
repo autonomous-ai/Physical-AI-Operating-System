@@ -113,6 +113,19 @@ struct Reference {
     clock_started_at_us: Option<u64>,
     ignored_old_epoch_packets: u64,
 }
+/// A reference step whose capture block was still held back
+/// (`reference_step`): the lamp's reference took its render block and gave it
+/// to the canceller, and the block it pairs with is cancelled and recorded
+/// some blocks later. No PCM.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct HeldStep {
+    epoch: u64,
+    dsp_epoch: u64,
+    privacy_generation: u64,
+    frame_sequence: u64,
+    at_us: u64,
+    reference: Reference,
+}
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct Capture {
     epoch: u64,
@@ -182,6 +195,10 @@ struct Epoch {
 }
 enum CaptureStep {
     Reset(Reset),
+    Held {
+        meta: HeldStep,
+        sequence: u64,
+    },
     Frame {
         meta: Capture,
         sequence: u64,
@@ -238,6 +255,9 @@ pub struct SegmentReport {
     pub first_read_started_at_us: u64,
     pub last_processing_completed_at_us: u64,
     pub capture_blocks: u64,
+    /// Reference steps taken while their capture block was held back
+    /// (`reference_step` records, the voice's `CaptureHold`).
+    pub held_reference_steps: u64,
     pub render_blocks: u64,
     pub last_analysed_through: u64,
     pub delay_ms_min: u16,
@@ -665,7 +685,7 @@ fn rows(bundle: &Bundle) -> Result<Vec<Row>> {
         let at = match row.kind.as_str() {
             "capture" => row.meta["processing_completed_at_us"].as_u64(),
             "render_accepted" => row.meta["queue_observed_at_us"].as_u64(),
-            "reset" | "privacy" | "end" => row.meta["at_us"].as_u64(),
+            "reset" | "privacy" | "end" | "reference_step" => row.meta["at_us"].as_u64(),
             _ => None,
         }
         .ok_or_else(|| invalid("unknown record kind or missing clock"))?;
@@ -690,6 +710,7 @@ fn rows(bundle: &Bundle) -> Result<Vec<Row>> {
                 rendered += row.frames * 2
             }
             "reset" | "privacy" | "end" if row.frames == 0 => {}
+            "reference_step" if bundle.header.stream == "capture" && row.frames == 0 => {}
             _ => return Err(invalid("record role/frame mismatch")),
         }
         ended = row.kind == "end";
@@ -765,6 +786,21 @@ fn capture_steps(bundle: &Bundle) -> Result<(Vec<CaptureStep>, u64)> {
                     meta,
                     sequence: row.sequence,
                     offset: row.pre_aec_byte_offset as usize,
+                });
+            }
+            "reference_step" => {
+                let meta: HeldStep = serde_json::from_value(row.meta)?;
+                if privacy
+                    .as_ref()
+                    .is_none_or(|p| !p.open || p.generation != meta.privacy_generation)
+                    || meta.epoch == 0
+                    || meta.dsp_epoch == 0
+                {
+                    return Err(invalid("invalid held reference step privacy or epoch"));
+                }
+                result.push(CaptureStep::Held {
+                    meta,
+                    sequence: row.sequence,
                 });
             }
             "reset" => result.push(CaptureStep::Reset(serde_json::from_value(row.meta)?)),
@@ -874,6 +910,10 @@ struct Segment {
     reset: Reset,
     next_sequence: u64,
     frames: u64,
+    /// Reference steps taken while their capture block was still held back
+    /// (the lamp's `CaptureHold`): the reference is that many steps ahead of
+    /// the block it pairs with.
+    held: u64,
     analysed: u64,
     packet_index: usize,
     closed: bool,
@@ -978,12 +1018,43 @@ impl Sounding {
     }
 }
 impl Segment {
+    /// Whether a record of this segment's capture, at its
+    /// `(capture, dsp, privacy)` epochs and with the reference cursor
+    /// recorded after its step, follows the steps replayed so far: the lamp
+    /// counts every reference step, held or not, so it has taken one more
+    /// than the blocks and held steps before it.
+    fn continues(
+        &self,
+        epochs: (u64, u64, u64),
+        reference: &Reference,
+        completed_at_us: u64,
+    ) -> bool {
+        !self.closed
+            && epochs
+                == (
+                    self.reset.capture_epoch,
+                    self.reset.dsp_epoch,
+                    self.reset.privacy_generation,
+                )
+            && reference.playback_epoch == self.reset.playback_epoch
+            && reference.capture_blocks_processed == self.frames + self.held + 1
+            && reference.analysed_through >= self.analysed
+            && (self.clock.is_some()
+                || (reference.analysed_through >= PRIME_FRAMES as u64
+                    && reference.analysed_through.is_multiple_of(240)))
+            && reference.accepted_through >= reference.analysed_through
+            && reference.analysed_at_us <= completed_at_us
+            && reference.queue_observed_at_us <= completed_at_us
+            && reference.accepted_at_us <= reference.queue_observed_at_us
+            && completed_at_us >= self.reset.at_us
+    }
     fn new(reset: Reset, next_sequence: u64, reference: Given, clock: bool, linear: bool) -> Self {
         let aec_processor = EchoProcessor::with_reference(false, reference);
         Self {
             reset,
             next_sequence,
             frames: 0,
+            held: 0,
             analysed: 0,
             packet_index: 0,
             closed: false,
@@ -1106,6 +1177,35 @@ fn apply_step(
                 &json!({"kind":"source_boundary","boundary":kind,"at_us":at_us,"source_meta":source_meta}),
             )?;
         }
+        CaptureStep::Held { meta, sequence } => {
+            let segment = state
+                .as_mut()
+                .ok_or_else(|| invalid("capture arrived without a recorded Start/prime"))?;
+            // Held steps come before the block they wait for is handed on:
+            // the next block recorded is still the one expected.
+            if meta.frame_sequence < segment.next_sequence
+                || !segment.continues(
+                    (meta.epoch, meta.dsp_epoch, meta.privacy_generation),
+                    &meta.reference,
+                    meta.at_us,
+                )
+            {
+                return Err(at(
+                    sequence,
+                    "held reference step: analysis cursor, phase count or clock continuity is insufficient",
+                ));
+            }
+            advance_reference(
+                segment,
+                &meta.reference,
+                (meta.dsp_epoch, meta.privacy_generation),
+                sequence,
+                render,
+                epochs,
+                operations,
+            )?;
+            segment.held += 1;
+        }
         CaptureStep::Frame {
             meta,
             sequence,
@@ -1115,118 +1215,27 @@ fn apply_step(
                 .as_mut()
                 .ok_or_else(|| invalid("capture arrived without a recorded Start/prime"))?;
             let reference = &meta.reference;
-            if segment.closed
-                || meta.epoch != segment.reset.capture_epoch
-                || meta.dsp_epoch != segment.reset.dsp_epoch
-                || meta.privacy_generation != segment.reset.privacy_generation
-                || meta.frame_sequence != segment.next_sequence
-                || reference.playback_epoch != segment.reset.playback_epoch
-                || reference.capture_blocks_processed != segment.frames + 1
-                || reference.analysed_through < segment.analysed
-                || (segment.clock.is_none()
-                    && (reference.analysed_through < PRIME_FRAMES as u64
-                        || reference.analysed_through % 240 != 0))
-                || reference.accepted_through < reference.analysed_through
-                || reference.analysed_at_us > meta.processing_completed_at_us
-                || reference.queue_observed_at_us > meta.processing_completed_at_us
-                || reference.accepted_at_us > reference.queue_observed_at_us
-                || meta.processing_completed_at_us < segment.reset.at_us
+            if meta.frame_sequence != segment.next_sequence
+                || !segment.continues(
+                    (meta.epoch, meta.dsp_epoch, meta.privacy_generation),
+                    reference,
+                    meta.processing_completed_at_us,
+                )
             {
                 return Err(at(
                     sequence,
                     "capture/analysis cursor, phase count or clock continuity is insufficient",
                 ));
             }
-            let epoch = epochs
-                .get(&reference.playback_epoch)
-                .ok_or_else(|| at(sequence, "missing accepted render epoch"))?;
-            if reference.accepted_through > epoch.frames {
-                return Err(at(
-                    sequence,
-                    "capture claims render samples absent from recording",
-                ));
-            }
-            if let Some(clock) = segment.clock.as_mut() {
-                // What the speaker had accepted by this block waits in the
-                // ring, in the order it was accepted.
-                if reference.accepted_through < clock.pushed {
-                    return Err(at(sequence, "the accepted cursor went back"));
-                }
-                let frames = accepted_frames(
-                    epoch,
-                    &render.files["render_accepted.pcm16le"],
-                    clock.pushed..reference.accepted_through,
-                    &mut segment.packet_index,
-                    reference.analysed_at_us,
-                    meta.privacy_generation,
-                )
-                .map_err(|reason| at(sequence, &reason.to_string()))?;
-                if clock.resampler.push(&frames).is_err() {
-                    return Err(at(
-                        sequence,
-                        "more reference would be waiting than the lamp's ring holds",
-                    ));
-                }
-                clock.pushed = reference.accepted_through;
-                let mut samples = [0; RENDER_SAMPLES];
-                if clock.resampler.take(&mut samples).is_err() {
-                    return Err(at(
-                        sequence,
-                        "the lamp's ring gave a block here and the replayed one has none to give",
-                    ));
-                }
-                segment.aec_processor.render(&samples)?;
-                segment.ns_processor.render(&samples)?;
-                segment.recorded_observer.render(&samples);
-                // The rate for the next block, from the fill and what the
-                // speaker had accepted since its last packet, as the voice
-                // sets it.
-                let since = reference
-                    .analysed_at_us
-                    .saturating_sub(reference.accepted_at_us)
-                    .min(20_000);
-                let owed = since as f64 * f64::from(RENDER_RATE) / 1e6;
-                let ppm = clock
-                    .controller
-                    .observe(clock.resampler.unread() as f64 + owed);
-                clock.resampler.set_ppm(ppm);
-                let analysed = clock
-                    .resampler
-                    .consumed()
-                    .saturating_sub(LEAD_FRAMES as u64);
-                if analysed != reference.analysed_through {
-                    return Err(at(
-                        sequence,
-                        &format!(
-                            "after this block the replayed reference had been read to frame {analysed}, and the lamp's to {}",
-                            reference.analysed_through
-                        ),
-                    ));
-                }
-                segment.analysed = analysed;
-                line(
-                    operations,
-                    &json!({"kind":"render_for_capture","dsp_epoch":meta.dsp_epoch,"playback_epoch":reference.playback_epoch,"accepted_through":reference.accepted_through,"analysed_through":analysed,"rate_ppm":ppm,"unread_frames":clock.resampler.unread(),"before_capture_record":sequence,"recorded_analysis_at_us":reference.analysed_at_us}),
-                )?;
-            }
-            while segment.clock.is_none() && segment.analysed < reference.analysed_through {
-                let (samples, first_packet, last_packet) = render_block(
-                    epoch,
-                    &render.files["render_accepted.pcm16le"],
-                    segment.analysed,
-                    &mut segment.packet_index,
-                    reference.analysed_at_us,
-                    meta.privacy_generation,
-                )?;
-                segment.aec_processor.render(&samples)?;
-                segment.ns_processor.render(&samples)?;
-                segment.recorded_observer.render(&samples);
-                line(
-                    operations,
-                    &json!({"kind":"render_before_capture","dsp_epoch":meta.dsp_epoch,"playback_epoch":reference.playback_epoch,"first_sample":segment.analysed,"end_sample":segment.analysed+240,"first_source_render_record":first_packet,"last_source_render_record":last_packet,"before_capture_record":sequence,"latest_recorded_analysis_at_us":reference.analysed_at_us}),
-                )?;
-                segment.analysed += 240;
-            }
+            advance_reference(
+                segment,
+                reference,
+                (meta.dsp_epoch, meta.privacy_generation),
+                sequence,
+                render,
+                epochs,
+                operations,
+            )?;
             let pre = block(&capture.files["pre_aec.pcm16le"], offset)?;
             let post = block(&capture.files["post_aec.pcm16le"], offset)?;
             let only = segment
@@ -1284,6 +1293,110 @@ fn apply_step(
                 }),
             )?;
         }
+    }
+    Ok(())
+}
+/// One step of the lamp's reference, before the capture block it pairs with:
+/// the accepted render pushed and a block taken and given to the cancellers,
+/// checked against the cursor the lamp recorded after its own step.
+fn advance_reference(
+    segment: &mut Segment,
+    reference: &Reference,
+    (dsp_epoch, privacy_generation): (u64, u64),
+    sequence: u64,
+    render: &Bundle,
+    epochs: &BTreeMap<u64, Epoch>,
+    operations: &mut File,
+) -> Result<()> {
+    let epoch = epochs
+        .get(&reference.playback_epoch)
+        .ok_or_else(|| at(sequence, "missing accepted render epoch"))?;
+    if reference.accepted_through > epoch.frames {
+        return Err(at(
+            sequence,
+            "capture claims render samples absent from recording",
+        ));
+    }
+    if let Some(clock) = segment.clock.as_mut() {
+        // What the speaker had accepted by this block waits in the
+        // ring, in the order it was accepted.
+        if reference.accepted_through < clock.pushed {
+            return Err(at(sequence, "the accepted cursor went back"));
+        }
+        let frames = accepted_frames(
+            epoch,
+            &render.files["render_accepted.pcm16le"],
+            clock.pushed..reference.accepted_through,
+            &mut segment.packet_index,
+            reference.analysed_at_us,
+            privacy_generation,
+        )
+        .map_err(|reason| at(sequence, &reason.to_string()))?;
+        if clock.resampler.push(&frames).is_err() {
+            return Err(at(
+                sequence,
+                "more reference would be waiting than the lamp's ring holds",
+            ));
+        }
+        clock.pushed = reference.accepted_through;
+        let mut samples = [0; RENDER_SAMPLES];
+        if clock.resampler.take(&mut samples).is_err() {
+            return Err(at(
+                sequence,
+                "the lamp's ring gave a block here and the replayed one has none to give",
+            ));
+        }
+        segment.aec_processor.render(&samples)?;
+        segment.ns_processor.render(&samples)?;
+        segment.recorded_observer.render(&samples);
+        // The rate for the next block, from the fill and what the
+        // speaker had accepted since its last packet, as the voice
+        // sets it.
+        let since = reference
+            .analysed_at_us
+            .saturating_sub(reference.accepted_at_us)
+            .min(20_000);
+        let owed = since as f64 * f64::from(RENDER_RATE) / 1e6;
+        let ppm = clock
+            .controller
+            .observe(clock.resampler.unread() as f64 + owed);
+        clock.resampler.set_ppm(ppm);
+        let analysed = clock
+            .resampler
+            .consumed()
+            .saturating_sub(LEAD_FRAMES as u64);
+        if analysed != reference.analysed_through {
+            return Err(at(
+                sequence,
+                &format!(
+                    "after this block the replayed reference had been read to frame {analysed}, and the lamp's to {}",
+                    reference.analysed_through
+                ),
+            ));
+        }
+        segment.analysed = analysed;
+        line(
+            operations,
+            &json!({"kind":"render_for_capture","dsp_epoch":dsp_epoch,"playback_epoch":reference.playback_epoch,"accepted_through":reference.accepted_through,"analysed_through":analysed,"rate_ppm":ppm,"unread_frames":clock.resampler.unread(),"before_capture_record":sequence,"recorded_analysis_at_us":reference.analysed_at_us}),
+        )?;
+    }
+    while segment.clock.is_none() && segment.analysed < reference.analysed_through {
+        let (samples, first_packet, last_packet) = render_block(
+            epoch,
+            &render.files["render_accepted.pcm16le"],
+            segment.analysed,
+            &mut segment.packet_index,
+            reference.analysed_at_us,
+            privacy_generation,
+        )?;
+        segment.aec_processor.render(&samples)?;
+        segment.ns_processor.render(&samples)?;
+        segment.recorded_observer.render(&samples);
+        line(
+            operations,
+            &json!({"kind":"render_before_capture","dsp_epoch":dsp_epoch,"playback_epoch":reference.playback_epoch,"first_sample":segment.analysed,"end_sample":segment.analysed+240,"first_source_render_record":first_packet,"last_source_render_record":last_packet,"before_capture_record":sequence,"latest_recorded_analysis_at_us":reference.analysed_at_us}),
+        )?;
+        segment.analysed += 240;
     }
     Ok(())
 }
@@ -1413,6 +1526,7 @@ fn finish_segment(segment: Segment, output: &Output, report: &mut ReplayReport) 
         first_read_started_at_us: segment.first_at,
         last_processing_completed_at_us: segment.last_at,
         capture_blocks: segment.frames,
+        held_reference_steps: segment.held,
         render_blocks: segment.analysed / 240,
         last_analysed_through: segment.analysed,
         delay_ms_min: segment.delay_min,

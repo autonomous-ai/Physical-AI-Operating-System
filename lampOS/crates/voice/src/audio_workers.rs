@@ -123,6 +123,25 @@ impl OpenAtStart {
     }
 }
 
+/// The reference's cursor as a recording keeps it, for a capture block and
+/// for a step whose block is held back.
+fn reference_meta(timing: &ReferenceTiming) -> diagnostics::ReferenceMeta {
+    diagnostics::ReferenceMeta {
+        playback_epoch: timing.playback_epoch,
+        accepted_through: timing.accepted_through,
+        analysed_through: timing.analysed_through,
+        capture_blocks_processed: timing.capture_blocks_processed,
+        capture_blocks_before_clock_start: timing.capture_blocks_before_clock_start,
+        accepted_at_us: timing.accepted_at_us,
+        analysed_at_us: timing.analysed_at_us,
+        queue_observed_at_us: timing.queue_observed_at_us,
+        queued_frames: timing.queued_frames as u64,
+        clock_start_requested_at_us: timing.clock_start_requested_at_us,
+        clock_started_at_us: timing.clock_started_at_us,
+        ignored_old_epoch_packets: timing.ignored_old_epoch_packets,
+    }
+}
+
 /// With `LAMP_QUIET_EVIDENCE=on`, how often capture says in the journal how
 /// many blocks the echo evidence's search was skipped on (#705), so a run
 /// with the switch can say how often it applied.
@@ -834,7 +853,22 @@ fn capture_loop<D: CaptureDevice>(
             // against it is the one that has waited its turn. Until the
             // first has, there is nothing to hand on: the reference was
             // reported just above, so the rest of this pass has nothing to do.
+            let held = (frame.epoch, frame.microphone_generation, frame.sequence);
             let Some(frame) = hold.push(frame) else {
+                // A recording keeps the step, so its replay can take it as
+                // the lamp did before the block it waits for (#828).
+                if let Some(recording) = recording {
+                    let _ = recording
+                        .recorder
+                        .try_reference_step(diagnostics::ReferenceStepMeta {
+                            epoch: held.0,
+                            dsp_epoch,
+                            privacy_generation: held.1,
+                            frame_sequence: held.2,
+                            at_us: monotonic_us(),
+                            reference: reference_meta(&reference.timing()),
+                        });
+                }
                 stall_pass.done();
                 finish_tick(tick);
                 continue;
@@ -894,21 +928,7 @@ fn capture_loop<D: CaptureDevice>(
                         aec_queue_delay_ms: delay,
                         aec_internal_alignment_ms: echo.internal_alignment_ms(),
                         vad_score: probability,
-                        reference: diagnostics::ReferenceMeta {
-                            playback_epoch: timing.playback_epoch,
-                            accepted_through: timing.accepted_through,
-                            analysed_through: timing.analysed_through,
-                            capture_blocks_processed: timing.capture_blocks_processed,
-                            capture_blocks_before_clock_start: timing
-                                .capture_blocks_before_clock_start,
-                            accepted_at_us: timing.accepted_at_us,
-                            analysed_at_us: timing.analysed_at_us,
-                            queue_observed_at_us: timing.queue_observed_at_us,
-                            queued_frames: timing.queued_frames as u64,
-                            clock_start_requested_at_us: timing.clock_start_requested_at_us,
-                            clock_started_at_us: timing.clock_started_at_us,
-                            ignored_old_epoch_packets: timing.ignored_old_epoch_packets,
-                        },
+                        reference: reference_meta(&timing),
                     },
                     &frame.samples,
                     &clean,

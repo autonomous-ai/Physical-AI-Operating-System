@@ -150,6 +150,16 @@ impl Fixture {
     /// seventh packet comes late with the next, so the rate keeps moving.
     /// `reset_after` puts a DSP reset with a new playback epoch there.
     fn capture_clocked(blocks: usize, reset_after: Option<usize>) -> Self {
+        Self::capture_clocked_held(blocks, reset_after, 0)
+    }
+
+    /// As [`Self::capture_clocked`], with each capture block held back `hold`
+    /// reference steps before it is cancelled and recorded, as the voice's
+    /// `CaptureHold` does for `mic1` with the capture-clocked reference (4):
+    /// the reference steps on every read, block k is cancelled after step
+    /// k + hold's render and recorded with that step's cursor, and each step
+    /// whose block is still held is a PCM-free `reference_step` record.
+    fn capture_clocked_held(blocks: usize, reset_after: Option<usize>, hold: usize) -> Self {
         const PRIME: usize = 480;
         const LEAD: usize = TARGET_FRAMES - PRIME;
         let (root, run) = directories();
@@ -162,6 +172,9 @@ impl Fixture {
             None => std::iter::once(0..blocks).collect(),
         };
         let mut sequence = 0u64;
+        // Blocks read and still held back, and the last block read.
+        let mut waiting = std::collections::VecDeque::new();
+        let mut read = 0u64;
         let mut previous_accepted = 0u64;
         for (index, range) in ranges.into_iter().enumerate() {
             let epoch = index as u64 + 1;
@@ -258,11 +271,22 @@ impl Fixture {
                     let echo = i32::from(taken[i * 3 / 2]) / 3;
                     (echo + ((i as i32 * 191 + block as i32 * 337) % 600 - 300)) as i16
                 });
+                read += 1;
+                waiting.push_back((samples, at, read));
+                let cursor = json!({"playback_epoch":epoch,"accepted_through":pushed,"analysed_through":analysed,"capture_blocks_processed":count+1,"capture_blocks_before_clock_start":0,"accepted_at_us":last_at,"analysed_at_us":now,"queue_observed_at_us":last_at,"queued_frames":480,"clock_started_at_us":start,"ignored_old_epoch_packets":0});
+                if waiting.len() <= hold {
+                    capture.push(row("reference_step",json!({"epoch":1,"dsp_epoch":epoch,"privacy_generation":2,"frame_sequence":read,"at_us":at+5,"reference":cursor}),0,pre.len() as u64*2,0,None));
+                    continue;
+                }
+                let (samples, read_at, frame) = waiting.pop_front().unwrap();
                 post.extend(processor.capture(&samples, 5).unwrap());
-                sequence += 1;
-                capture.push(row("capture",json!({"epoch":1,"dsp_epoch":epoch,"privacy_generation":2,"frame_sequence":sequence,"first_read_started_at_us":at-8,"last_read_started_at_us":at-8,"read_completed_at_us":at+1,"successful_reads":1,"alsa_status_monotonic_us":at+1,"status_observed_at_us":at+2,"available_frames":0,"delayed_frames":32,"processing_completed_at_us":at+5,"aec_queue_delay_ms":5,"reference":{"playback_epoch":epoch,"accepted_through":pushed,"analysed_through":analysed,"capture_blocks_processed":count+1,"capture_blocks_before_clock_start":0,"accepted_at_us":last_at,"analysed_at_us":now,"queue_observed_at_us":last_at,"queued_frames":480,"clock_started_at_us":start,"ignored_old_epoch_packets":0},"vad_score":0.4}),160,pre.len() as u64*2,0,None));
+                sequence = frame;
+                capture.push(row("capture",json!({"epoch":1,"dsp_epoch":epoch,"privacy_generation":2,"frame_sequence":sequence,"first_read_started_at_us":read_at-8,"last_read_started_at_us":read_at-8,"read_completed_at_us":read_at+1,"successful_reads":1,"alsa_status_monotonic_us":read_at+1,"status_observed_at_us":read_at+2,"available_frames":0,"delayed_frames":32,"processing_completed_at_us":at+5,"aec_queue_delay_ms":5,"reference":cursor,"vad_score":0.4}),160,pre.len() as u64*2,0,None));
                 pre.extend(samples);
             }
+            // What a capture end or a reset finds still held goes with it.
+            waiting.clear();
+            read = sequence;
             previous_accepted = pushed;
         }
         let end = 1_000 + blocks as u64 * 10_000 + 20_000;
@@ -303,6 +327,13 @@ impl Fixture {
     fn output(&self, name: &str) -> PathBuf {
         self.root.join("artifacts").join(name)
     }
+    /// As a recording made before held steps were recorded: no
+    /// `reference_step` records.
+    fn drop_held_steps(&mut self) {
+        self.capture.retain(|row| row["kind"] != "reference_step");
+        self.save();
+    }
+
     fn save(&self) {
         let mut trace: Vec<Value> = self.session.iter().cloned().collect();
         for (kind, leaf, rows, pre, post, accepted, worker_boot) in [
@@ -993,6 +1024,46 @@ fn a_capture_clocked_recording_replays_whole_and_bit_for_bit() {
         .collect();
     assert_eq!(rates.len(), 300);
     assert!(rates.iter().any(|&rate| rate != 0.0));
+}
+
+/// The first builder's rehearsal on lamp-4ace (#828, 18 Oct 06:23): with
+/// `mic1` and the capture-clocked reference the voice holds each block back
+/// four reference steps, so the first block recorded carries
+/// `capture_blocks_processed` 5. With the four held steps recorded the replay
+/// takes them as the lamp did and stays bit for bit; without them it stops
+/// where the lamp's cursor runs ahead of the replay's.
+#[test]
+fn a_recording_held_back_four_steps_replays_whole_with_its_held_steps() {
+    let fixture = Fixture::capture_clocked_held(300, None, 4);
+    let report = fixture.replay("held", ReplayOptions::default()).unwrap();
+    assert!(report.source_certified, "{:?}", report.limitations);
+    assert!(
+        report.replay_complete_for_recorded_capture,
+        "{:?}",
+        report.limitations
+    );
+    assert_eq!(report.replayed_capture_frames, 296 * 160);
+    assert_eq!(report.segments[0].held_reference_steps, 4);
+    assert_eq!(
+        report.segments[0].aec_only_mismatched_samples_vs_recorded,
+        0
+    );
+
+    // The same recording made before held steps were recorded.
+    let mut older = Fixture::capture_clocked_held(60, None, 4);
+    older.drop_held_steps();
+    let report = older
+        .replay("older-held", ReplayOptions::default())
+        .unwrap();
+    assert!(!report.replay_complete_for_recorded_capture);
+    assert!(
+        report
+            .limitations
+            .iter()
+            .any(|limit| limit.contains("cursor, phase count or clock continuity")),
+        "{:?}",
+        report.limitations
+    );
 }
 
 #[test]

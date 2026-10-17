@@ -107,6 +107,17 @@ This separate origin describes restart accounting, not synchronized USB clocks
 or ADC acquisition time. Historical recordings lacking these fields retain
 their original interpretation; do not silently infer an unrecorded request bound
 from their completion timestamp or assume they used this correction.
+With a capture hold (`mic1` with the capture-clocked reference holds each
+block back four reference steps before it is cancelled, `reference/hold.rs`),
+a block is recorded with the cursor of the step that handed it on, so
+`capture_blocks_processed` runs ahead of the blocks recorded by the hold. Each
+step whose block is still held is kept as a PCM-free `reference_step` record
+(`ReferenceStepMeta`: the capture, DSP and privacy identity, the waiting
+block's `frame_sequence`, the step's time and its `ReferenceMeta`), so
+`lamp-audio replay-aec` takes those steps as the lamp did and stays bit for
+bit (#828). A recording made before these records existed stops at its first
+capture record with "capture/analysis cursor, phase count or clock continuity
+is insufficient".
 `RenderMeta` carries playback/privacy identity, first/end accepted sample cursors,
 acceptance/queue observation times, queue depth and optional owner/chunk identity.
 Negative driver queue values remain observations; diagnostics do not correct them.

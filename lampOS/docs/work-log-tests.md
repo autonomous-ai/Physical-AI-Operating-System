@@ -1,5 +1,34 @@
 # Tests work log
 
+## 2026-10-17 23:56:44 +0700 — #1402 and #1411 merged; #1412 has the first builder's yes; the next tiers checked
+
+Ready for lamp-voice: #1412 once ARM64 39051224540 is green (the first builder's yes at 23:41; El peer-reviews). #1373 waits only on #1340.
+
+**Merged:**
+- #1398 at 22:32 (`2e6cbf38c`): `first_control_message`, 3.7 s → 0.00 s.
+- #1402 at 23:10 (`89ab057a1`): setup's light, 10.8 s → 0.3 s on this Mac.
+- #1411 (`bd3c85a9c`): the reviewer's P3 on #1402.
+  - On the fast clock, a test-thread stall of 20 ms between the marker and freeing the ring let a painter that opens a ring while fading out go uncaught (0 of 10). My own stall probe had stalled the thread at the wrong point.
+  - The test now holds the clock across the marker: 10 of 10 caught at 0, 20, 40 and 400 ms.
+
+**#1412** (the ring's startup deadline, 3.5 s → 0.6–0.7 s each here):
+- In a test build only, the clock moves once the child is up. So a slow child start can't find the deadline gone.
+- The first builder's pin checks that every other test starts its workers on the host's clock.
+- The control is a deadline ending early. A shorter constant can't fail the test, so my first note's control was wrong.
+
+**Kept, with reasons (#1128):**
+- the motor preflight test: a 1 s wait failed under a 1.2 s stall;
+- `service_privacy`'s GPIO test: its 1 s window is what it checks, in the mute-authority path;
+- the provider burst test: real work;
+- lamp-policy's two: the program's own timing.
+- Today's PR run shows no new slow tests outside the realtime group except `ring_asleep`'s stuck write (2.6 s). 1.6 s of that is the fade-in before the first lit frame; a small test-only trim, for a batch.
+
+**Housekeeping:** the shared target had reached 25 GB, so I cleaned it (cargo removed 53.4 GiB of files), and deleted the finished run logs.
+
+**#1396, the backend:** the change is prepared locally and not pushed. Its full suite passes, except packages that need a MongoDB or Redis this Mac doesn't run. Where the survey goes still waits on the owner.
+
+**Mistake:** on #705 at 23:51 I called #1411 "ready" when it had already merged; corrected in a second comment.
+
 ## 2026-10-17 22:31:27 +0700 — #1128's last two builds, and the backend part of #1396
 
 Ready for lamp-voice: #1398 (the fifth's yes at 22:1x; ARM64 39043306490 green). #1373 waits only on #1340.

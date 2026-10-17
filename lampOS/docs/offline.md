@@ -149,6 +149,10 @@ The voice with `LAMP_KERNEL_CLOCK=on` asks the kernel before telling a time:
 while the clock is not set, `the_time` says it has not been set and a new
 session is told it does not know the time, never to guess
 ([tools.md](tools.md)). Off unless set.
+This reaches the provider and second workers, where `the_time` is
+answered, only since #1158 (17 October): they start with a cleared
+environment, and before then the switch never got there. No lamp run before
+it showed "not set", and none has since.
 
 ## Step 3: what says the lamp is online
 

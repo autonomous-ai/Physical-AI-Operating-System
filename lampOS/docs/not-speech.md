@@ -371,11 +371,14 @@ on #818, 20:11). That route has no ears and no eyes, so only the heard words
 can show the sound was said to the lamp: one not heard, whole, as a short
 word ends quietly after its words, and its chat is never asked. A sound said
 close or facing the lamp but not heard as a short word is held there, where
-the Live route would answer it, and so is one with a word in it after the
-lamp's own question. Tests:
+the Live route would answer it. One with a word in it, right after the
+lamp's own question in a conversation going on, is judged as a line there
+too: the worker reads the same thread (`worker::lamp_just_asked`). Tests:
 `a_short_sound_not_heard_as_a_short_word_is_held_when_sounds_are_checked`
 (`second_provider/tests.rs`: "¿Qué?" held with the chat never asked, "Yes."
-answered, and "¿Qué?" answered unchecked or unmarked) and
+answered, and "¿Qué?" answered unchecked or unmarked),
+`a_checked_sound_with_a_word_right_after_the_lamps_question_is_answered`
+(the same file: "bien" answered when the lamp has just asked) and
 `both_workers_take_the_flag_that_checks_sounds`.
 
 **Not shown.** No recorded sound was played: the repository holds none of

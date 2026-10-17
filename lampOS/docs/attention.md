@@ -977,16 +977,24 @@ as before: of the 17 requests held this way on lamp-4ace from 16 to 17
 October, only 3 came in a conversation (the first builder's count on #828).
 What it lets through is a sound heard as words in that one moment, "¿Qué?"
 as well as "bien". It is part of `quiet-room-checked`, the mode the product
-runs (#1332), not a switch of its own. Only the Live route has it: the
-second voice holds every sound not heard as a short word
-([not-speech.md](not-speech.md#a-room-sound-let-through-and-answered-800)).
+runs (#1332), not a switch of its own. The second voice does the same
+from the same thread: its worker tells the engine whether the lamp has just
+asked (`worker::lamp_just_asked`), and the rule then judges the line as any
+other ([not-speech.md](not-speech.md#a-room-sound-let-through-and-answered-800)).
 Tests: `a_short_sound_with_a_word_right_after_the_lamps_question_is_its_answer`
 (`attention.rs`: "bien" played in every room; held with no question, with no
 conversation, with no word; a short word keeps its own reason; unchecked or
 not a sound, the question changes nothing) and
 `a_sound_with_a_word_right_after_the_lamps_question_is_answered` (the
 worker's own loop, with the conversation as the worker keeps it: "bien"
-after "Shall I start it?" answered, after a line that asks nothing held).
+after "Shall I start it?" answered, after a line that asks nothing held);
+on the second voice,
+`a_checked_sound_with_a_word_right_after_the_lamps_question_is_answered`
+(`second_provider/tests.rs`: "bien" answered when the lamp has just asked,
+held when it hasn't, "¿?" held) and
+`the_lamp_just_asked_only_with_its_question_in_a_conversation`
+(`second_provider/worker.rs`: the question within the conversation's 45 s,
+not after it, not a line that asks nothing).
 
 ## The lamp spoken of is not a call (#829)
 

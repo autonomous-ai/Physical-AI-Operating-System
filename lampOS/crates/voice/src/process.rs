@@ -270,31 +270,10 @@ impl Worker {
     ) -> io::Result<Self> {
         listed(role)?;
         let channels = WorkerChannels::bind(directory, role, parent, boot, false)?;
-        let child = Command::new(executable)
-            .arg(lamp_voice_processes::Command::Worker.as_str())
-            .arg(role)
-            .arg(directory)
-            .arg(boot_text(parent))
-            .arg(boot_text(boot))
-            .args(extra)
-            .env_clear()
-            .envs(crate::stalls::passed_on())
-            .envs(memory_days_worker_environment(
-                role,
-                std::env::var_os("LAMP_MEMORY_DAYS").as_deref(),
-            ))
-            .envs(memory_rules_worker_environment(
-                role,
-                std::env::var_os(crate::rules::ENVIRONMENT).as_deref(),
-            ))
-            .envs(kernel_clock_worker_environment(
-                role,
-                std::env::var_os(crate::local_time::KERNEL_CLOCK_ENVIRONMENT).as_deref(),
-            ))
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::inherit())
-            .spawn()?;
+        let child = worker_command(executable, directory, role, (parent, boot), extra, |name| {
+            std::env::var_os(name)
+        })
+        .spawn()?;
         let mut worker = Self {
             channels,
             child,
@@ -713,6 +692,45 @@ impl Drop for Worker {
     }
 }
 
+/// The command a worker starts with: its arguments, and a cleared
+/// environment with only what its role is given, the switches read with
+/// `var` from the voice's own.
+fn worker_command(
+    executable: &Path,
+    directory: &Path,
+    role: &str,
+    (parent, boot): (BootId, BootId),
+    extra: &[&str],
+    var: impl Fn(&str) -> Option<std::ffi::OsString>,
+) -> Command {
+    let mut command = Command::new(executable);
+    command
+        .arg(lamp_voice_processes::Command::Worker.as_str())
+        .arg(role)
+        .arg(directory)
+        .arg(boot_text(parent))
+        .arg(boot_text(boot))
+        .args(extra)
+        .env_clear()
+        .envs(crate::stalls::passed_on())
+        .envs(memory_days_worker_environment(
+            role,
+            var("LAMP_MEMORY_DAYS").as_deref(),
+        ))
+        .envs(memory_rules_worker_environment(
+            role,
+            var(crate::rules::ENVIRONMENT).as_deref(),
+        ))
+        .envs(kernel_clock_worker_environment(
+            role,
+            var(crate::local_time::KERNEL_CLOCK_ENVIRONMENT).as_deref(),
+        ))
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::inherit());
+    command
+}
+
 // Keep the voice routes' one opt-in explicit (the Live provider and the
 // second route share the memory). No other coordinator environment reaches
 // a worker, and unset, non-Unicode and unrecognized values stay off.
@@ -812,6 +830,66 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// The reviewer on #1158: the switches reach a worker through the real
+    /// command it is started with. A script in the worker's place writes
+    /// the environment it got: the provider has all three, the second
+    /// route the memory's days and the clock, and capture none.
+    #[test]
+    fn a_started_worker_gets_its_roles_switches_and_nothing_else() {
+        use std::os::unix::fs::PermissionsExt;
+        let home = SessionDirectory::create().unwrap();
+        let script = home.path.join("worker.sh");
+        std::fs::write(&script, "#!/bin/sh\n/usr/bin/env > \"$3/env-$2.txt\"\n").unwrap();
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let on = |name: &str| {
+            [
+                "LAMP_MEMORY_DAYS",
+                crate::rules::ENVIRONMENT,
+                crate::local_time::KERNEL_CLOCK_ENVIRONMENT,
+            ]
+            .contains(&name)
+            .then(|| std::ffi::OsString::from("on"))
+        };
+        let boot = new_boot().unwrap();
+        for (role, expected) in [
+            (
+                "provider",
+                vec![
+                    "LAMP_KERNEL_CLOCK=on",
+                    "LAMP_MEMORY_DAYS=on",
+                    "LAMP_MEMORY_RULES=on",
+                ],
+            ),
+            (
+                "second",
+                vec!["LAMP_KERNEL_CLOCK=on", "LAMP_MEMORY_DAYS=on"],
+            ),
+            ("capture", vec![]),
+        ] {
+            let status = worker_command(&script, &home.path, role, (boot, boot), &[], on)
+                .status()
+                .unwrap();
+            assert!(status.success(), "{role}");
+            let written =
+                std::fs::read_to_string(home.path.join(format!("env-{role}.txt"))).unwrap();
+            let mut got: Vec<&str> = written
+                .lines()
+                .filter(|line| line.starts_with("LAMP_MEMORY") || line.starts_with("LAMP_KERNEL"))
+                .collect();
+            got.sort_unstable();
+            assert_eq!(got, expected, "{role}");
+        }
+        let status = worker_command(&script, &home.path, "provider", (boot, boot), &[], |_| None)
+            .status()
+            .unwrap();
+        assert!(status.success());
+        let written = std::fs::read_to_string(home.path.join("env-provider.txt")).unwrap();
+        assert!(
+            !written.contains("LAMP_MEMORY") && !written.contains("LAMP_KERNEL"),
+            "{written}"
+        );
     }
 
     fn child_worker(directory: &SessionDirectory, script: &str) -> Worker {

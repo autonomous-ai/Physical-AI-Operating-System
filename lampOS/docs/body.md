@@ -71,9 +71,14 @@ run on a lamp.
   50 counts a write, within the time a stop allows. Then all five are let
   go and the run ends on the refusal. This covers a commanded joint over
   100 on every first read (its temperature is not judged while it folds),
-  and one found with torque off or a status flag (one without torque is
+  and one found with torque off or a status flag. One without torque is
   taken hold of where it is, goal first, as `--torque on` does, to come
-  down with the arm). Started again, it is found folded and refused, with
+  down with the arm. One with a status flag (the servo's own protection),
+  or without torque and over 100 on every read (perhaps its own heat
+  cut-out), is left as it is: written no goal, profile or torque on, since
+  a goal turns such a servo back on, while the arm folds without it
+  (`a_head_found_without_torque_and_unreadable_is_left_while_the_arm_folds`).
+  Started again, it is found folded and refused, with
   nothing left powered
   (`a_lamp_found_standing_whose_start_is_refused_folds_then_lets_go`). It
   is refused as before, arm up and held, when the arm itself cannot be
@@ -143,15 +148,19 @@ held, where it may heat on: it folds down first, then is let go.
 
 Another surprise while a standing lamp folds down (asked to stop, or
 folding for one of the stops above) does not let it go mid-air: a joint
-too hot, loaded, off its goal, drifting, a status byte that changes, or a
-temperature that cannot be read (that joint no longer judged) leaves it
-folding, within the time a stop allows, and the run then ends on what it
+too hot, loaded, off its goal, drifting, or a temperature that cannot be
+read (that joint no longer judged) leaves it folding, within the time a stop allows, and the run then ends on what it
 was folding for, or else on that surprise, and lets go folded
 (`a_surprise_while_a_standing_lamp_folds_keeps_it_folding_then_lets_go`:
 the head at 70, or reading 150 and 5 by turns, as it folds). A wire lost
 for half a second, an arm goal the guard refuses, a position that cannot
 be read, and a hand or `--overload release` letting go still end it at
-once.
+once. A status byte that changes is the servo's own protection, and a goal
+turns a servo that cut itself out back on: that joint is written no goal
+from then on, not even the hold at the end. A head or base joint so
+flagged is left as it is while the rest folds; a flagged shoulder or
+elbow, without which the arm cannot fold, lets go of the lamp at once
+(`a_flag_while_a_standing_lamp_folds_writes_that_joint_nothing_more`).
 
 A load over its bound for six steps does not by itself end the run. The
 joint gives way: its goal becomes where it is, and nothing is asked of it for

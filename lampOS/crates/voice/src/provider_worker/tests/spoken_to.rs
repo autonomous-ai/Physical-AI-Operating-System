@@ -104,9 +104,12 @@ async fn the_lamp_called_by_name_or_in_a_conversation_is_answered_with_the_switc
 /// known to be busy and no conversation going on. After "Lamp." the call
 /// is the lamp's, and the request's answer plays; after "Hey Clamp?", a
 /// call whose own hearing shows nothing, it is held, as it would be with
-/// no call before it.
-#[tokio::test]
+/// no call before it. On the logical clock: the verdict rides on the 3 s
+/// from the call's End, which a host stall could pass (the Seventh on
+/// #1228).
+#[tokio::test(start_paused = true)]
 async fn a_request_after_a_bare_call_is_answered_only_when_the_call_showed_the_lamp() {
+    let _clock = logical_clock();
     assert!(after_a_bare_call("Lamp.").await);
     assert!(!after_a_bare_call("Hey Clamp?").await);
 }

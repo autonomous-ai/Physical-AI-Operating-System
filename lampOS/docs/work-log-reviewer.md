@@ -4,6 +4,25 @@
 
 Newest first. Times from `date` (+07). 00:12 to 01:40: the review agents stopped at a usage limit.
 
+- 15:38 #1115 re-reviewed at 1bc637702: rebase good; new P2 (the shoulder lowering holds 8 s against a press on base/head/elbow, and one bad read is taken for a hand); lamp step 4 still open
+- 15:35 #1067 reviewed at 2eff71446: 2 P2s (an old sway_roll catalogue stops Expression at start; every pause sways, alternating like a metronome) + P3s; then waits for the fifth's lamp evidence (not on by default)
+- 15:35 #1327 reviewed at 22a575521: 5 P3s (a tie can name different parts on the first line and top row; a healthy lamp can print the 5 s age), no blocker; merge on green ARM64
+- 15:28 #1323 reviewed at bda633793: P1 (worker_command clears the environment, so the name never reaches the provider or backup worker), P2 (real-looking example names), P3s; then for the first builder (on by default, no lamp)
+- 15:28 merged #1319 (a Policy say_now after a reload ended a held trigger does nothing; off unless set; #1309's P3)
+- 15:26 merged #1326 (a mic waited for at start is one plain line in the journal, the session's events and the voice's health)
+- 15:22 #1324 reviewed at 662001e99: P1 (lamp-air says "no air sensor answers" after any 3 misses, so lamp-4ace's failing sensor would read not_fitted), P2 (copied strings untied by a test), 2 P3s; after the fix, for the first builder unless run on cb94 and 4ace
+- 15:22 #1326 reviewed at c62208c02: no blocking finding (2 P3s: the note is never cleared within a run; hidden while the link is down), text only; merge on green ARM64
+- 15:19 #1322 reviewed at 77ba6f5a9: P2 (a silent speaker counts as skipped even when the search would not have run, so a quiet room reads ~98% skipped) + 2 P3s; off unless set
+- 15:17 merged #1321 (the held-up speaker test bounds when an off worker ends; doc says only what its sources say; my #1298 P3s)
+- 15:14 merged #1320 (the worker environment test prints only the names a child got; my #1311 P3)
+- 15:13 #1325 reviewed at 7783c18f7: P2 (a recent ring error reopens spidev after the marker, so the voice's ring can be off for its run) + 3 P3s; then for the first builder (on by default, real hardware, the third has no lamp)
+- 15:07 #1316 re-checked at 4eae7a0ed: all four P3s fixed, code right, ARM64 green; stays with the first builder (on by default, not shown on a lamp)
+- 15:05 #1277 re-checked at 0b9b813b6 (docs only): the privacy line now matches what is sent; my P2 fixed; stays with the first builder
+- 15:05 merged #1318 (every run ends with the realtime group's own output, so the hold medians show; my #1299 P3)
+- 15:02 #1321 reviewed at be354407e: no blocking finding, tests and docs only (my #1298 P3s); merge on green full ARM64
+- 15:00 merged #1291 (with LAMP_CUT_INS_NOT_TALK=on a cut-in left unanswered does not make the room busy; part of #828, off unless set)
+- 14:59 #1320 reviewed at 81a053548: no finding, tests only (my #1311 P3); merge on green ARM64
+- 14:53 merged #1298 (a refused send names its socket; the held-up speaker case documented with cb94's numbers; #1178 stays open)
 - 14:50 merged #1263 (lamp-keeper prepare reads the records as install does; the second builder's yes)
 - 14:50 merged #1296 (a refused standing lamp folds before letting go; lamp-52e6 run by the fifth)
 - 14:47 #1291 re-checked at 18fb9ed30: rebased, wiring test added and proven, took_over unchanged; merge on green ARM64

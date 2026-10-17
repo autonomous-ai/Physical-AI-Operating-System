@@ -36,9 +36,28 @@ impl Lifetime {
 /// comes up. Anything else: the budget covers the link too, as before.
 pub const START_OFFLINE_ENVIRONMENT: &str = "LAMP_START_OFFLINE";
 
-/// Whether the environment switches it on.
+/// Whether the environment switches it on. In a test, this thread's
+/// [`set_start_offline_for_test`] decides instead, so parallel tests never
+/// share the process environment.
 pub(crate) fn start_offline() -> bool {
+    #[cfg(test)]
+    if let Some(on) = START_OFFLINE_FOR_TEST.with(std::cell::Cell::get) {
+        return on;
+    }
     env::var(START_OFFLINE_ENVIRONMENT).ok().as_deref() == Some("on")
+}
+
+#[cfg(test)]
+thread_local! {
+    static START_OFFLINE_FOR_TEST: std::cell::Cell<Option<bool>> =
+        const { std::cell::Cell::new(None) };
+}
+
+/// This thread's `LAMP_START_OFFLINE`, for a test; `None` reads the
+/// environment again.
+#[cfg(test)]
+pub(crate) fn set_start_offline_for_test(on: Option<bool>) {
+    START_OFFLINE_FOR_TEST.with(|cell| cell.set(on));
 }
 
 pub(crate) struct SessionClock {

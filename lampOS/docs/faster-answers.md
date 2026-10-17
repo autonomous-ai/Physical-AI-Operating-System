@@ -797,16 +797,18 @@ The journal has, for each answer, the provider's line `lamp-voice
 provider: usage total=… prompt=… prompt_audio=… response_audio=…`.
 A usage line that comes within 30 s after a request was closed as
 unanswered, before the next request starts, ends `after request N was
-closed as unanswered M ms before`. Anything the service sent then and was
-dropped is said once for that request: `request N: the service sent
-something M ms after it was closed as unanswered, and it was dropped
-(UnownedOutput)`. That line can't tell a late answer from the model
-closing a silent turn late: the usage line's `response_audio` beside it
-does. A late answer is one the service gave after the lamp's
-`no_reply_after_ms` wait (4 s), which nobody heard. Its words go to no
-request either: the request they're given to was retired when the closed
-one started, so they reach no thread
-(`a_late_answers_words_after_an_unanswered_close_go_to_no_request`).
+closed as unanswered M ms before`. Any frame lamp-gemini drops then as
+unowned or late (a sound, a turn end) is said once for that request:
+`request N: the service sent something M ms after it was closed as
+unanswered, and it was dropped (UnownedOutput)`. That line can't tell a
+late answer from the model closing a silent turn late: the usage line's
+`response_audio` beside it does. A late answer is one the service gave
+after the lamp's `no_reply_after_ms` wait (4 s), which nobody heard. Its
+words go to no request: the request they're given to was retired when the
+closed one started, so they reach no thread
+(`a_late_answers_words_after_an_unanswered_close_go_to_no_request`). They
+are dropped without a line, too (the Seventh on #1297), so a late answer
+that was only words shows nothing in the journal.
 On lamp-4ace on 17 October at 08:58, usage counts with response audio came
 two lines after request 39's close at 4,008 ms, and nothing tied them to it
 (#829, the first builder at 10:02).

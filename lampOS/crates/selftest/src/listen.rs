@@ -129,12 +129,14 @@ pub fn air_silent(health: &Heard<Health>) -> Option<PartResult> {
         return None;
     };
     let item = seen.value.items.iter().find(|item| item.name == "air")?;
-    if item.message.starts_with(lamp_air::watch::ABSENT) {
+    if item.message.starts_with(lamp_air::watch::NOT_FITTED)
+        || item.message.starts_with(lamp_air::watch::ABSENT)
+    {
         return Some(PartResult::new(
             "air",
             Verdict::NotFitted,
             &format!(
-                "no air sensor found since boot (lamp-air: {})",
+                "no air sensor has answered since lamp-air started (lamp-air: {})",
                 item.message
             ),
         ));
@@ -725,11 +727,31 @@ mod tests {
         assert_eq!(fitted.verdict, Verdict::NotFitted, "{fitted:?}");
         assert!(
             fitted.reason.starts_with(
-                "no air sensor found since boot (lamp-air: no air sensor answers on I2C bus 0"
+                "no air sensor has answered since lamp-air started (lamp-air: no air sensor answers on I2C bus 0"
             ),
             "{}",
             fitted.reason
         );
+        // lamp-air's own report now says it at `ok` (the first builder, 15:36).
+        let ok_absent = air_silent(&seen(
+            1_000,
+            health_of("air", Level::Ok, lamp_air::watch::NOT_FITTED),
+        ))
+        .unwrap();
+        assert_eq!(ok_absent.verdict, Verdict::NotFitted, "{ok_absent:?}");
+        let silent = air_silent(&seen(
+            1_000,
+            health_of(
+                "air",
+                Level::Warn,
+                &format!(
+                    "{} on I2C bus 0 (word 0 fails its CRC)",
+                    lamp_air::watch::NO_READING
+                ),
+            ),
+        ))
+        .unwrap();
+        assert_eq!(silent.verdict, Verdict::Fail, "{silent:?}");
         let looking = air_silent(&seen(
             1_000,
             health_of(
@@ -770,11 +792,14 @@ mod tests {
         use lamp_air::watch::{Clock, Missing, Say, Sensor, run};
         struct Bench {
             answers: bool,
+            garbled: bool,
         }
         impl Sensor for Bench {
             fn find(&mut self) -> Result<String, Missing> {
                 if self.answers {
                     Ok("SEN63C".into())
+                } else if self.garbled {
+                    Err(Missing::NoAnswer("word 0 fails its CRC".into()))
                 } else {
                     Err(Missing::NoAnswer(
                         "command 0xd014: Invalid argument (os error 22)".into(),
@@ -810,12 +835,12 @@ mod tests {
             }
             fn log(&mut self, _: &str) {}
         }
-        let judged = |answers: bool| -> Vec<Verdict> {
+        let judged = |answers: bool, garbled: bool| -> Vec<Verdict> {
             let (mut clock, mut said) = (Steps(Duration::ZERO), Heard::default());
             // `Heard` cannot see the clock; the reports come in order, which
             // is enough.
             run(
-                &mut Bench { answers },
+                &mut Bench { answers, garbled },
                 &mut clock,
                 &mut said,
                 0,
@@ -840,13 +865,18 @@ mod tests {
                 })
                 .collect()
         };
-        let missing = judged(false);
+        let missing = judged(false, false);
         assert_eq!(missing.first(), Some(&Verdict::NotChecked), "{missing:?}");
         assert_eq!(missing.last(), Some(&Verdict::NotFitted), "{missing:?}");
         assert!(!missing.contains(&Verdict::Fail), "{missing:?}");
-        let stuck = judged(true);
+        let stuck = judged(true, false);
         assert_eq!(stuck.last(), Some(&Verdict::Fail), "{stuck:?}");
         assert!(!stuck.contains(&Verdict::NotFitted), "{stuck:?}");
+        // Every look comes back failing its CRC: something answered, so a
+        // fail, never not fitted (the reviewer's P2 on #1324).
+        let garbled = judged(false, true);
+        assert_eq!(garbled.last(), Some(&Verdict::Fail), "{garbled:?}");
+        assert!(!garbled.contains(&Verdict::NotFitted), "{garbled:?}");
     }
 
     #[test]

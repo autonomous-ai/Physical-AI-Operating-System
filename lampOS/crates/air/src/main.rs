@@ -242,7 +242,10 @@ mod serve {
             health: bus.publisher_declared(Diagnostic::TOPIC, &Diagnostic::declaration(), "air")?,
         };
         log(&format!("started i2c_bus={}", arguments.bus_number));
-        watch::run(
+        // A reading already kept this boot: the sensor answered before this
+        // start, and is not to be taken for an absent one (#1324).
+        let answered_before = matches!(bus.latest(AirState::TOPIC), Ok(Some(_)));
+        watch::run_answered(
             &mut I2c {
                 bus: arguments.bus_number,
                 sensor: None,
@@ -251,6 +254,7 @@ mod serve {
             &mut say,
             arguments.bus_number,
             Duration::MAX,
+            answered_before,
         );
         Ok(())
     }

@@ -314,8 +314,10 @@ level, by its name; a part not heard from is `quiet`, its message saying
 how long. Then the board's numbers, as `computer`: the hottest
 temperature, memory, disk, uptime, and the Wi-Fi signal and `clock set` or
 `clock not set` where the board could be asked. The kernel's zone names
-are said by what they measure (`cpul_thermal_zone` "the processor", `gpu`
-"the graphics chip", `ddr` "the memory chips", any other "the board"), and
+are said by what they measure, with or without a "," or ";" after them
+(`cpul`/`cpub_thermal_zone` and `cpul`/`cpub_idle_zone` "the processor",
+`gpu` "the graphics chip", `npu` "the AI chip", `ddr` "the memory chips",
+`skin_zone` "the lamp's case", any other `*_zone` "the board"), and
 the load is left out; `--json` keeps both.
 
 **Names.** Each part is shown by the name a person knows it by

@@ -4151,11 +4151,22 @@ fn conversation_with_gate(
                         }
                     }
                     // What the lamp says is its own, not a stop said over it
-                    // (#828, `heard-always`).
+                    // (#828, `heard-always`), stamped with when it will be
+                    // heard: the reply's audio queued ahead of it plays
+                    // first, up to 30 s of it. Stamped as it came, a "wait"
+                    // in a long story had left the list before it was played
+                    // (the reviewer on #1047).
                     if request.is_some()
                         && let Some(words) = stop_words.as_mut()
                     {
-                        words.lamp_said(&text, monotonic_us());
+                        let queued_us = reply
+                            .as_ref()
+                            .filter(|current| Some(current.owner.turn()) == request)
+                            .map_or(0, |current| {
+                                current.pcm.len() as u64 * 1_000_000
+                                    / u64::from(lamp_audio::RENDER_RATE)
+                            });
+                        words.lamp_said(&text, monotonic_us() + queued_us);
                     }
                     // The model keeping quiet aloud: an answer that opens
                     // with no word in it ("...") while none of it has been

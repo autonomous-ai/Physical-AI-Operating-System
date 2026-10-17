@@ -859,6 +859,13 @@ pub enum Stop {
         position: u16,
         from: u16,
     },
+    /// Three temperatures of one joint in a row were bad reads
+    /// (`Bus::judge_temperatures`): the last, and the last good one.
+    BadTemperature {
+        joint: u8,
+        temperature: u8,
+        from: u8,
+    },
     /// Under `--overload release`: it let go a second time within ten
     /// minutes, or could not take the lamp up again. Torque is left as it
     /// was let go, off.
@@ -885,6 +892,10 @@ pub struct BodyReport {
     /// Positions read that were bad (`Bus::judge_positions`), per joint:
     /// yaw, shoulder, elbow, roll, pitch. None was used.
     pub bad_reads: [u16; 5],
+    /// Temperatures read that were bad (`Bus::judge_temperatures`), per
+    /// joint as `bad_reads`. None was used for a peak or for heat. Apart
+    /// from `bad_reads`: the position in the same reply was good.
+    pub bad_temperatures: [u16; 5],
     pub peak_load: [u16; 3],
     pub peak_temperature: [u8; 3],
     /// Times each commanded joint met resistance and was left where it was.
@@ -1123,6 +1134,15 @@ const READ_JUMP: u16 = 300;
 const ARM_EASE_REACH: u16 = 400;
 /// Bad reads of one joint in a row that end the run on `Stop::BadRead`.
 const BAD_READS_IN_ROW: u8 = 3;
+/// A temperature reading over this, or farther than `TEMPERATURE_JUMP` from
+/// the joint's last good one, is not how warm the servo is. lamp-52e6 on
+/// 2026-10-17 read 43 to 54 on most logged steps, yet its shoulder and
+/// elbow read 60 to 150 on single steps among them, in checksummed
+/// replies whose positions and loads were where the joint was, and never
+/// over 150: the servo's own register, not the wire. Heat rises by a degree
+/// in tens of seconds, not 15 in a 20 ms step.
+const TEMPERATURE_MAX: u8 = 100;
+const TEMPERATURE_JUMP: u8 = 15;
 
 /// The window each arm goal must be inside, shoulder then elbow, for a body
 /// given a pose to stand in: its way between folded and stood up, and
@@ -1160,6 +1180,11 @@ struct Bus<'a, P, R> {
     goals: [Option<u16>; 5],
     bad_reads: [u16; 5],
     bad_in_row: [u8; 5],
+    /// Each joint's last good temperature and its bad temperature reads in
+    /// all and in a row (`judge_temperatures`).
+    warm: [Option<u8>; 5],
+    bad_temperatures: [u16; 5],
+    bad_warm_in_row: [u8; 5],
 }
 
 impl<'a, P: PortIo, R: Runtime> Bus<'a, P, R> {
@@ -1175,6 +1200,9 @@ impl<'a, P: PortIo, R: Runtime> Bus<'a, P, R> {
             goals: [None; 5],
             bad_reads: [0; 5],
             bad_in_row: [0; 5],
+            warm: [None; 5],
+            bad_temperatures: [0; 5],
+            bad_warm_in_row: [0; 5],
         }
     }
 }
@@ -1278,6 +1306,7 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
             Ok(())
         })?;
         self.judge_positions(&mut samples)?;
+        self.judge_temperatures(&mut samples)?;
         Ok(samples)
     }
 
@@ -1327,6 +1356,44 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
             match good {
                 Some(good) => sample.position = good,
                 None => return Err(format!("joint {joint} read {read}, outside 0..=4095")),
+            }
+        }
+        Ok(())
+    }
+
+    /// Every temperature read passes here before a peak or the heat stop
+    /// uses it, as positions pass `judge_positions`. A bad one (over
+    /// `TEMPERATURE_MAX`, or more than `TEMPERATURE_JUMP` from the joint's
+    /// last good one) is counted and replaced by the last good one; with no
+    /// good one yet the read fails. `BAD_READS_IN_ROW` of one joint end the
+    /// run on `Stop::BadTemperature`.
+    fn judge_temperatures(&mut self, samples: &mut [Sample; 5]) -> Result<(), String> {
+        for (index, sample) in samples.iter_mut().enumerate() {
+            let read = sample.temperature;
+            let good = self.warm[index];
+            let bad = read > TEMPERATURE_MAX
+                || good.is_some_and(|good| read.abs_diff(good) > TEMPERATURE_JUMP);
+            if !bad {
+                self.warm[index] = Some(read);
+                self.bad_warm_in_row[index] = 0;
+                continue;
+            }
+            self.bad_temperatures[index] = self.bad_temperatures[index].saturating_add(1);
+            self.bad_warm_in_row[index] = self.bad_warm_in_row[index].saturating_add(1);
+            let joint = Joint::ALL[index].id();
+            if self.bad_warm_in_row[index] >= BAD_READS_IN_ROW {
+                let stop = Stop::BadTemperature {
+                    joint,
+                    temperature: read,
+                    from: good.unwrap_or(read),
+                };
+                let detail = format!("{stop:?}");
+                self.refused.get_or_insert(stop);
+                return Err(detail);
+            }
+            match good {
+                Some(good) => sample.temperature = good,
+                None => return Err(format!("joint {joint} read {read} degrees")),
             }
         }
         Ok(())
@@ -2437,6 +2504,7 @@ fn run_until_stopped(
         &mut bus, limits, home, standing, looking, news, asked, watch,
     );
     report.bad_reads = bus.bad_reads;
+    report.bad_temperatures = bus.bad_temperatures;
     report
 }
 
@@ -2463,6 +2531,7 @@ fn run_on<P: PortIo, R: Runtime>(
         profile_writes: 0,
         missed_reads: 0,
         bad_reads: [0; 5],
+        bad_temperatures: [0; 5],
         peak_load: [0; 3],
         eased: [0; 3],
         kept_where_put: [0; 3],

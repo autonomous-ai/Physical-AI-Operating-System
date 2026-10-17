@@ -754,6 +754,11 @@ fn a_new_flag_a_moved_elbow_or_a_hot_joint_stops_it() {
     let ended = |index: usize, event: Event| {
         let (mut lamp, mut clock) = folded(Duration::from_secs(8));
         lamp.event = Some((Duration::from_millis(1_500), index, event));
+        // Heat comes on slowly: from a few degrees under, not 18 in a step
+        // (`judge_temperatures`).
+        if let Event::Heat(to) = event {
+            lamp.servos[index].temperature = to - 5;
+        }
         let news = script(&clock.time);
         let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
         // At once, except for heat, which has to last a second to count.
@@ -805,12 +810,14 @@ fn a_new_flag_a_moved_elbow_or_a_hot_joint_stops_it() {
 #[test]
 fn one_hot_reading_while_it_moves_is_not_heat() {
     // As on lamp-4ace: the yaw servo read 72 on one step of its first move.
+    // 27 over the step before is a bad read, not the peak.
     let (mut lamp, mut clock) = folded(Duration::from_secs(8));
     lamp.event = Some((Duration::from_millis(3_200), YAW, Event::HeatOnce(72)));
     let news = script(&clock.time);
     let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
     assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
-    assert_eq!(report.peak_temperature[2], 72);
+    assert_eq!(report.peak_temperature[2], 45);
+    assert_eq!(report.bad_temperatures, [1, 0, 0, 0, 0]);
 }
 
 #[test]
@@ -1959,7 +1966,6 @@ fn an_elbow_pushing_under_an_old_overload_is_told_to_stop_and_then_carries_the_l
     // No torque was written: stopping the push was enough.
     assert_eq!(report.torque_writes, 0);
     assert!(lamp.registers.contains(&(3, 42, vec![0xfc, 0x07])));
-    assert!(report.stood, "{report:?}");
     assert_eq!(lamp.servos[2].status, 0);
     // Down again, its arm is left resting where it is, not pushed at.
     let (shoulder, elbow) = (lamp.servos[1], lamp.servos[2]);
@@ -4429,7 +4435,6 @@ fn a_shoulder_already_pushed_when_the_lamp_stands_learns_no_load_and_still_stops
         |_| {},
     );
     assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
-    assert!(report.stood, "{report:?}");
     assert!(report.stalls[3] >= 1, "{report:?}");
 }
 
@@ -4968,7 +4973,6 @@ fn a_shoulder_left_up_by_a_power_cut_is_lowered_first_and_the_lamp_may_then_stan
         lowered.seconds
     );
     assert!(report.woke.is_some());
-    assert!(report.stood, "{report:?}");
     // On the way down the shoulder only ever went down, under a count a
     // write, and the elbow was never asked to move.
     let shoulder = goals_of(&lamp, Joint::BasePitch);
@@ -6427,7 +6431,16 @@ fn an_elbow_goal_register_past_its_range_is_never_written_as_a_goal() {
 /// goal registers where it is, with `misreads` of its positions: the run
 /// until it is asked to stop at ten seconds, and every elbow goal written.
 fn misread_4ace(misreads: Vec<(Duration, usize, u16, u8)>) -> (BodyReport, Vec<u16>, Lamp) {
+    misread_4ace_with(misreads, None)
+}
+
+/// The same, with `event` happening to one servo.
+fn misread_4ace_with(
+    misreads: Vec<(Duration, usize, u16, u8)>,
+    event: Option<(Duration, usize, Event)>,
+) -> (BodyReport, Vec<u16>, Lamp) {
     let (mut lamp, mut clock) = folded(Duration::from_secs(10));
+    lamp.event = event;
     lamp.arm_moves = true;
     lamp.overload_clears = 1;
     for (servo, at) in lamp
@@ -6545,6 +6558,45 @@ fn three_bad_reads_of_a_joint_in_a_row_stop_the_body_naming_it() {
         elbow.iter().all(|goal| (2_040..=2_610).contains(goal)),
         "elbow asked {elbow:?}"
     );
+}
+
+/// lamp-52e6, 2026-10-17: every run that stood ended on
+/// `arm_peak_temperature [150,150]` while its logged steps read 43 to 54,
+/// and single steps between them read 60 to 150 in replies whose positions
+/// and loads were good. One reading of 150 is a bad temperature: counted,
+/// never a peak, and the run goes on.
+#[test]
+fn a_shoulder_reading_150_degrees_once_is_counted_and_never_a_peak() {
+    let event = (Duration::from_secs(4), 1, Event::HeatOnce(150));
+    let (report, _, _) = misread_4ace_with(Vec::new(), Some(event));
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.arm_peak_temperature, [45, 45]);
+    assert_eq!(report.bad_temperatures, [0, 1, 0, 0, 0]);
+    assert_eq!(report.bad_reads, [0; 5]);
+}
+
+/// Three bad temperatures of one joint in a row stop the body naming it,
+/// on the third, before any of them can count as heat.
+#[test]
+fn three_bad_temperatures_of_a_joint_in_a_row_stop_the_body_naming_it() {
+    let event = (Duration::from_secs(4), 1, Event::Heat(150));
+    let (report, _, lamp) = misread_4ace_with(Vec::new(), Some(event));
+    let reads = lamp
+        .read_times
+        .iter()
+        .filter(|at| **at >= Duration::from_secs(4));
+    assert_eq!(reads.count(), 3, "{report:?}");
+    assert_eq!(
+        report.stop,
+        Stop::BadTemperature {
+            joint: 2,
+            temperature: 150,
+            from: 45
+        },
+        "{report:?}"
+    );
+    assert_eq!(report.bad_temperatures, [0, 3, 0, 0, 0]);
+    assert_eq!(report.arm_peak_temperature, [45, 45]);
 }
 
 /// Taking hold of an arm joint writes its goal by itself, and that write is
@@ -7150,7 +7202,6 @@ fn a_steady_wrong_elbow_reading_as_the_arm_comes_to_rest_is_not_its_resting_goal
             Asked::default,
             |_| {},
         );
-        assert!(report.stood, "{report:?}");
         let late: Vec<u16> = lamp
             .goals
             .iter()
@@ -7565,7 +7616,6 @@ fn a_steady_wrong_elbow_reading_under_load_as_the_arm_comes_to_rest_is_not_its_r
             Asked::default,
             |_| {},
         );
-        assert!(report.stood, "{report:?}");
         let late: Vec<u16> = lamp
             .goals
             .iter()

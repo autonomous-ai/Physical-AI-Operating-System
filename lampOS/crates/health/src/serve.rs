@@ -74,6 +74,10 @@ pub struct Options {
     pub times: Times,
     /// Also publish `lamp/online`, once each report's time (#830).
     pub online: bool,
+    /// While the voice's link is down, ask the internet itself, at these
+    /// targets ([`crate::reach`], `--reach-probe on`): a relay down with the
+    /// internet up is then online. Only with `online`.
+    pub reach: Option<Vec<std::net::SocketAddr>>,
     /// Parts that run only where a file is (`--needs`): while it is not
     /// there, the part is listed as off, never missing (#811: tasks without
     /// Harness).
@@ -320,6 +324,7 @@ struct Serve<'a> {
     board_out: Out,
     reports_out: Out,
     online_out: Out,
+    reach: Option<crate::reach::Reach>,
     unreadable: Trouble,
     /// When a message that was no report last came.
     unreadable_at: Option<Instant>,
@@ -386,7 +391,11 @@ impl Serve<'_> {
         if !self.options.online {
             return;
         }
-        let online = parts::online(self.parts.reports(), now, self.options.stale_after);
+        let mut online = parts::online(self.parts.reports(), now, self.options.stale_after);
+        if let Some(reach) = self.reach.as_mut() {
+            reach.tend(online.online == Some(false), now);
+            online = parts::with_reach(online, reach.answers());
+        }
         let at_us = self.at_us();
         if !self.online_out.publish(at_us, &online, self.say) {
             self.totals.unpublished += 1;
@@ -600,6 +609,11 @@ pub fn run(
         board_out: Out::new(BoardState::TOPIC, BoardState::declaration()),
         reports_out: Out::new(Diagnostic::TOPIC, Diagnostic::declaration()),
         online_out: Out::new(Online::TOPIC, Online::declaration()),
+        reach: options
+            .reach
+            .clone()
+            .filter(|_| options.online)
+            .map(crate::reach::Reach::new),
         unreadable: Trouble::default(),
         unreadable_at: None,
         receiving: Trouble::default(),

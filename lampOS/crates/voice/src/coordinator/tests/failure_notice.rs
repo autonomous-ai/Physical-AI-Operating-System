@@ -996,9 +996,12 @@ fn offline_with_no_recording_is_silent_and_a_local_turn_sends_nothing() {
 fn offline_only_with_the_switch_and_after_the_links_grace() {
     let grace = crate::bus_out::LINK_GRACE_US;
     // Without the switch: never, however long the link is down.
-    assert!(!offline_now(false, Some(0), 3_600_000_000));
+    assert!(!offline_now(false, Some(0), 3_600_000_000, false));
     // With it: not while the link is up, nor within its grace.
-    assert!(!offline_now(true, None, 3_600_000_000));
-    assert!(!offline_now(true, Some(1_000), 1_000 + grace - 1));
-    assert!(offline_now(true, Some(1_000), 1_000 + grace));
+    assert!(!offline_now(true, None, 3_600_000_000, false));
+    assert!(!offline_now(true, Some(1_000), 1_000 + grace - 1, false));
+    assert!(offline_now(true, Some(1_000), 1_000 + grace, false));
+    // The link down while the internet answers (a relay down, #830): not
+    // the home's outage, however long.
+    assert!(!offline_now(true, Some(1_000), 3_600_000_000, true));
 }

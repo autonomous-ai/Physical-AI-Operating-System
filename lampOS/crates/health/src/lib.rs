@@ -9,6 +9,8 @@
 //!   `Health`. Arithmetic, and nothing else.
 //! - [`board`]: the board's own numbers, read from the system's files, and
 //!   the board's own report: when a number is too high.
+//! - [`reach`]: whether the internet answers while the voice's link is
+//!   down, so a relay outage is not taken for no internet (#830).
 //! - [`serve`]: the loop that listens on the bus and publishes
 //!   `lamp/health` and `board/state`.
 //! - [`show`]: what `lamp-health` prints for a person, and the status it
@@ -21,5 +23,6 @@
 
 pub mod board;
 pub mod parts;
+pub mod reach;
 pub mod serve;
 pub mod show;

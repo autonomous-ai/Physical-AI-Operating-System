@@ -27,7 +27,7 @@ use std::{
     time::Duration,
 };
 
-const USAGE: &str = "usage: lamp-health serve [--bus-root ABSOLUTE_DIR] [--expect NAME]... [--stale-ms N] [--judge-zone BEGINNING]... [--proc DIR] [--sys DIR] [--run DIR] [--disk PATH] [--clock timesync|kernel] [--online on|off] [--needs NAME=PATH]...\n       lamp-health [show] [--bus-root ABSOLUTE_DIR] [--json]\n       lamp-health --help";
+const USAGE: &str = "usage: lamp-health serve [--bus-root ABSOLUTE_DIR] [--expect NAME]... [--stale-ms N] [--judge-zone BEGINNING]... [--proc DIR] [--sys DIR] [--run DIR] [--disk PATH] [--clock timesync|kernel] [--online on|off] [--reach-probe on|off] [--needs NAME=PATH]...\n       lamp-health [show] [--bus-root ABSOLUTE_DIR] [--json]\n       lamp-health --help";
 const HELP: &str = "How the lamp is. See docs/health.md.
 
 serve: listens to every part's report on the bus (diagnostics), reads the board, and
@@ -63,6 +63,9 @@ struct ServeArguments {
     places: Places,
     /// Publish `lamp/online` too.
     online: bool,
+    /// While the voice's link is down, ask the internet itself (#830);
+    /// only with `--online on`.
+    reach_probe: bool,
     /// Parts off while the file each needs is not on the lamp.
     needs: Vec<(String, PathBuf)>,
 }
@@ -104,6 +107,7 @@ fn parse_serve(mut arguments: impl Iterator<Item = String>) -> Result<Command, S
     let mut judged: Vec<String> = Vec::new();
     let mut clock = None;
     let mut online = None;
+    let mut reach_probe = None;
     while let Some(option) = arguments.next() {
         if option == "--help" || option == "-h" {
             return Ok(Command::Help);
@@ -180,6 +184,13 @@ fn parse_serve(mut arguments: impl Iterator<Item = String>) -> Result<Command, S
                     _ => return Err("--online is on or off".into()),
                 })
                 .is_some(),
+            "--reach-probe" => reach_probe
+                .replace(match value.as_str() {
+                    "on" => true,
+                    "off" => false,
+                    _ => return Err("--reach-probe is on or off".into()),
+                })
+                .is_some(),
             "--stale-ms" => {
                 let milliseconds = value
                     .parse::<u64>()
@@ -196,6 +207,10 @@ fn parse_serve(mut arguments: impl Iterator<Item = String>) -> Result<Command, S
             return Err(format!("{option} was given twice"));
         }
     }
+    // The probe is for `lamp/online` and nothing else.
+    if reach_probe == Some(true) && online != Some(true) {
+        return Err("--reach-probe on needs --online on".into());
+    }
     let places = Places::default();
     Ok(Command::Serve(ServeArguments {
         bus,
@@ -210,6 +225,7 @@ fn parse_serve(mut arguments: impl Iterator<Item = String>) -> Result<Command, S
             clock: clock.unwrap_or(places.clock),
         },
         online: online.unwrap_or(false),
+        reach_probe: reach_probe.unwrap_or(false),
         needs,
     }))
 }
@@ -289,6 +305,7 @@ fn serve(arguments: &ServeArguments) -> io::Result<()> {
         stale_after: arguments.stale_after,
         times: Times::with_stale_after(arguments.stale_after),
         online: arguments.online,
+        reach: arguments.reach_probe.then(lamp_health::reach::targets),
         needs: arguments.needs.clone(),
     };
     // Nothing sets the flag: the process runs until it is killed.
@@ -371,7 +388,7 @@ mod tests {
         assert_eq!(
             serving(
                 "serve --bus-root /run/lampos-bus --expect voice --stale-ms 8000 --proc /p \
-                 --judge-zone cpu --expect body --sys /s --run /r --disk /var --judge-zone skin --clock kernel --online on --needs tasks=/usr/local/bin/harness"
+                 --judge-zone cpu --expect body --sys /s --run /r --disk /var --judge-zone skin --clock kernel --online on --reach-probe on --needs tasks=/usr/local/bin/harness"
             ),
             ServeArguments {
                 bus: Some("/run/lampos-bus".into()),
@@ -386,6 +403,7 @@ mod tests {
                     clock: ClockSource::Kernel,
                 },
                 online: true,
+                reach_probe: true,
                 needs: vec![("tasks".into(), "/usr/local/bin/harness".into())],
             }
         );
@@ -404,6 +422,7 @@ mod tests {
                     clock: ClockSource::Timesync,
                 },
                 online: false,
+                reach_probe: false,
                 needs: Vec::new(),
             }
         );
@@ -412,6 +431,9 @@ mod tests {
         assert!(of("serve --needs tasks=relative/harness").is_err());
         assert!(of("serve --needs tasks=/a --needs tasks=/b").is_err());
         assert!(of("serve --online yes").is_err());
+        assert!(of("serve --reach-probe yes").is_err());
+        assert!(of("serve --reach-probe on").is_err());
+        assert!(of("serve --online on --reach-probe off --reach-probe on").is_err());
         assert!(of("serve --clock kernel --clock kernel").is_err());
         assert_eq!(
             serving("serve --stale-ms 100").stale_after,

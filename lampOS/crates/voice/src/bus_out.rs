@@ -781,6 +781,7 @@ mod tests {
             .unwrap();
         eyes.expires_after(Some(Duration::from_millis(300)));
         let face = |facing: Option<bool>| Face {
+            speaking: None,
             id: "f1".into(),
             xmin: 0.4,
             ymin: 0.3,

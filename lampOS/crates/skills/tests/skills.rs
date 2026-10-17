@@ -3011,7 +3011,15 @@ fn the_dance_late(
                 .commanded
                 .iter()
                 .all(|joint| *joint == 0.0)
-            {}
+            {
+                // The stand-in body keeps saying its joints, so each read
+                // returns at once: bounded by the run's deadline instead, so
+                // a clip that never begins fails here and does not hang.
+                assert!(
+                    Instant::now() < deadline,
+                    "the clip never began on body/joint_states"
+                );
+            }
             std::thread::sleep(Duration::from_millis(300));
             clock.skip_to(played[0].0 + nod);
             // Taken, and begun `late` after, as the first.

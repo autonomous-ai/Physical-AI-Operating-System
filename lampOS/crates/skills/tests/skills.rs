@@ -75,8 +75,15 @@ impl Clock {
     /// Skips the program's clock `by`, once it has taken in what was
     /// published before.
     fn skip(&self, by: Duration) {
+        self.skip_after(by, || {});
+    }
+
+    /// As [`Clock::skip`], with `between` run once a stand-in's time has
+    /// skipped and before the program's has.
+    fn skip_after(&self, by: Duration, between: impl FnOnce()) {
         let Some(socket) = &self.socket else {
-            return std::thread::sleep(by);
+            std::thread::sleep(by);
+            return between();
         };
         let deadline = Instant::now() + Duration::from_secs(10);
         let stream = loop {
@@ -92,6 +99,7 @@ impl Clock {
         // Ahead here first: a stand-in that reads it is never behind what
         // the program does once it has skipped.
         self.skipped_us.fetch_add(us, Ordering::SeqCst);
+        between();
         writeln!(&stream, r#"{{"skip_us":{us}}}"#).unwrap();
         // A program stuck before its loop fails the test, with why.
         stream
@@ -2711,7 +2719,7 @@ impl StandInBody {
     /// `dropped`. Says `body/joint_states` on `bus` every 100 ms, its
     /// `commanded` off the rest pose while a clip plays.
     /// Its time is the program's `clock`, and each gesture taken, when, is
-    /// on `took`.
+    /// on `took`; each clip let go, when, on `freed`.
     #[allow(clippy::too_many_arguments)]
     fn run(
         mood: UnixDatagram,
@@ -2721,6 +2729,7 @@ impl StandInBody {
         took: mpsc::Sender<Instant>,
         played: mpsc::Sender<(Instant, String)>,
         dropped: mpsc::Sender<(Instant, String)>,
+        freed: mpsc::Sender<Instant>,
     ) {
         mood.set_nonblocking(true).unwrap();
         let mut joints = bus
@@ -2755,7 +2764,11 @@ impl StandInBody {
                         .to_owned()
                 });
                 let now_us = u64::try_from((now - began).as_micros()).unwrap();
+                let was_playing = body.playing.is_some();
                 let (taken, begun) = body.step(now_us, name.as_deref());
+                if was_playing && body.playing.is_none() {
+                    let _ = freed.send(now);
+                }
                 match (taken, asked) {
                     (Some(true), Some(text)) => {
                         asked_text = text;
@@ -2903,8 +2916,17 @@ fn the_dance_late(
     let (lost, dropped) = mpsc::channel();
     let clock = Clock::at(root);
     let (took, taken) = mpsc::channel();
+    let (let_go, freed) = mpsc::channel();
     let mut joints = bus.subscribe(JointState::TOPIC, "test").unwrap();
-    StandInBody::run(mood, &bus, late, clock.clone(), took, moved, lost);
+    StandInBody::run(mood, &bus, late, clock.clone(), took, moved, lost, let_go);
+    // A wait on the stand-in body says what it waited for, and any gesture
+    // the body dropped meanwhile.
+    let within = |what: &str, got: Result<Instant, mpsc::RecvTimeoutError>| {
+        got.unwrap_or_else(|error| {
+            let dropped: Vec<_> = dropped.try_iter().collect();
+            panic!("{what}: {error:?} after 5 s; dropped {dropped:?}")
+        })
+    };
     let tools = root.join("tools");
     let _running = Running(
         Command::new(env!("CARGO_BIN_EXE_lamp-skills"))
@@ -2986,12 +3008,17 @@ fn the_dance_late(
     let stopped = clock.now();
     let nod = Duration::from_micros(clip_us("nod").unwrap());
     let gap = Duration::from_micros(CLIP_GAP_US);
+    let five = Duration::from_secs(5);
     let mut played = Vec::new();
     if ending != Line::Cut {
         // Sent and taken at the line's end, and begun `late` after.
-        let took = taken.recv_timeout(Duration::from_secs(5)).unwrap();
+        let took = within("the first clip taken", taken.recv_timeout(five));
         clock.skip_to(took + late);
-        played.push(gestures.recv_timeout(Duration::from_secs(5)).unwrap());
+        played.push(
+            gestures
+                .recv_timeout(five)
+                .unwrap_or_else(|error| panic!("the first clip begun: {error:?} after 5 s")),
+        );
         if push {
             clock.skip_to(stopped + Duration::from_secs(1));
             hand.publish_json(1, &serde_json::json!({"pushed": true, "since_us": 5}))
@@ -3021,11 +3048,21 @@ fn the_dance_late(
                 );
             }
             std::thread::sleep(Duration::from_millis(300));
-            clock.skip_to(played[0].0 + nod);
+            // Skipped to the clip's end, the body lets it go before the
+            // program's time moves: the program's next clip, `gap` after,
+            // finds it free however late the body's thread steps.
+            let end = (played[0].0 + nod).saturating_duration_since(clock.now());
+            clock.skip_after(end, || {
+                within("the first clip let go", freed.recv_timeout(five));
+            });
             // Taken, and begun `late` after, as the first.
-            let took = taken.recv_timeout(Duration::from_secs(5)).unwrap();
+            let took = within("the second clip taken", taken.recv_timeout(five));
             clock.skip_to(took + late);
-            played.push(gestures.recv_timeout(Duration::from_secs(5)).unwrap());
+            played.push(
+                gestures
+                    .recv_timeout(five)
+                    .unwrap_or_else(|error| panic!("the second clip begun: {error:?} after 5 s")),
+            );
             // The run is done once that one has played too.
             clock.skip_to(played[1].0 + nod + gap);
         }

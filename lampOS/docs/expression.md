@@ -594,9 +594,13 @@ refused is not known; the planner now says so in its journal when it refuses one
 remain in their heartbeats until a new turn replaces it. A one-shot event
 followed immediately by an ordinary state can be missed by a subscriber.
 Cancellation is sticky within a turn; stale voice input also retires its
-audio, and refreshing the same turn cannot revive it. Session retirement is bounded: after 32 Voice
-restarts, Expression stops issuing requests and reports that it needs a
-restart to renew its session fence.
+audio, and refreshing the same turn cannot revive it. Session retirement is bounded:
+Expression remembers the newest 32 retired Voice sessions and forgets the
+oldest when another retires. Session ids are never reused, and a Voice that
+many restarts old no longer publishes, so forgetting it revives nothing. Until
+17 October the fence instead stopped Expression after 32 restarts until it was
+restarted itself; lamp-4ace passed 32 in a day, and a home lamp, which
+restarts its voice at every update, would have within weeks.
 
 Room evidence expires after five seconds by default. The room publisher
 sent on change only; since 2026-10-14 it says the room again every second.

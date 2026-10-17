@@ -114,8 +114,9 @@ a row for it and the pins are measured again.
    not counted). Its wiring and pull-ups, please, or whether this unit's
    sensor is faulty. **Answered on 17 October by swapping the sensor (item
    12): neither. Not the bus speed either, as first written here: put back
-   at 400 kHz at 20:15, it read 20 of 20. The cause is not shown; it is
-   lampOS's to fix.**
+   at 400 kHz at 20:15, it read 20 of 20, and an idle sensor was started
+   again at 20:42. The cause is not reproduced; it reads with the second
+   sensor.**
 10. **The board runs hot.** From 16 October 16:03 to 17 October 14:21, one
     reading a minute, `cpul_thermal_zone` and `cpub_thermal_zone` read within
     1 °C of each other. Their hourly means were 74 to 81 °C at night (19:00 to
@@ -172,12 +173,15 @@ a row for it and the pins are measured again.
       shown. At 20:15, with the bus put back at 400 kHz, the `lamp-air`
       without a filler decode read 20 of 20, and 3,360 raw bytes held no
       filler. The rate change is real: a 48-byte read takes 1.3 ms at 400 kHz
-      and 4.6 ms at 100 kHz. The reads came back at 18:36, after a start was
-      sent by hand to the swapped sensor, so a sensor left not measuring is
-      the likelier cause. lampOS's fixes: a reader that starts a sensor it
-      finds idle and skips filler (#1366), and the bus at the sensor's own
-      100 kHz, at run time (#1368, as V1's HAL did) and in the next image
-      (#1372). Since 18:36 `lamp-air` reads the air (CO2 about 470 ppm), and
+      and 4.6 ms at 100 kHz. Nor is an idle sensor the cause: at 20:42, with
+      its measurement stopped, the name read clean and the installed
+      `lamp-air` started it again within 15 s. **The cause is not
+      reproduced.** The reads came back after the swap and a start sent by
+      hand at 18:36; the swapped sensor's filler was in its first minutes on
+      the bus, and the first sensor, or how it sat, stays possible. lampOS
+      keeps the bus at the sensor's own 100 kHz (#1368, #1372) and a reader
+      that reads a not-ready CO2 as unknown and decodes filler as a guard
+      (#1366). Since 18:36 `lamp-air` reads the air (CO2 about 470 ppm), and
       the self-test passes its air item.
 
 ## Parts the design does not list

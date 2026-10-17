@@ -394,7 +394,7 @@ impl Serve<'_> {
         let mut online = parts::online(self.parts.reports(), now, self.options.stale_after);
         if let Some(reach) = self.reach.as_mut() {
             reach.tend(online.online == Some(false), now);
-            online = parts::with_reach(online, reach.answers());
+            online = parts::with_reach(online, reach.verdict());
         }
         let at_us = self.at_us();
         if !self.online_out.publish(at_us, &online, self.say) {

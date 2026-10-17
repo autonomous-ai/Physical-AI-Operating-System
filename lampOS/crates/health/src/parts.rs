@@ -128,18 +128,31 @@ pub fn online(reports: &BTreeMap<String, Kept>, now: Instant, stale_after: Durat
     }
 }
 
-/// `online` as the probe of the internet ([`crate::reach`]) finds it: a
-/// link down while the internet answers is the link's trouble, not the
-/// lamp's, so the lamp is online, from `reach`. Anything else is as given.
-pub fn with_reach(online: Online, internet_answers: bool) -> Online {
-    if online.online == Some(false) && internet_answers {
-        return Online {
+/// `online` as the probe of the internet ([`crate::reach`]) finds it, with
+/// the link down: the internet answering is the link's trouble, not the
+/// lamp's, so the lamp is online, from `reach`; the internet not answering
+/// is offline, from `reach`, the verdict the voice waits for before it says
+/// so (El on #1247). With no verdict yet, nobody knows, which Expression
+/// takes for online, so its offline face never shows before the probe has
+/// spoken. The link not down: as given.
+pub fn with_reach(online: Online, verdict: Option<bool>) -> Online {
+    match (online.online, verdict) {
+        (Some(false), None) => Online {
+            online: None,
+            from: String::new(),
+            down_for_s: None,
+        },
+        (Some(false), Some(true)) => Online {
             online: Some(true),
             from: "reach".into(),
             down_for_s: None,
-        };
+        },
+        (Some(false), Some(false)) => Online {
+            from: "reach".into(),
+            ..online
+        },
+        _ => online,
     }
-    online
 }
 
 /// Whether a part can be called this: something, on one line, of 48 bytes
@@ -962,7 +975,7 @@ mod tests {
             from: "voice".into(),
             down_for_s: Some(40),
         };
-        let reached = with_reach(down.clone(), true);
+        let reached = with_reach(down.clone(), Some(true));
         assert_eq!(
             reached,
             Online {
@@ -972,20 +985,36 @@ mod tests {
             }
         );
         reached.check().unwrap();
-        // The internet not answering, a link up, or nobody knowing: as given.
-        assert_eq!(with_reach(down.clone(), false), down);
+        // The internet not answering: offline, from `reach`, as long as the
+        // link has been down.
+        let no_internet = with_reach(down.clone(), Some(false));
+        assert_eq!(
+            no_internet,
+            Online {
+                online: Some(false),
+                from: "reach".into(),
+                down_for_s: Some(40),
+            }
+        );
+        no_internet.check().unwrap();
+        // No verdict yet: nobody knows, so nothing shows offline before the
+        // probe has spoken.
+        let pending = with_reach(down.clone(), None);
+        assert_eq!(pending.online, None);
+        pending.check().unwrap();
+        // A link up, or nobody knowing: as given.
         let up = Online {
             online: Some(true),
             from: "voice".into(),
             down_for_s: None,
         };
-        assert_eq!(with_reach(up.clone(), true), up);
+        assert_eq!(with_reach(up.clone(), Some(true)), up);
         let unknown = Online {
             online: None,
             from: String::new(),
             down_for_s: None,
         };
-        assert_eq!(with_reach(unknown.clone(), true), unknown);
+        assert_eq!(with_reach(unknown.clone(), Some(false)), unknown);
     }
 
     #[test]

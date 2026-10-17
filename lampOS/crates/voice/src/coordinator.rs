@@ -3069,8 +3069,9 @@ fn conversation_with_gate(
         && std::env::var(OFFLINE_VOICE_ENVIRONMENT).ok().as_deref() == Some("on");
     let mut outage = Outage::default();
     // With `LAMP_REACH_PROBE=on`: a link down while the internet answers is
-    // not the home's outage (#830).
-    let mut internet = internet_answers(
+    // not the home's outage, and the voice waits for the probe's verdict
+    // before it says one (#830).
+    let mut reach = reach_verdict(
         offline_voice && std::env::var(REACH_PROBE_ENVIRONMENT).ok().as_deref() == Some("on"),
         lamp_bus::Bus::from_environment(),
     );
@@ -3586,7 +3587,11 @@ fn conversation_with_gate(
             offline_voice,
             link_down_since,
             clock,
-            link_down_since.is_some() && internet(clock),
+            if link_down_since.is_some() {
+                reach(clock)
+            } else {
+                None
+            },
         );
         let paused = (rig.paused)();
         if paused != was_paused {
@@ -8021,16 +8026,34 @@ fn commit_offline_input(
 /// `LAMP_OFFLINE_VOICE=on`, and only once the link has been down for the
 /// grace the bus gives it (`lamp/online`), so a session renewing itself is
 /// not an outage. Without the switch, never: every turn is as before.
+/// With `LAMP_REACH_PROBE=on` and no verdict from the probe, how long the
+/// link is down before the voice takes it for no internet all the same: the
+/// link's grace, the probe's bound and two of health's report periods, so a
+/// probe that answers always comes first (El on #1247), and a lamp whose
+/// `lamp-health` does not run is still said offline.
+pub const REACH_WAIT_US: u64 = crate::bus_out::LINK_GRACE_US + 5_000_000;
+
+/// Whether the lamp is offline for its words and its light (#830): with the
+/// switch, the link down past its grace. With the probe on (`reach` is
+/// `Some`), only on its verdict: the internet answering is never offline,
+/// the internet not answering is, and with no verdict yet only after
+/// [`REACH_WAIT_US`].
 fn offline_now(
     switch: bool,
     link_down_since: Option<u64>,
     clock: u64,
-    internet_answers: bool,
+    reach: Option<Option<bool>>,
 ) -> bool {
+    let Some(down_for) = link_down_since.map(|since| clock.saturating_sub(since)) else {
+        return false;
+    };
     switch
-        && !internet_answers
-        && link_down_since
-            .is_some_and(|since| clock.saturating_sub(since) >= crate::bus_out::LINK_GRACE_US)
+        && down_for >= crate::bus_out::LINK_GRACE_US
+        && match reach {
+            None | Some(Some(false)) => true,
+            Some(Some(true)) => false,
+            Some(None) => down_for >= REACH_WAIT_US,
+        }
 }
 
 /// `on` for the voice to take its link down for no internet only while
@@ -8042,38 +8065,40 @@ fn offline_now(
 /// instead. Off unless set.
 pub const REACH_PROBE_ENVIRONMENT: &str = "LAMP_REACH_PROBE";
 
-/// Whether the kept `lamp/online` says the internet answers though the
-/// voice's link is down: fresh, well formed, online, and from `reach`
-/// (`lamp-health`'s probe). Anything else, a stale value or none, says
-/// nothing, and the link alone decides, as before.
-fn internet_answers_in(message: Option<lamp_bus::Message>) -> bool {
+/// The probe's verdict in the kept `lamp/online`: fresh, well formed and
+/// from `reach` (`lamp-health`'s probe), whether the internet answers. A
+/// stale value, one from the link, or none, is no verdict.
+fn reach_verdict_in(message: Option<lamp_bus::Message>) -> Option<bool> {
     message
         .filter(|message| !message.expired)
         .and_then(|message| message.parse::<lamp_msgs::Online>().ok())
-        .filter(|online| online.check().is_ok())
-        .is_some_and(|online| online.online == Some(true) && online.from == "reach")
+        .filter(|online| online.check().is_ok() && online.from == "reach")
+        .and_then(|online| online.online)
 }
 
-/// Whether the internet answers, asked while the link is down, at most once
-/// a second, never waiting longer than a file read. Without the switch, or
-/// a bus it cannot reach, never.
-type InternetAnswers = Box<dyn FnMut(u64) -> bool>;
+/// The probe's verdict, asked while the link is down, at most once a
+/// second, never waiting longer than a file read. `None` without the switch
+/// (the link alone decides, as before); `Some(None)` with it and no verdict.
+type ReachVerdict = Box<dyn FnMut(u64) -> Option<Option<bool>>>;
 
-fn internet_answers(on: bool, bus: io::Result<lamp_bus::Bus>) -> InternetAnswers {
-    let bus = bus.ok().filter(|_| on);
-    let mut last: Option<(u64, bool)> = None;
+fn reach_verdict(on: bool, bus: io::Result<lamp_bus::Bus>) -> ReachVerdict {
+    if !on {
+        return Box::new(|_| None);
+    }
+    let bus = bus.ok();
+    let mut last: Option<(u64, Option<bool>)> = None;
     Box::new(move |clock| {
         let Some(bus) = bus.as_ref() else {
-            return false;
+            return Some(None);
         };
-        if let Some((at, answers)) = last
+        if let Some((at, verdict)) = last
             && clock.saturating_sub(at) < 1_000_000
         {
-            return answers;
+            return Some(verdict);
         }
-        let answers = internet_answers_in(bus.latest(lamp_msgs::Online::TOPIC).ok().flatten());
-        last = Some((clock, answers));
-        answers
+        let verdict = reach_verdict_in(bus.latest(lamp_msgs::Online::TOPIC).ok().flatten());
+        last = Some((clock, verdict));
+        Some(verdict)
     })
 }
 
@@ -9484,19 +9509,24 @@ mod tests {
     }
 
     #[test]
-    fn the_internet_answers_only_when_lamp_online_says_so_from_the_probe() {
+    fn the_probe_verdict_is_read_from_lamp_online_only_when_it_is_from_reach() {
         use lamp_msgs::Online;
-        // Off, or a bus it cannot reach: never.
-        assert!(!internet_answers(true, lamp_bus::Bus::new("not/absolute"))(
-            0
-        ));
+        // Off: no verdict asked at all, the link alone decides.
+        assert_eq!(
+            reach_verdict(false, lamp_bus::Bus::new("not/absolute"))(0),
+            None
+        );
+        // On, with a bus it cannot reach: no verdict.
+        assert_eq!(
+            reach_verdict(true, lamp_bus::Bus::new("not/absolute"))(0),
+            Some(None)
+        );
         let root = std::env::temp_dir().join(format!("lamp-voice-reach-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(&root).unwrap();
         let bus = lamp_bus::Bus::new(&root).unwrap();
-        assert!(!internet_answers(false, Ok(bus.clone()))(0));
-        // Nothing kept says nothing.
-        assert!(!internet_answers(true, Ok(bus.clone()))(0));
+        // Nothing kept: no verdict.
+        assert_eq!(reach_verdict(true, Ok(bus.clone()))(0), Some(None));
         let mut health = bus
             .publisher_declared(Online::TOPIC, &Online::declaration(), "health")
             .unwrap();
@@ -9505,27 +9535,31 @@ mod tests {
             from: from.into(),
             down_for_s,
         };
-        // Offline from the voice's link, or online from it: not the probe.
+        // From the voice's link, either way: no verdict.
         health
             .publish_json(1, &said(Some(false), "voice", Some(30)))
             .unwrap();
-        assert!(!internet_answers(true, Ok(bus.clone()))(0));
+        assert_eq!(reach_verdict(true, Ok(bus.clone()))(0), Some(None));
         health
             .publish_json(2, &said(Some(true), "voice", None))
             .unwrap();
-        assert!(!internet_answers(true, Ok(bus.clone()))(0));
-        // Online from the probe: the internet answers.
+        assert_eq!(reach_verdict(true, Ok(bus.clone()))(0), Some(None));
+        // From the probe: its verdict.
         health
-            .publish_json(3, &said(Some(true), "reach", None))
+            .publish_json(3, &said(Some(false), "reach", Some(9)))
             .unwrap();
-        let mut reader = internet_answers(true, Ok(bus.clone()));
-        assert!(reader(0));
+        assert_eq!(reach_verdict(true, Ok(bus.clone()))(0), Some(Some(false)));
+        health
+            .publish_json(4, &said(Some(true), "reach", None))
+            .unwrap();
+        let mut reader = reach_verdict(true, Ok(bus.clone()));
+        assert_eq!(reader(0), Some(Some(true)));
         // Read at most once a second: a change shows only after it.
         health
-            .publish_json(4, &said(Some(false), "voice", Some(31)))
+            .publish_json(5, &said(Some(false), "reach", Some(10)))
             .unwrap();
-        assert!(reader(999_999));
-        assert!(!reader(1_000_000));
+        assert_eq!(reader(999_999), Some(Some(true)));
+        assert_eq!(reader(1_000_000), Some(Some(false)));
         let _ = fs::remove_dir_all(&root);
     }
 

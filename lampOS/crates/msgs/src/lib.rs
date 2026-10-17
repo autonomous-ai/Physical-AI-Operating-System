@@ -369,6 +369,12 @@ pub enum Voice {
     Speaking,
 }
 
+/// How the voice's health message begins while it waits with its
+/// microphones off, by the privacy switch or a mute (#1371): `lamp-health
+/// show` says it on its first line, so a muted lamp never reads as a quiet
+/// one.
+pub const MICROPHONES_OFF: &str = "the microphones are off";
+
 /// What the voice is doing now (`voice/state`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VoiceState {

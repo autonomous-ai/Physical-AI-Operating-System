@@ -142,6 +142,39 @@ fn disabled_and_invalid_reminders_never_reach_the_input_sink_in_any_room() {
     }
 }
 
+/// The reviewer's P1 on #1038: with `LAMP_SCHEDULE_SPEAK=skill` a due
+/// reminder reaches the model. The worker's setting comes from the flags the
+/// parent makes for it (`tools::schedule_arguments`, read by `tools::take`)
+/// and enables reminders as the worker does at its start. Under `skill`
+/// the flag never came, every reminder was refused `Disabled`, and none was
+/// said.
+#[test]
+fn a_reminder_under_schedule_speech_by_skill_reaches_the_model() {
+    let _restore = RestoreRoom::quiet();
+    for (speak, said) in [("on", true), ("skill", true), ("SKILL", false)] {
+        let flags = crate::tools::schedule_arguments(None, Some(speak));
+        let (settings, _) = crate::tools::take(&flags).unwrap();
+        let mut owner = controller();
+        let mut handoff = InputHandoff::default();
+        handoff.reminders.enabled = settings.schedule_speak;
+        let request = authorize(&mut owner, &mut handoff);
+        let sink = WrittenSink::default();
+        handoff
+            .submit(reminder(request, &handoff, "Tea"), NOW, &sink)
+            .unwrap();
+        assert_eq!(sink.notes.borrow().len(), usize::from(said), "{speak}");
+        assert_eq!(
+            handoff
+                .reminders
+                .pending
+                .as_ref()
+                .map(|deferred| deferred.reason),
+            (!said).then_some(ReminderDeferral::Disabled),
+            "{speak}"
+        );
+    }
+}
+
 #[test]
 fn reminder_preserves_authority_and_session_validation_before_policy() {
     let mut owner = controller();

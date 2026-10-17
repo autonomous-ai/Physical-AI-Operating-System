@@ -162,12 +162,13 @@ pub fn arguments_from_environment() -> Vec<String> {
     flags
 }
 
-fn schedule_arguments(tools: Option<&str>, speak: Option<&str>) -> Vec<String> {
+pub(crate) fn schedule_arguments(tools: Option<&str>, speak: Option<&str>) -> Vec<String> {
     let mut flags = Vec::new();
     if tools == Some("on") {
         flags.push(SCHEDULE_TOOLS_FLAG.to_owned());
     }
-    if speak == Some("on") {
+    // Schedule speech by the parent's own rule: `on`, or `skill`.
+    if crate::reminders::speaks(speak) {
         flags.push(SCHEDULE_SPEAK_FLAG.to_owned());
     }
     flags
@@ -948,6 +949,31 @@ mod tests {
             assert_eq!(rest, ["remainder"]);
             assert!(settings.decline && settings.clock);
             assert_eq!(settings.exec, Some("/run/actions".into()));
+        }
+    }
+
+    /// The reviewer's P1 on #1038: `LAMP_SCHEDULE_SPEAK=skill` is Schedule
+    /// speech on for the parent (`reminders::speaks`), so the provider
+    /// worker gets its flag too. The flag came only for `on`, and under
+    /// `skill` the worker refused every reminder, so none was said. Exactly
+    /// `on` and `skill`, as the parent reads them.
+    #[test]
+    fn schedule_speech_by_skill_gives_the_worker_its_flag() {
+        let old = arguments(Some("on"), Some("/run/actions"), None, Some("on"));
+        for (speak, on) in [
+            (Some("on"), true),
+            (Some("skill"), true),
+            (Some("SKILL"), false),
+            (Some("skills"), false),
+            (Some(" skill"), false),
+            (None, false),
+        ] {
+            let mut flags = old.clone();
+            flags.extend(schedule_arguments(None, speak));
+            let (settings, rest) = take(&flags).unwrap();
+            assert!(rest.is_empty());
+            assert_eq!(settings.schedule_speak, on, "{speak:?}");
+            assert_eq!(crate::reminders::speaks(speak), on, "{speak:?}");
         }
     }
 

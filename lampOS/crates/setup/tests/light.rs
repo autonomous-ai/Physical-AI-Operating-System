@@ -66,6 +66,9 @@ impl Save for Marker {
     fn timezone(&mut self, _: &str) -> io::Result<()> {
         Ok(())
     }
+    fn backend(&mut self, _: &lamp_setup::serve::Backend) -> io::Result<()> {
+        Ok(())
+    }
     fn marker(&mut self) -> io::Result<()> {
         self.0.lock().unwrap().push(Seen::Marker);
         Ok(())

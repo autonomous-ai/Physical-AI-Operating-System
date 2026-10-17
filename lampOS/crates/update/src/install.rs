@@ -97,6 +97,12 @@ pub const PRODUCT: &[(&str, &str)] = &[
         "lamp-air.service",
         include_str!("../../../deploy/product/lamp-air.service"),
     ),
+    // The air's bus at 100 kHz, set as root before the air and the controls
+    // start; the same binary as the air's.
+    (
+        "lamp-air-clock.service",
+        include_str!("../../../deploy/product/lamp-air-clock.service"),
+    ),
     (
         "lamp-tasks.service",
         include_str!("../../../deploy/product/lamp-tasks.service"),
@@ -1341,12 +1347,13 @@ mod tests {
         {
             assert!(part(text).is_some(), "{name} starts through a current link");
         }
-        // Setup and its reset share one binary; every other service is a part.
+        // Setup and its reset share one binary, and so do the air and its
+        // bus clock; every other service is a part.
         let services = PRODUCT
             .iter()
             .filter(|(name, _)| name.ends_with(".service"))
             .count();
-        assert_eq!(parts.len(), services - 1, "every product service is a part");
+        assert_eq!(parts.len(), services - 2, "every product service is a part");
         for part in &parts {
             let name = part.binary.trim_start_matches("lamp-");
             assert_eq!(part.folder, format!("/opt/lampOS/{name}/"), "{part:?}");

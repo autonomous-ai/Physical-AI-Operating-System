@@ -2,7 +2,7 @@
 //! the bus what the air is like. See `docs/air.md`.
 use std::{io::Write, process::ExitCode};
 
-const USAGE: &str = "usage: lamp-air [--bus-number N] [--bus-root ABSOLUTE_DIR]\n       lamp-air once [--bus-number N]";
+const USAGE: &str = "usage: lamp-air [--bus-number N] [--bus-root ABSOLUTE_DIR]\n       lamp-air once [--bus-number N]\n       lamp-air limit-clock [--bus-number N]";
 const HELP: &str =
     "Reads the lamp's air sensor (SEN63C) and says what the air is like. See docs/air.md.
 
@@ -11,9 +11,10 @@ const HELP: &str =
 
 It publishes air/state every five seconds (particles, humidity and temperature at the
 sensor, carbon dioxide, and how stuffy the air would feel) and how it is on diagnostics.
-lamp-air once prints the sensor's name and one reading as JSON, and touches no bus.";
+lamp-air once prints the sensor's name and one reading as JSON, and touches no bus.
+lamp-air limit-clock lowers the bus's clock to 100 kHz, the most the sensor takes, and
+reads it back (as root, by lamp-air-clock.service); a bus already that slow is left.";
 
-#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 fn log(line: &str) {
     let _ = writeln!(std::io::stderr(), "lamp-air: {line}");
 }
@@ -21,14 +22,16 @@ fn log(line: &str) {
 #[derive(Debug, PartialEq)]
 struct Arguments {
     once: bool,
+    limit_clock: bool,
     bus_number: u32,
     bus: Option<std::path::PathBuf>,
 }
 
 fn parse(given: &[String]) -> Result<Option<Arguments>, String> {
-    let (once, rest) = match given {
-        [first, rest @ ..] if first == "once" => (true, rest),
-        _ => (false, given),
+    let (once, limit_clock, rest) = match given {
+        [first, rest @ ..] if first == "once" => (true, false, rest),
+        [first, rest @ ..] if first == "limit-clock" => (false, true, rest),
+        _ => (false, false, given),
     };
     let (mut bus_number, mut bus) = (None, None);
     let mut items = rest.iter();
@@ -49,7 +52,7 @@ fn parse(given: &[String]) -> Result<Option<Arguments>, String> {
                         .ok_or("--bus-number is from 0 to 63")?,
                 )
                 .is_some(),
-            "--bus-root" if !once => {
+            "--bus-root" if !once && !limit_clock => {
                 let path = std::path::PathBuf::from(value);
                 if !path.is_absolute() {
                     return Err("--bus-root must be an absolute path".into());
@@ -64,6 +67,7 @@ fn parse(given: &[String]) -> Result<Option<Arguments>, String> {
     }
     Ok(Some(Arguments {
         once,
+        limit_clock,
         bus_number: bus_number.unwrap_or(0),
         bus,
     }))
@@ -276,6 +280,38 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    if arguments.limit_clock {
+        use lamp_air::clock;
+        let bus = arguments.bus_number;
+        let adapters = std::path::Path::new(clock::ADAPTERS);
+        clock::wait(adapters, bus, clock::WAIT_LOOKS, || {
+            std::thread::sleep(std::time::Duration::from_secs(1))
+        });
+        return match clock::limit(adapters, bus, clock::MOST_HZ) {
+            Ok(clock::Done::Lowered(before, after)) => {
+                log(&format!(
+                    "I2C bus {bus}: the clock is lowered from {before} Hz to {after} Hz"
+                ));
+                ExitCode::SUCCESS
+            }
+            Ok(clock::Done::Already(hz)) => {
+                log(&format!(
+                    "I2C bus {bus}: the clock is already {hz} Hz; left as it is"
+                ));
+                ExitCode::SUCCESS
+            }
+            Ok(clock::Done::Other(name)) => {
+                log(&format!(
+                    "I2C bus {bus}: {name} is not an Allwinner controller; its clock is left"
+                ));
+                ExitCode::SUCCESS
+            }
+            Err(why) => {
+                log(&why);
+                ExitCode::FAILURE
+            }
+        };
+    }
     #[cfg(target_os = "linux")]
     {
         let result = if arguments.once {
@@ -320,6 +356,7 @@ mod tests {
             of("").unwrap().unwrap(),
             Arguments {
                 once: false,
+                limit_clock: false,
                 bus_number: 0,
                 bus: None
             }
@@ -330,6 +367,7 @@ mod tests {
                 .unwrap(),
             Arguments {
                 once: false,
+                limit_clock: false,
                 bus_number: 3,
                 bus: Some("/run/lampos-bus".into())
             }
@@ -338,6 +376,16 @@ mod tests {
             of("once --bus-number 0").unwrap().unwrap(),
             Arguments {
                 once: true,
+                limit_clock: false,
+                bus_number: 0,
+                bus: None
+            }
+        );
+        assert_eq!(
+            of("limit-clock --bus-number 0").unwrap().unwrap(),
+            Arguments {
+                once: false,
+                limit_clock: true,
                 bus_number: 0,
                 bus: None
             }
@@ -347,6 +395,7 @@ mod tests {
             "--bus-number 99",
             "--bus-root relative",
             "once --bus-root /x",
+            "limit-clock --bus-root /x",
             "--loud 1",
             "--bus-number",
         ] {

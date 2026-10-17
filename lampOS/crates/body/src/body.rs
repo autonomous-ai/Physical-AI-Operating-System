@@ -945,6 +945,10 @@ pub struct BodyReport {
     /// joint as `bad_reads`. None was used for a peak or for heat. Apart
     /// from `bad_reads`: the position in the same reply was good.
     pub bad_temperatures: [u16; 5],
+    /// Of `bad_temperatures`, the reads that were a repeated flap
+    /// (`TEMPERATURE_FLAP`): kept out of the unreadable stop and judged on
+    /// the higher of the flap and the good one. Per joint as `bad_reads`.
+    pub temperature_flaps: [u16; 5],
     /// A first read that found a joint hot is read again, up to
     /// `FIRST_HEAT_REREADS` times, until two reads in a row agree, before
     /// anything acts on it: the temperatures of each read again, per joint
@@ -1280,6 +1284,7 @@ struct Bus<'a, P, R> {
     /// (`judge_temperatures`).
     warm: [Option<u8>; 5],
     bad_temperatures: [u16; 5],
+    temperature_flaps: [u16; 5],
     /// Each joint's settling bad value: the last read that agreed, how many
     /// agreed, and how many outliers were skipped.
     settling: [Option<(u8, u8, u8)>; 5],
@@ -1329,6 +1334,7 @@ impl<'a, P: PortIo, R: Runtime> Bus<'a, P, R> {
             bad_in_row: [0; 5],
             warm: [None; 5],
             bad_temperatures: [0; 5],
+            temperature_flaps: [0; 5],
             settling: [None; 5],
             settles: Vec::new(),
             settle_steps: Limits::FOLDED.temperature_steps,
@@ -1608,6 +1614,7 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
                 };
                 self.flap[index] = Some((read, agreed, 0));
                 if agreed >= TEMPERATURE_FLAP_AGREE {
+                    self.temperature_flaps[index] = self.temperature_flaps[index].saturating_add(1);
                     sample.temperature = read.max(good);
                     self.temperature_held[index] = true;
                     continue;
@@ -2817,6 +2824,7 @@ fn run_until_stopped(
     );
     report.bad_reads = bus.bad_reads;
     report.bad_temperatures = bus.bad_temperatures;
+    report.temperature_flaps = bus.temperature_flaps;
     report.temperature_settles = std::mem::take(&mut bus.settles);
     report
 }
@@ -2845,6 +2853,7 @@ fn run_on<P: PortIo, R: Runtime>(
         missed_reads: 0,
         bad_reads: [0; 5],
         bad_temperatures: [0; 5],
+        temperature_flaps: [0; 5],
         hot_rereads: Vec::new(),
         temperature_settles: Vec::new(),
         peak_load: [0; 3],

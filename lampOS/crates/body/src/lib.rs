@@ -20,6 +20,8 @@ pub mod body;
 #[cfg(any(target_os = "linux", test))]
 pub mod bus_out;
 #[cfg(any(target_os = "linux", test))]
+pub mod exit_report;
+#[cfg(any(target_os = "linux", test))]
 pub mod expression_in;
 #[cfg(any(target_os = "linux", test))]
 pub mod inspection;

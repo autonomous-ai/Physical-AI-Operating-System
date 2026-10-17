@@ -7580,6 +7580,12 @@ fn a_shoulder_flapping_between_55_and_61_runs_20_minutes_judged_at_61() {
         report.arm_peak_temperature
     );
     assert!(
+        report.temperature_flaps[1] > 0
+            && report.temperature_flaps[1] <= report.bad_temperatures[1],
+        "{:?}",
+        report.temperature_flaps
+    );
+    assert!(
         report.bad_temperatures[1] > 1_000,
         "{:?}",
         report.bad_temperatures
@@ -7610,6 +7616,18 @@ fn a_joint_flapping_between_60_and_64_stops_on_heat() {
         ),
         "{report:?}"
     );
+    // The exit report as the body prints it reads back through
+    // `lamp-body exit-report`: a renamed field fails here.
+    let line = format!(
+        "lamp-body[1]: {{\"port\":{{}},\"body\":{}}}",
+        serde_json::to_string(&report).unwrap()
+    );
+    let summary = crate::exit_report::summary(&line).expect("an exit report");
+    assert!(
+        summary.starts_with("stop: temperature joint 5"),
+        "{summary}"
+    );
+    assert!(summary.contains("temperature_flaps:"), "{summary}");
 }
 
 /// eighth's probe on #1347: a cool head at 56 whose register reads 57 to

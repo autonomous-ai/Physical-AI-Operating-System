@@ -356,7 +356,8 @@ settled while the bad reads in a row climbed to 50. A flap is counted in
 `bad_temperatures` and still feeds a settle. Only a flap that repeats, the
 third in a row each within 2 degrees of the last (`TEMPERATURE_FLAP_AGREE`,
 `TEMPERATURE_SETTLE`) and within 10 reads of it (`TEMPERATURE_FLAP_READS`),
-is kept out of `BadTemperature`; it holds the heat streak, as a replaced
+is kept out of `BadTemperature`, and counted per joint in the end report's
+`temperature_flaps` (a part of `bad_temperatures`); it holds the heat streak, as a replaced
 read does, and is heat evidence: it is judged on the higher of it and the good one (the
 cautious side for heat), and the good reads in the 10 after it on it too.
 A lone flap, a glitch or noise inside the window, is a bad read as on
@@ -1713,6 +1714,34 @@ the load, tracking, drift, status and heat rules do not change with it.
 It takes the same exclusive ownership of the servo port as
 `lamp-body-inspect`, so neither can run while the other does. Stop every
 other owner of the port first.
+
+### Reading its exit report
+
+`lamp-body exit-report` reads a line or a whole journal on stdin, finds the
+last exit report the body printed (`{"port":…,"body":{…}}`), and prints it
+as plain lines for the morning report; it never opens the port, and exits 1
+when there is none:
+
+```
+journalctl -u lamp-body --since yesterday -o cat | lamp-body exit-report
+```
+
+```
+stop: bad_temperature joint 2 (base_pitch) from 60 temperature 55
+stood: yes, steps 618587
+bad_temperatures: base_yaw 817, base_pitch 9354, elbow_pitch 2356, wrist_roll 448, wrist_pitch 323
+temperature_flaps: not in this report
+temperature_settles: 10 2:59->55 2:61->55 …
+peak_temperature: wrist_pitch 50, wrist_roll 48, base_yaw 47
+arm_peak_temperature: base_pitch 62, elbow_pitch 58
+bad_reads: base_yaw 0, base_pitch 0, elbow_pitch 0, wrist_roll 0, wrist_pitch 0
+goal_writes: 618001
+```
+
+It reads the report by `BodyReport`'s own field names (`src/exit_report.rs`;
+a renamed field fails `a_joint_flapping_between_60_and_64_stops_on_heat`).
+`temperature_flaps` is absent from reports older than it. The test fixture is
+lamp-4ace's 15:25:38 exit of 2026-10-17 (`lamp_4ace_1525_reads_as_plain_lines`).
 
 ## On the bus
 

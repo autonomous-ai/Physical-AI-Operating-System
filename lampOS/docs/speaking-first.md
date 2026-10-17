@@ -71,17 +71,22 @@ would: a few warm words and no question they have to answer.)
 
 By name when the lamp has one: the known face's at the lamp now
 (`known_faces::hello`, [eyes.md](eyes.md)), else the name typed at setup
-(`LAMP_PERSON_NAME`, `person::hello`: "… most likely “Zo”, whose lamp you
-are. Say hello … by name …", #806; quoted, so it reads as a name). A known face's name wins, since it is
-the one at the lamp now; with neither, the note above, with no name. The
-typed name is also told to the model after its character on every voice
-route (`person::told`), so a skill's "by name if you know it" (Welcome back)
-can use it. It is one line of at most 40 characters; anything else, or no
-file (before setup, after a reset), is no name, and the voice says why
-without saying the name. Each time it is used, the journal says so without
-the name: `the person's name from /etc/lampOS/person/name is used (2
-characters)`. The first five minutes (#841) run in the same session, so their
-notes come after the same instruction.
+(`LAMP_PERSON_NAME`, `person::hello`: "… most likely “Example Name”, whose
+lamp you are. Say hello … by name …", #806; quoted, so it reads as a name).
+A known face's name wins, since it is the one at the lamp now; with neither,
+the note above, with no name. The typed name is also told to the model after
+its character, by the provider and second workers that build it (the voice
+passes them `LAMP_PERSON_NAME`), only as the name the person gave, never as
+who is at the lamp: "… gave their name as “Example Name”. Whoever is at the
+lamp may be someone else …" (`person::told`). So a skill's "by name if you
+know it" (Welcome back) can use it. It is one line of at most 64 characters,
+setup's own limit, with no control character, line separator or direction
+mark; anything else, or no file (before setup, after a reset), is no name,
+and the voice says why without saying the name. Each time it is read (when a
+worker builds the instruction, and at each hello), the journal says so
+without the name: `the person's name from /etc/lampOS/person/name is used
+(12 characters)`. The first five minutes (#841) run in the same session, so
+their notes come after the same instruction.
 
 Tried on lamp-4ace through its relay with `lamp-voice provider-check CONFIG
 --written NOTE`, which opens a session, sends the one request and plays

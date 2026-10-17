@@ -937,6 +937,12 @@ fn many_voice_restarts_keep_expression_running_and_a_recent_session_retired() {
     next.session_id = "voice-after-many".into();
     send(&mut engine, Input::Voice(next));
     assert!(engine.fault().is_none());
+    // The first session is forgotten by now, but a late or replayed message of
+    // its own, with its old stamp, is still refused by the order mark.
+    let mut replayed = voice(1, 1, Voice::Listening, VoiceEvent::State);
+    replayed.session_id = "voice-1".into();
+    assert!(engine.ingest(sessions + 4, Input::Voice(replayed)).is_err());
+    assert!(engine.fault().is_none());
 }
 
 #[test]

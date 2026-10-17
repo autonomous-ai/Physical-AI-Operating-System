@@ -596,8 +596,12 @@ followed immediately by an ordinary state can be missed by a subscriber.
 Cancellation is sticky within a turn; stale voice input also retires its
 audio, and refreshing the same turn cannot revive it. Session retirement is bounded:
 Expression remembers the newest 32 retired Voice sessions and forgets the
-oldest when another retires. Session ids are never reused, and a Voice that
-many restarts old no longer publishes, so forgetting it revives nothing. Until
+oldest when another retires. A forgotten session's late message is still
+refused: the voice stream's order mark, which a new session does not reset,
+refuses a message stamped before one already taken, and one older than
+`voice_stale_us` (500 ms) is stale. Only a voice process that many sessions old
+and still running could come back, and the voice's one unit does not allow
+that. Until
 17 October the fence instead stopped Expression after 32 restarts until it was
 restarted itself; lamp-4ace passed 32 in a day, and a home lamp, which
 restarts its voice at every update, would have within weeks.

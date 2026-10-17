@@ -13,9 +13,14 @@ use std::collections::{BTreeSet, VecDeque};
 
 pub const MAX_PLAYOUT_FRAMES: usize = 128;
 /// How many retired Voice sessions are remembered, so that a stale heartbeat
-/// from one cannot revive it. The oldest is forgotten when another retires:
-/// session ids are never reused, and a Voice that many restarts old no
-/// longer publishes, so forgetting it revives nothing.
+/// from one cannot revive it. The oldest is forgotten when another retires.
+/// A forgotten session's late message is still refused on two other grounds:
+/// the voice stream's order mark, which a new session does not reset, refuses
+/// any message stamped before one already taken ("input is duplicate or out
+/// of order"), and one that arrives later than `voice_stale_us` (500 ms) is
+/// stale. Only a voice process 33 sessions old that is still running could
+/// come back, and `lamp-voice.service` (one unit, `KillMode=mixed`) does not
+/// allow that.
 pub const MAX_VOICE_SESSIONS: usize = 32;
 const STREAMS: usize = 21;
 const CONTEXT_BYTES: usize = 16 * 1024;

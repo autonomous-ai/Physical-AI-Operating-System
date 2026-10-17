@@ -3147,17 +3147,30 @@ impl DiscardLog {
                 format!(" after request {request} was closed as unanswered {ms} ms before")
             })
     }
-    fn note(&mut self, reason: Discard, now_us: u64) {
-        if matches!(
+    /// The line said for a dropped event after a request was closed as
+    /// unanswered, once a request. It says only that the service sent
+    /// something: a late silent turn end is dropped the same way as a late
+    /// answer, and the usage line's `response_audio` beside it tells which
+    /// (the reviewer on #1284).
+    fn late_line(&mut self, reason: Discard, now_us: u64) -> Option<String> {
+        if !matches!(
             reason,
             Discard::UnownedOutput | Discard::LateOutput | Discard::LateTerminal
-        ) && let Some((request, ms)) = self.after_unanswered(now_us)
-            && self.late_said != Some(request)
-        {
-            self.late_said = Some(request);
-            eprintln!(
-                "lamp-voice provider: request {request}: output came {ms} ms after it was closed as unanswered, and was dropped ({reason:?})"
-            );
+        ) {
+            return None;
+        }
+        let (request, ms) = self.after_unanswered(now_us)?;
+        if self.late_said == Some(request) {
+            return None;
+        }
+        self.late_said = Some(request);
+        Some(format!(
+            "lamp-voice provider: request {request}: the service sent something {ms} ms after it was closed as unanswered, and it was dropped ({reason:?})"
+        ))
+    }
+    fn note(&mut self, reason: Discard, now_us: u64) {
+        if let Some(line) = self.late_line(reason, now_us) {
+            eprintln!("{line}");
         }
         let index = match reason {
             Discard::LateInterruption => 0,
@@ -7648,17 +7661,23 @@ mod tests {
         const S: u64 = 1_000_000;
         let mut log = DiscardLog::default();
         assert_eq!(log.usage_after(10 * S), "");
-        log.note(Discard::UnownedOutput, 10 * S);
-        assert_eq!(log.late_said, None);
+        assert_eq!(log.late_line(Discard::UnownedOutput, 10 * S), None);
         log.closed_unanswered(39, 100 * S);
         assert_eq!(log.after_unanswered(100 * S + 500_000), Some((39, 500)));
         assert_eq!(
             log.usage_after(102 * S),
             " after request 39 was closed as unanswered 2000 ms before"
         );
-        log.note(Discard::UnownedOutput, 101 * S);
-        assert_eq!(log.late_said, Some(39));
-        log.note(Discard::LateInterruption, 101 * S);
+        assert_eq!(log.late_line(Discard::LateInterruption, 101 * S), None);
+        assert_eq!(
+            log.late_line(Discard::UnownedOutput, 101 * S).as_deref(),
+            Some(
+                "lamp-voice provider: request 39: the service sent something 1000 ms after it was closed as unanswered, and it was dropped (UnownedOutput)"
+            )
+        );
+        // Once a request: the rest of what came is not said again.
+        assert_eq!(log.late_line(Discard::UnownedOutput, 101 * S + 1), None);
+        assert_eq!(log.late_line(Discard::LateTerminal, 102 * S), None);
         assert_eq!(log.after_unanswered(130 * S), Some((39, 30_000)));
         assert_eq!(log.after_unanswered(130 * S + 1), None);
         log.started();

@@ -1064,6 +1064,56 @@ async fn a_request_the_service_does_not_answer_ends_unanswered_and_keeps_the_con
     );
 }
 
+/// The reviewer on #1284: a late answer to a request closed as unanswered
+/// has its transcript given to the last responder, an earlier request. That
+/// request was retired when the later one started, so the words are never
+/// delivered under its name, nor under the closed one's: nobody heard them,
+/// and they reach no thread. The next request's own words are delivered.
+#[tokio::test]
+async fn a_late_answers_words_after_an_unanswered_close_go_to_no_request() {
+    let timeouts = Timeouts {
+        unanswered: Some(Duration::from_millis(60)),
+        response: Duration::from_millis(300),
+        ..Timeouts::default()
+    };
+    let (mut connection, mut server) = mock(timeouts).await;
+    let first = ended_turn(&mut connection, &mut server, 1).await;
+    send_json(&mut server, audio(1)).await;
+    send_json(&mut server, idle()).await;
+    assert!(
+        matches!(event(&mut connection).await, Event::Audio { lineage, .. } if lineage.request == first)
+    );
+    assert!(
+        matches!(event(&mut connection).await, Event::TurnComplete { lineage, .. } if lineage.request == first)
+    );
+    let second = ended_turn(&mut connection, &mut server, 2).await;
+    assert!(matches!(
+        event(&mut connection).await,
+        Event::Unanswered { lineage, .. } if lineage.request == second
+    ));
+    // The answer to the second comes after its close: its words, then its sound.
+    send_json(
+        &mut server,
+        json!({"serverContent":{"outputTranscription":{"text":"the late words"}}}),
+    )
+    .await;
+    quiet(&mut connection).await;
+    send_json(&mut server, audio(2)).await;
+    discarded(&mut connection, Discard::UnownedOutput).await;
+    send_json(&mut server, idle()).await;
+    discarded(&mut connection, Discard::UnownedOutput).await;
+    let third = ended_turn(&mut connection, &mut server, 3).await;
+    let mut answer = audio(3);
+    answer["serverContent"]["outputTranscription"] = json!({"text":"new words"});
+    send_json(&mut server, answer).await;
+    assert!(
+        matches!(event(&mut connection).await, Event::Audio { lineage, .. } if lineage.request == third)
+    );
+    assert!(
+        matches!(event(&mut connection).await, Event::OutputTranscript { lineage, text, .. } if lineage.request == third && text == "new words")
+    );
+}
+
 #[tokio::test]
 async fn an_answer_that_has_begun_is_never_closed_as_unanswered() {
     let timeouts = Timeouts {

@@ -70,8 +70,11 @@ routes are not served. Each kind is carried out by the part that owns it.
 - **The unit** (`deploy/product/lamp-cloud.service`) runs it as `lampos` and
   hands it those two files and `lamp-update`'s `state.json` (for the build)
   through `LoadCredential=`, so no file is widened. It starts only once all
-  three are there and setup is done. It conflicts with V1's
-  `os-server.service`, which holds the same client id.
+  three are there and setup is done. The drop-in that turns it on carries
+  both `Environment=LAMP_CLOUD=on` and `Conflicts=os-server.service`
+  (V1's `os-server` holds the same client id), so an off `lamp-cloud`
+  never stops `os-server` (the reviewer on #1418; the unit's header has
+  the drop-in).
 - **Never printed:** the broker's password and the key appear in no journal
   line and on no bus topic; the account's debug form hides them.
 - **The reset** empties `/var/lib/lampos-cloud` and removes

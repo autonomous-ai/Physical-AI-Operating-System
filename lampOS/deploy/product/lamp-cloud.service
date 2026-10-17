@@ -1,6 +1,12 @@
 # lampOS cloud: the lamp on the company broker, so the Autonomous app sees it online and its
-# page can ask it things (lampOS/docs/cloud.md, #1396). Off unless set: a drop-in with
-# Environment=LAMP_CLOUD=on turns it on.
+# page can ask it things (lampOS/docs/cloud.md, #1396). Off unless set: a drop-in turns it on,
+#   [Unit]
+#   Conflicts=os-server.service
+#   [Service]
+#   Environment=LAMP_CLOUD=on
+# V1's os-server connects with the same client id (os-server-{device_id}), so only one of them
+# may run. The conflict is in that drop-in, not here: an off lamp-cloud must never stop
+# os-server, on a lamp put back to V1 with lampOS's units still enabled (the reviewer on #1418).
 [Unit]
 Description=lampOS cloud (lamp-cloud)
 PartOf=lampos.target
@@ -10,9 +16,6 @@ ConditionPathExists=/var/lib/lampos-setup/done
 ConditionPathExists=/etc/lampOS/setup/backend.json
 ConditionPathExists=/etc/lampOS/voice/credential
 ConditionPathExists=/var/lib/lampos-update/state.json
-# V1's os-server connects with the same client id (os-server-{device_id}): two would fight over
-# one broker session, so only one of them runs.
-Conflicts=os-server.service
 After=network-online.target lamp-actions.service
 Wants=network-online.target
 StartLimitIntervalSec=600

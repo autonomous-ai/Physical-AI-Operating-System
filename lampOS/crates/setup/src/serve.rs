@@ -19,7 +19,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
     thread,
-    time::Duration,
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 fn default_interface() -> String {
@@ -42,6 +42,9 @@ fn default_localtime() -> PathBuf {
 }
 fn default_timezone_file() -> PathBuf {
     "/etc/timezone".into()
+}
+fn default_zone_env() -> PathBuf {
+    "/etc/lampOS/zone.env".into()
 }
 
 /// The server's written configuration.
@@ -79,6 +82,11 @@ pub struct Config {
     pub localtime: PathBuf,
     #[serde(default = "default_timezone_file")]
     pub timezone_file: PathBuf,
+    /// The zone schedule and skills read (`LAMP_ZONE`, `LAMP_UTC_OFFSET_MINUTES`),
+    /// which install first writes from the image's zone: written again with
+    /// the person's (#820). Expression and memory follow `/etc/localtime`.
+    #[serde(default = "default_zone_env")]
+    pub zone_env: PathBuf,
     /// Run once the hotspot is up and once serving ends: V1's nginx, which
     /// serves V1's page and passes `/api/` here, is on only during setup.
     #[serde(default)]
@@ -109,6 +117,7 @@ impl Config {
             &self.zoneinfo,
             &self.localtime,
             &self.timezone_file,
+            &self.zone_env,
         ] {
             if !path.is_absolute() {
                 return Err(format!("{} is not absolute", path.display()));
@@ -332,9 +341,24 @@ pub fn write_private(path: &Path, bytes: &[u8]) -> io::Result<()> {
     put_in_place(&temporary, path)
 }
 
+/// `zone.env` for `zone`, `offset_minutes` east of UTC now: the two lines
+/// install writes (`crates/update`), which schedule and skills read.
+pub fn zone_env(zone: &str, offset_minutes: i32) -> String {
+    format!(
+        "# The lamp's zone, for schedule and skills (docs/install.md).\n\
+         # Written by lamp-setup from the zone the person's phone gave.\n\
+         LAMP_ZONE={zone}\nLAMP_UTC_OFFSET_MINUTES={offset_minutes}\n"
+    )
+}
+
 /// The first half of `write_private`: `bytes` in a new private temporary
 /// file beside `path`, synced. Returns the temporary file.
 fn stage_private(path: &Path, bytes: &[u8]) -> io::Result<PathBuf> {
+    stage(path, bytes, 0o600)
+}
+
+/// `bytes` in a new temporary file beside `path` with `mode`, synced.
+fn stage(path: &Path, bytes: &[u8], mode: u32) -> io::Result<PathBuf> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -343,7 +367,7 @@ fn stage_private(path: &Path, bytes: &[u8]) -> io::Result<PathBuf> {
     let mut file = OpenOptions::new()
         .write(true)
         .create_new(true)
-        .mode(0o600)
+        .mode(mode)
         .open(&temporary)?;
     if let Err(why) = file.write_all(bytes).and_then(|()| file.sync_all()) {
         let _ = fs::remove_file(&temporary);
@@ -412,6 +436,18 @@ impl Save for Files<'_> {
         fs::rename(&temporary, &self.0.timezone_file)?;
         if let Some(parent) = self.0.timezone_file.parent() {
             fs::File::open(parent)?.sync_all()?;
+        }
+        // Schedule and skills read the zone from install's file (#820). A
+        // zone the parts' own zone data lacks leaves it as it was: schedule
+        // would refuse to start on it. The offset is today's: skills keep it
+        // until a reset's setup, across summer time (third-P1).
+        if let Ok(local) = lamp_local_time::LocalTime::zone(zone) {
+            let now_ms = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map_or(0, |since| since.as_millis() as u64);
+            let text = zone_env(zone, local.offset_minutes_at(now_ms));
+            let temporary = stage(&self.0.zone_env, text.as_bytes(), 0o644)?;
+            put_in_place(&temporary, &self.0.zone_env)?;
         }
         Ok(())
     }

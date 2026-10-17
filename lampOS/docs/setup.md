@@ -92,7 +92,7 @@ What lamp-4ace's units read today (`deploy/lamp-4ace/`):
 | Wi-Fi | V1's `wpa_supplicant-wlan0.conf` | The same file, mode 0600. |
 | The voice's service | `/etc/lampOS/voice/provider.json`, which names a credential file | The user's key, in that file and in the Policy's `/etc/lampOS/policy/jev.key` (#806, 16:13); `provider.json` comes with `install`. |
 | Update trust | `/etc/lampOS/update/key.pub` | Nothing: a trust root belongs in the image, not on a page anyone near the lamp can open. |
-| Time zone | Schedule takes `--zone Asia/Ho_Chi_Minh`; Memory, Expression and the policy take `--utc-offset-minutes 420` | `/etc/localtime` and `/etc/timezone`. Memory, Expression and the policy take `--zone system` (#820), which follows the file across daylight saving and takes up the zone setup writes without a restart; their units still pass the offset until First switches them. |
+| Time zone | Schedule takes `--zone Asia/Ho_Chi_Minh`; Memory, Expression and the policy take `--utc-offset-minutes 420` | `/etc/localtime` and `/etc/timezone`, and `/etc/lampOS/zone.env` again (#820). The product's memory and Expression take `--zone system`, which follows `/etc/localtime` across daylight saving and without a restart; schedule (`LAMP_ZONE`) and skills (`LAMP_UTC_OFFSET_MINUTES`) read `zone.env`. A zone the parts' own zone data lacks leaves `zone.env` as install wrote it, since schedule would not start on it. The voice reads `/etc/localtime` itself. |
 | The person's name | Read by the voice with `LAMP_PERSON_NAME` (the product unit sets it, #806): told to the model after its character, and the hello's name when no face is known (`crates/voice/src/person.rs`) | A private file, one line: `/etc/lampOS/person/name`. |
 
 ## The person's data, which reset wipes
@@ -260,7 +260,7 @@ While joining it reads the station address every second and publishes it as
 is done; a new run clears the last run's address at once, so V1's page cannot
 follow an old one. Once joined, it saves the name, the time zone
 (`/etc/localtime` linked to the zone, `/etc/timezone` naming it, as V1's
-`timezone.go`) and then the user's key (to the voice's credential and the
+`timezone.go`, and `/etc/lampOS/zone.env` for schedule and skills, #820) and then the user's key (to the voice's credential and the
 Policy's `jev.key`, both written before either is renamed into place, never
 logged, never in a reply), each private and synced, and only then the
 marker; the keeper starts the lamp. If anything cannot be saved, there is no

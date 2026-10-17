@@ -1804,6 +1804,7 @@ dependencies = [
 name = "lamp-eyes"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "jpeg-encoder",
  "lamp-bus",
  "lamp-camera",

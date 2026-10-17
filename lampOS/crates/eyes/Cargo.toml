@@ -27,6 +27,10 @@ zune-jpeg = "=0.4.21"
 # provider's image bound (`--full-look`).
 jpeg-encoder = "=0.7.1"
 
+[dev-dependencies]
+# Decodes the recorded bus messages a replay test reads.
+base64 = "0.22"
+
 [target.'cfg(target_os = "linux")'.dependencies]
 lamp-camera = { path = "../camera" }
 lamp-turn-owner = { path = "../turn-owner" }

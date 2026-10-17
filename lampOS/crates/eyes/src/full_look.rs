@@ -33,11 +33,12 @@
 //! With no body on the bus the still is taken at once.
 //!
 //! With `--full-look-movement on` (off unless given) the head settles on
-//! movement only: no joint's distance to its goal counts, and the arm's
-//! [`ARM`] joints, which carry the head and the camera with it, are waited
-//! for while they turn as the head's are. A standing shoulder pushes 22 to
-//! 34 counts short of its goal on lamp-52e6 for as long as it stands
-//! (`docs/body.md`): that is not a move, and the still is taken at once.
+//! movement only: no joint's distance to its goal counts, and what is waited
+//! for is the camera's aim turning ([`aim_speeds`]), the shoulder and the
+//! elbow with the head's joints. Judged joint by joint (#1251), an arm
+//! standing up held the still to the 2 s cap: 329 of 4,113 asks replayed on
+//! lamp-52e6, against 14 off. The shoulder and the elbow rise together and
+//! the aim turns by their difference, so it is 36 (`tests/full_look_replay.rs`).
 use lamp_msgs::JointState;
 use std::f64::consts::TAU;
 use zune_jpeg::{
@@ -47,9 +48,6 @@ use zune_jpeg::{
 
 /// The joints that move the camera.
 pub const HEAD: [&str; 3] = ["base_yaw", "head_pitch", "head_roll"];
-/// The arm's joints, which carry the head: watched only with
-/// `--full-look-movement on`, by their speed alone.
-pub const ARM: [&str; 2] = ["shoulder", "elbow"];
 /// Six of a servo's 4096 counts a turn: how far a still head may drift.
 pub const DRIFT_RADIANS: f64 = 6.0 * TAU / 4_096.0;
 /// Two counts in the 80 ms over which the body works out how fast a joint
@@ -198,27 +196,29 @@ pub fn head(joints: &JointState) -> Head {
     head_by(joints, false)
 }
 
-/// [`head`], or with `movement_only` on movement alone: a head or [`ARM`]
-/// joint turning faster than [`STILL_RADIANS_A_SECOND`], with no goal read.
+/// [`head`], or with `movement_only` on movement alone: the camera's aim
+/// ([`aim_speeds`]) turning faster than [`STILL_RADIANS_A_SECOND`] on any
+/// axis, with no goal read.
 // ponytail: the arm is judged by its speed only, not by drift, so the one
 // reading before the body has a speed misses an arm already moving; watch
 // its drift too if a still is ever taken in that first 80 ms.
 pub fn head_by(joints: &JointState, movement_only: bool) -> Head {
     let given = |list: &[f64]| list.len() == joints.name.len();
     let (speed, placed) = (given(&joints.velocity), given(&joints.position));
+    if movement_only
+        && speed
+        && aim_speeds(joints)
+            .iter()
+            .any(|turning| turning.abs() > STILL_RADIANS_A_SECOND)
+    {
+        return Head::Moving;
+    }
     let mut at = [0.0; 3];
     for (index, name) in joints.name.iter().enumerate() {
         let Some(which) = HEAD.iter().position(|head| head == name) else {
-            if movement_only
-                && speed
-                && ARM.contains(&name.as_str())
-                && joints.velocity[index].abs() > STILL_RADIANS_A_SECOND
-            {
-                return Head::Moving;
-            }
             continue;
         };
-        if speed && joints.velocity[index].abs() > STILL_RADIANS_A_SECOND {
+        if !movement_only && speed && joints.velocity[index].abs() > STILL_RADIANS_A_SECOND {
             return Head::Moving;
         }
         if placed {
@@ -236,6 +236,35 @@ pub fn head_by(joints: &JointState, movement_only: bool) -> Head {
     } else {
         Head::Still(at)
     }
+}
+
+/// How fast the camera's aim turns, in radians a second: about the base's
+/// yaw, the head's roll, and in the arm's plane, where the shoulder, the
+/// elbow and head pitch turn about parallel axes, head pitch plus shoulder
+/// less elbow. The elbow turns the other way to the shoulder
+/// (`robots/lamp/urdf/lamp.urdf`: axes +y and -y), so an arm standing up,
+/// both rising at 110 to 175 counts a second on lamp-52e6, carries the head
+/// up with its aim turning by their difference: 551 and 474 counts of rise
+/// leave head pitch's aim 77 counts off (`look-at-name-lamp-52e6-20261014`,
+/// 3.1 to 8.1 s). A joint missing from the reading counts as not turning.
+// ponytail: the camera's rise as the arm carries it is not counted. At 0.24 m
+// of arm and 160 counts a second it is under a pixel a frame at 1 m and 1024
+// across; count it if stills of near things blur while the arm stands up.
+pub fn aim_speeds(joints: &JointState) -> [f64; 3] {
+    let of = |name: &str| {
+        joints
+            .name
+            .iter()
+            .position(|joint| joint == name)
+            .and_then(|index| joints.velocity.get(index))
+            .copied()
+            .unwrap_or(0.0)
+    };
+    [
+        of("base_yaw"),
+        of("head_roll"),
+        of("head_pitch") + of("shoulder") - of("elbow"),
+    ]
 }
 
 /// One full look asked for: when the head has settled, and the first frame
@@ -746,6 +775,31 @@ mod tests {
             wanted.body(head_by(&standing(0.0, speed), true), at * MS, at / 33);
         }
         assert_eq!(wanted.waited_us(), Some(700 * MS));
+    }
+
+    #[test]
+    fn on_movement_only_an_arm_standing_up_with_the_aim_held_is_not_a_move() {
+        // lamp-52e6 standing up (3.1 to 8.1 s into
+        // `look-at-name-lamp-52e6-20261014`): shoulder and elbow both rising
+        // at about 150 counts a second turn the camera's aim by their
+        // difference.
+        let arm = |shoulder: f64, elbow: f64, pitch: f64| {
+            let mut joints = standing(0.0, 0.0);
+            joints.velocity = vec![0.0, shoulder * COUNT, elbow * COUNT, 0.0, pitch * COUNT];
+            head_by(&joints, true)
+        };
+        assert!(matches!(arm(150.0, 138.0, 0.0), Head::Stopped(_)));
+        // The shoulder or the elbow alone turns it, as head pitch does, and
+        // head pitch turning against the arm holds it.
+        assert_eq!(arm(150.0, 0.0, 0.0), Head::Moving);
+        assert_eq!(arm(0.0, 113.0, 0.0), Head::Moving);
+        assert_eq!(arm(0.0, 0.0, 75.0), Head::Moving);
+        assert!(matches!(arm(150.0, 0.0, -150.0), Head::Stopped(_)));
+        // Off, the arm is not read.
+        let mut joints = standing(0.0, 0.0);
+        joints.velocity[1] = 150.0 * COUNT;
+        joints.commanded = joints.position.clone();
+        assert!(matches!(head_by(&joints, false), Head::Stopped(_)));
     }
 
     #[test]

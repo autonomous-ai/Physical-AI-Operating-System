@@ -256,16 +256,30 @@ the ask, or a side outside 320 to 4096, asks nothing):
    not wait; a paused body's joints do not turn.
 
    With `--full-look-movement on` (off unless given) the head settles on
-   movement only: no joint's distance to its goal counts, and `shoulder`
-   and `elbow`, which carry the head and the camera with it, are waited
-   for while they turn faster than 25 counts a second, as the head's joints
-   are (by their speed only; a reading without speeds watches the head's
-   drift alone). lamp-52e6's standing shoulder pushes 22 to 34 counts short
-   of its goal for as long as it stands ([body.md](body.md)), and a head
-   joint may rest further short than 64 counts: neither is a move, and the
-   still is taken at once. The 0.3 s wait after a move, the 160 ms
-   freshness and the 2 s bound are as above. Off, the head settles as
-   described above and the arm is not read.
+   movement only: no joint's distance to its goal counts, and what is
+   waited for is the camera's aim turning faster than 25 counts a second
+   about any axis: base yaw, head roll, and in the arm's plane head pitch
+   plus shoulder less elbow (the three turn about parallel axes, the
+   elbow's the other way round, `robots/lamp/urdf/lamp.urdf`). By speeds
+   only; a reading without speeds watches the head's drift alone. An arm
+   standing up raises the shoulder and the elbow together (lamp-52e6: both
+   at about 150 counts a second, 551 and 474 counts in all, the aim 77
+   counts off at the end) and carries the head up with its aim nearly held,
+   so it is not waited for; the shoulder or the elbow alone, or one leading
+   the other, is. Judged joint by joint, as #1251 first built it, the stand
+   held the still to the 2 s bound: replayed on lamp-52e6's
+   `look-at-name-lamp-52e6-20261014` (one ask every 10 ms, the joints read
+   every 50 ms, a frame every 33 ms; `crates/eyes/tests/full_look_replay.rs`),
+   waits at the bound were 14 of 4,113 off, 329 joint by joint and 36 by the
+   aim. Of the 315 that only waited joint by joint, 307 were the stand and 8
+   a shoulder easing back 25 counts at 38 to 100 counts a second; none was
+   noise or a slow creep (a count of jitter reads 12 counts a second). On
+   lamp-06c1 playing V1's roll the aim itself turns at 140 to 260 counts a
+   second: 188 off, 451 joint by joint, 400 by the aim. The camera's rise as
+   the arm carries it is not counted: at 0.24 m of arm and 160 counts a
+   second it is under a pixel a frame at 1 m and 1024 across. The 0.3 s wait
+   after a move, the 160 ms freshness and the 2 s bound are as above. Off,
+   the head settles as described above and the arm is not read.
 2. The still is the first frame after that. It is passed as it is when it is
    a whole JPEG of at most 64 KiB and 1024 across; otherwise it is decoded,
    shrunk to 1024 across by averaging, and encoded (`jpeg-encoder`, pure

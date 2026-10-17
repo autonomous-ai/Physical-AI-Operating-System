@@ -6,8 +6,8 @@ use lamp_setup::{
     http::{Shared, router},
     scan,
     serve::{
-        Accepted, Backend, Config, Files, Phase, Save, SetupRequest, Status, check, run, start,
-        start_unless_stopped, zone_env, zone_known,
+        Accepted, Backend, Config, Files, Phase, Save, SetupRequest, Status, backend_link, check,
+        run, start, start_unless_stopped, zone_env, zone_known,
     },
     wifi::Host,
 };
@@ -1027,6 +1027,8 @@ fn a_broken_or_partial_link_is_none_and_never_fails_setup() {
         ("mqtt_endpoint", json!("broker example")),
         ("mqtt_username", json!("x".repeat(513))),
         ("mqtt_password", json!("line\nbreak")),
+        // `lamp-cloud` is the lamp in the app by its id (Third on #1401).
+        ("device_id", json!("")),
     ] {
         let mut body = app_body();
         body[field] = value;
@@ -1099,5 +1101,47 @@ fn the_products_reset_wipes_the_link_where_the_product_writes_it() {
             .iter()
             .any(|path| path == "/etc/lampOS/setup/backend.json"),
         "the 5 s reset removes the backend's credentials with the person's data"
+    );
+}
+
+#[test]
+fn a_named_but_broken_link_names_its_fields_and_never_their_values() {
+    let mut body = app_body();
+    body["mqtt_port"] = json!("abc");
+    body["fd_channel"] = json!("");
+    body["mqtt_password"] = json!("bad\u{7}pass");
+    let fields = backend_link(&request(body)).unwrap_err();
+    assert_eq!(fields, ["fd_channel", "mqtt_password", "mqtt_port"]);
+    // No endpoint is no link at all, as from V1's page: nothing to name.
+    assert!(backend_link(&request(good())).unwrap_err().is_empty());
+}
+
+#[test]
+fn a_link_that_cannot_be_written_never_fails_setup() {
+    let status = Arc::new(Mutex::new(Status::new("lamp-4ace".into())));
+    let mut saved = Saved {
+        fail_on: Some("backend"),
+        ..Saved::default()
+    };
+    let accepted = check(&request(app_body()), &Root::new().config(false)).unwrap();
+    run(
+        &status,
+        &accepted,
+        "VN",
+        &mut Lamp::new(true),
+        &mut saved,
+        || Some("192.168.1.23".into()),
+    );
+    let status = status.lock().unwrap().clone();
+    assert_eq!(status.phase, Phase::Connected);
+    assert!(status.set_up_completed);
+    assert_eq!(
+        saved.calls,
+        [
+            "name=Lan",
+            "timezone=Asia/Ho_Chi_Minh",
+            "credential=AIza-key_1",
+            "marker="
+        ]
     );
 }

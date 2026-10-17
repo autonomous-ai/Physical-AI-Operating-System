@@ -1,16 +1,16 @@
 //! The lamp's small expressive body: one process that owns the servo port
 //! and moves the head a few degrees for what the lamp is doing.
 
-use lamp_body::calibration::UnitId;
+use lamp_body::{calibration::UnitId, moves::Asker};
 use std::{ffi::OsString, path::PathBuf};
 
-const USAGE: &str = "lamp-body --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --mood-socket ABSOLUTE_PATH [--home PITCH,ROLL,YAW] [--reach UP,DOWN,ROLL,YAW] [--speed COUNTS_PER_SECOND] [--servo-speed N] [--servo-acceleration N] [--stand PITCH,ROLL,YAW,SHOULDER,ELBOW --folded-arm SHOULDER,ELBOW [--stand-share PERCENT] [--stand-seconds N] [--awake-seconds N] [--arm-load SHOULDER,ELBOW] [--idle on|off]] [--gaze-socket ABSOLUTE_PATH --gaze YAW,PITCH [--gaze-reach YAW,PITCH]] [--stand-roll COUNTS] [--force-limit N] [--torque on|off] [--wake on|off] [--give-way return|stay|off] [--limp on|off] [--overload release] [--rest-glance on|off] [--pitch-window LOW,HIGH] [--look-at-name on|off] [--moves ABSOLUTE_DIR]\n\nOwns the servo port and moves head pitch, head roll and base yaw a few degrees around\na home pose (the one given, in encoder counts, or else where they are found), for the mood\nit is told on the socket. Without --stand it never touches the shoulder or the elbow, and\nwithout --stand or --torque on it writes torque only off, on all five, as a run ends on a surprise\nor a start is refused for heat or load. With --stand (which needs --home and --folded-arm) it also raises the shoulder and\nthe elbow to that pose when a mood other than rest arrives, folds them down again\n--awake-seconds after the last one, and writes torque once to a shoulder or elbow found\nwith an old overload latched. With --gaze-socket and --gaze it takes where a face is from\nlamp-eyes on that socket ({\"face\":{...}} or {\"face\":null}) and, while the lamp listens\nor speaks, turns the head to it in small corrections: --gaze is the counts of base yaw and of\nhead pitch, signed, that bring a face from the right and from the bottom edge of the picture\nto its middle. Refuses to start unless the three joints have torque on, a clear\nstatus and the head is inside its start window; one found as hot or as loaded as a run stops\nat is refused with torque off on all five, so that nothing pushes on until the next start. With --torque on it first takes hold of a\njoint found without torque (the three always, the shoulder and the elbow with --stand):\nits goal is written as where it is, then torque on, and if it then moves more than 12 counts\nit does not start. With --wake on and --home, a joint found outside where it may start\n(the head out of its start window, or a joint farther from home than it may be found) but within\n400 counts of home is not refused: before anything else it is brought home slowly, a small stir,\na pause, then an eased rise at 20 counts a second at most, never away from home, the head\nfirst and the base once the head is up; an arm found off\nits way is not lowered, and the lamp runs folded. By default --give-way return and --limp on
+const USAGE: &str = "lamp-body --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --mood-socket ABSOLUTE_PATH [--home PITCH,ROLL,YAW] [--reach UP,DOWN,ROLL,YAW] [--speed COUNTS_PER_SECOND] [--servo-speed N] [--servo-acceleration N] [--stand PITCH,ROLL,YAW,SHOULDER,ELBOW --folded-arm SHOULDER,ELBOW [--stand-share PERCENT] [--stand-seconds N] [--awake-seconds N] [--arm-load SHOULDER,ELBOW] [--idle on|off]] [--gaze-socket ABSOLUTE_PATH --gaze YAW,PITCH [--gaze-reach YAW,PITCH]] [--stand-roll COUNTS] [--force-limit N] [--torque on|off] [--wake on|off] [--give-way return|stay|off] [--limp on|off] [--overload release] [--rest-glance on|off] [--pitch-window LOW,HIGH] [--look-at-name on|off] [--moves ABSOLUTE_DIR] [--arbitration on|off]\n\nOwns the servo port and moves head pitch, head roll and base yaw a few degrees around\na home pose (the one given, in encoder counts, or else where they are found), for the mood\nit is told on the socket. Without --stand it never touches the shoulder or the elbow, and\nwithout --stand or --torque on it writes torque only off, on all five, as a run ends on a surprise\nor a start is refused for heat or load. With --stand (which needs --home and --folded-arm) it also raises the shoulder and\nthe elbow to that pose when a mood other than rest arrives, folds them down again\n--awake-seconds after the last one, and writes torque once to a shoulder or elbow found\nwith an old overload latched. With --gaze-socket and --gaze it takes where a face is from\nlamp-eyes on that socket ({\"face\":{...}} or {\"face\":null}) and, while the lamp listens\nor speaks, turns the head to it in small corrections: --gaze is the counts of base yaw and of\nhead pitch, signed, that bring a face from the right and from the bottom edge of the picture\nto its middle. Refuses to start unless the three joints have torque on, a clear\nstatus and the head is inside its start window; one found as hot or as loaded as a run stops\nat is refused with torque off on all five, so that nothing pushes on until the next start. With --torque on it first takes hold of a\njoint found without torque (the three always, the shoulder and the elbow with --stand):\nits goal is written as where it is, then torque on, and if it then moves more than 12 counts\nit does not start. With --wake on and --home, a joint found outside where it may start\n(the head out of its start window, or a joint farther from home than it may be found) but within\n400 counts of home is not refused: before anything else it is brought home slowly, a small stir,\na pause, then an eased rise at 20 counts a second at most, never away from home, the head\nfirst and the base once the head is up; an arm found off\nits way is not lowered, and the lamp runs folded. By default --give-way return and --limp on
 (--give-way off is the body as it was before them, and --limp off keeps giving way without the
 slump). With --give-way, a joint that pushes at its goal without moving for\n1.5 s is told to stop (its goal becomes where it is; torque is never written off); with\n--give-way stay, a head or base joint that gave way and is moved more than 15 counts by\na hand for over a second stays where it was put. With --limp on as well, as the old runtime
 did, a head or base joint that a hand stops and still pushes a second later makes the lamp
 slump (torque off on all five, held again 5 s later where it lies; after an overload, 120 s);
 a hand never ends the run, and a head roll or base found beyond 400 counts of home at start is
-taken hold of where it lies. With --overload release, any joint that\nreads a load of 800 of 1000 (80% of --force-limit for a joint held to one) for 1.5 s has\ntorque switched off on all five, so the lamp slumps; 120 s later each is held where it is\n(its goal, then torque on) and the head is brought home as --wake does, while the arm\nwaits where it slumped until the lamp is next asked to stand; a second time within ten\nminutes ends the run with torque off. With --rest-glance on, a lamp at rest takes what\nExpression asks of the head (50 counts of pitch, 25 of roll at most, never the base or the arm)\nand comes back to rest when it runs out. --pitch-window is this lamp's own window for the\nhead's pitch while it is beside the base (by default lamp-4ace's, 1740,2030): never under\nthe head's floor (1670), around --home's pitch, and inside the servo's own limits or it does\nnot start. With --look-at-name on, the lamp's name heard on the bus\n(name/heard) while it does not speak is taken as being spoken to for two seconds: it rises,\nlooks up and turns to a face at once; with nobody in view it glances a little to one side and\nthe other once it stands, and lets it go. At most once in ten seconds. Stops at the first surprise, holding\nwhere it is, then, as the old runtime did, lets go: torque off on all five. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nA lamp standing at its full height also makes a gesture asked for there: {\"gesture\":\"nod\"}\n(nod, headshake, greeting, laugh, shy, stretching); a folded one with --stand stands up for it\nfirst, unless paused, held by a hand or slumped, and the journal says why each was taken or dropped. With --moves, the moves in that folder\n(NAME.json, docs/body.md) are read at start and asked for by name the same way; one this body\ncannot play is refused with why, and a folder that cannot be read leaves the body's own.\nA skill sends its own move whole, {\"move\":{\"name\":...,\"step_ms\":...,\"frames\":[...]}}, held to the same\nbounds and played the same way; one it cannot play is dropped with why.\nPrints one JSON report when it ends.\n";
+taken hold of where it lies. With --overload release, any joint that\nreads a load of 800 of 1000 (80% of --force-limit for a joint held to one) for 1.5 s has\ntorque switched off on all five, so the lamp slumps; 120 s later each is held where it is\n(its goal, then torque on) and the head is brought home as --wake does, while the arm\nwaits where it slumped until the lamp is next asked to stand; a second time within ten\nminutes ends the run with torque off. With --rest-glance on, a lamp at rest takes what\nExpression asks of the head (50 counts of pitch, 25 of roll at most, never the base or the arm)\nand comes back to rest when it runs out. --pitch-window is this lamp's own window for the\nhead's pitch while it is beside the base (by default lamp-4ace's, 1740,2030): never under\nthe head's floor (1670), around --home's pitch, and inside the servo's own limits or it does\nnot start. With --look-at-name on, the lamp's name heard on the bus\n(name/heard) while it does not speak is taken as being spoken to for two seconds: it rises,\nlooks up and turns to a face at once; with nobody in view it glances a little to one side and\nthe other once it stands, and lets it go. At most once in ten seconds. Stops at the first surprise, holding\nwhere it is, then, as the old runtime did, lets go: torque off on all five. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nA lamp standing at its full height also makes a gesture asked for there: {\"gesture\":\"nod\"}\n(nod, headshake, greeting, laugh, shy, stretching); a folded one with --stand stands up for it\nfirst, unless paused, held by a hand or slumped, and the journal says why each was taken or dropped. With --moves, the moves in that folder\n(NAME.json, docs/body.md) are read at start and asked for by name the same way; one this body\ncannot play is refused with why, and a folder that cannot be read leaves the body's own.\nA skill sends its own move whole, {\"move\":{\"name\":...,\"step_ms\":...,\"frames\":[...]}}, held to the same\nbounds and played the same way; one it cannot play is dropped with why.\nWith --arbitration on (off unless given), a gesture or a move may also say who asks,\n\"source\" (free text) and \"priority\" (person, safety, conversation, skill or idle;\nconversation without one). One asked while another plays ends it if asked higher, easing\nout as a dropped gesture does, and is dropped otherwise (\"dropped: busy, conversation\");\na hand on the lamp drops any (\"dropped: held by a hand\"). Off, a datagram that says\neither is not read, as before.\nPrints one JSON report when it ends.\n";
 
 #[derive(Debug)]
 struct Arguments {
@@ -36,6 +36,7 @@ struct Arguments {
     pitch_window: Option<(u16, u16)>,
     look_at_name: bool,
     moves: Option<PathBuf>,
+    arbitration: bool,
 }
 
 /// What `--give-way` said; the body's own type is built for Linux only.
@@ -113,6 +114,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
     let mut pitch_window = None;
     let mut look_at_name = None;
     let mut moves = None;
+    let mut arbitration = None;
     while let Some(key) = args.next() {
         if key == "--help" {
             if device.is_some()
@@ -145,6 +147,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
                 || pitch_window.is_some()
                 || look_at_name.is_some()
                 || moves.is_some()
+                || arbitration.is_some()
                 || args.next().is_some()
             {
                 return Err("--help must be used alone");
@@ -332,6 +335,13 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
                 });
             }
             Some("--moves") if moves.is_none() => moves = Some(PathBuf::from(value)),
+            Some("--arbitration") if arbitration.is_none() => {
+                arbitration = Some(match value.to_str() {
+                    Some("on") => true,
+                    Some("off") => false,
+                    _ => return Err("--arbitration is on or off"),
+                });
+            }
             Some("--look-at-name") if look_at_name.is_none() => {
                 look_at_name = Some(match value.to_str() {
                     Some("on") => true,
@@ -446,6 +456,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
         pitch_window,
         look_at_name: look_at_name.unwrap_or(true),
         moves,
+        arbitration: arbitration.unwrap_or(false),
     };
     if result.limp && result.give_way.is_none() {
         return Err("--limp on needs --give-way return or stay");
@@ -514,18 +525,36 @@ fn of_this_step(
 /// A gesture asked for by the voice service: `{"gesture":"nod"}` and nothing
 /// else in it, naming a clip this body has, its own or a move read from
 /// `--moves`.
-#[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
+#[cfg(test)]
 fn gesture_of(
     datagram: &[u8],
     moves: &lamp_body::moves::Loaded,
 ) -> Option<&'static lamp_body::clips::Clip> {
+    gesture_asked(datagram, moves)
+        .filter(|(_, asker)| asker.is_none())
+        .map(|(clip, _)| clip)
+}
+
+/// The same, with who asks for it (`source`, `priority`) when it says.
+#[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
+fn gesture_asked(
+    datagram: &[u8],
+    moves: &lamp_body::moves::Loaded,
+) -> Option<(&'static lamp_body::clips::Clip, Asker)> {
     #[derive(serde::Deserialize)]
     #[serde(deny_unknown_fields)]
     struct Message<'a> {
         gesture: &'a str,
+        source: Option<String>,
+        priority: Option<lamp_body::moves::Priority>,
     }
     let message: Message = serde_json::from_slice(datagram).ok()?;
-    lamp_body::clips::named(message.gesture).or_else(|| moves.named(message.gesture))
+    let clip = lamp_body::clips::named(message.gesture).or_else(|| moves.named(message.gesture))?;
+    let asker = Asker {
+        source: message.source,
+        priority: message.priority,
+    };
+    Some((clip, asker))
 }
 
 /// What one datagram on the mood socket asks.
@@ -541,27 +570,57 @@ enum Heard {
 
 /// A gesture by name first, then a move sent whole, then a mood.
 #[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
+#[cfg(test)]
 fn heard(
     datagram: &[u8],
     moves: &lamp_body::moves::Loaded,
     sent: &mut lamp_body::moves::Sent,
 ) -> Heard {
+    heard_asked(datagram, moves, sent, false).0
+}
+
+/// The same, and who asked for a gesture or a move. Only under
+/// `--arbitration on` may a datagram say so; off, one that does is not
+/// read, as before.
+#[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
+fn heard_asked(
+    datagram: &[u8],
+    moves: &lamp_body::moves::Loaded,
+    sent: &mut lamp_body::moves::Sent,
+    arbitration: bool,
+) -> (Heard, Asker) {
     // `recv` cuts a longer datagram to the buffer, which would then not parse.
     if datagram.len() >= lamp_body::moves::MOST_DATAGRAM {
-        return Heard::Dropped("a datagram longer than 16 KiB, not read".into());
+        return (
+            Heard::Dropped("a datagram longer than 16 KiB, not read".into()),
+            Asker::default(),
+        );
     }
-    if let Some(clip) = gesture_of(datagram, moves) {
-        return Heard::Gesture(clip);
+    if let Some((clip, asker)) = gesture_asked(datagram, moves)
+        && (arbitration || asker.is_none())
+    {
+        return (Heard::Gesture(clip), asker);
     }
-    match sent.take(datagram) {
-        Some(Ok(clip)) => Heard::Gesture(clip),
-        Some(Err(why)) => Heard::Dropped(format!("a move this body cannot play: {why}")),
+    let taken = if arbitration {
+        sent.take_asked(datagram)
+    } else {
+        sent.take(datagram).map(|taken| (taken, Asker::default()))
+    };
+    match taken {
+        Some((Ok(clip), asker)) => (Heard::Gesture(clip), asker),
+        Some((Err(why), _)) => (
+            Heard::Dropped(format!("a move this body cannot play: {why}")),
+            Asker::default(),
+        ),
         None => match mood_of(datagram) {
-            Some((mood, level)) => Heard::Mood(mood, level),
-            None => Heard::Dropped(format!(
-                "not a mood or a gesture this body has: {}",
-                String::from_utf8_lossy(&datagram[..datagram.len().min(200)])
-            )),
+            Some((mood, level)) => (Heard::Mood(mood, level), Asker::default()),
+            None => (
+                Heard::Dropped(format!(
+                    "not a mood or a gesture this body has: {}",
+                    String::from_utf8_lossy(&datagram[..datagram.len().min(200)])
+                )),
+                Asker::default(),
+            ),
         },
     }
 }
@@ -693,6 +752,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         arguments.pitch_window,
         arguments.look_at_name,
         arguments.moves,
+        arguments.arbitration,
     );
     Err("the body requires Linux; no device was opened".into())
 }
@@ -737,8 +797,11 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
     let restore = SignalMask(old_mask);
     let signal_fd = SignalFd::with_flags(&mask, SfdFlags::SFD_CLOEXEC | SfdFlags::SFD_NONBLOCK)?;
     let mut cancelled = false;
-    // A gesture asked for on the same socket, until the body takes it.
+    // A gesture asked for on the same socket, and at what priority, until
+    // the body takes it; and who asked for the last one, for the journal.
     let gesture_asked = std::cell::Cell::new(None);
+    let asked_by: std::cell::RefCell<Option<(&'static str, String)>> = Default::default();
+    let arbitration = arguments.arbitration;
     // Paused by the keeper (`lamp/pause`): it rests and takes nothing new
     // until resumed. Looked at with the moods, once a step.
     let mut pause = lamp_bus::Bus::from_environment()
@@ -759,12 +822,19 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
             match moods.recv(&mut datagram) {
                 Ok(length) => {
                     let sent = &datagram[..length];
-                    match heard(sent, &moves, &mut moves_sent) {
-                        Heard::Gesture(clip) => gesture_asked.set(Some(clip)),
-                        Heard::Mood(mood, level) => moods_heard.push((mood, level)),
+                    match heard_asked(sent, &moves, &mut moves_sent, arbitration) {
+                        (Heard::Gesture(clip), asker) => {
+                            gesture_asked.set(Some((clip, asker.priority())));
+                            // ponytail: only the last asker is kept; a fate
+                            // said after another ask names no source.
+                            *asked_by.borrow_mut() = asker.source.map(|source| {
+                                (clip.name, source.chars().take(64).collect::<String>())
+                            });
+                        }
+                        (Heard::Mood(mood, level), _) => moods_heard.push((mood, level)),
                         // An unknown gesture, most often: said, as the
                         // body says what it does with every gesture.
-                        Heard::Dropped(why) => {
+                        (Heard::Dropped(why), _) => {
                             let line = format!("lamp-body: dropped from the mood socket, {why}");
                             if let Some(line) = unknown_said.due(line, std::time::Instant::now()) {
                                 eprintln!("{line}");
@@ -815,6 +885,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         rest_glance: arguments.rest_glance,
         pitch_window: arguments.pitch_window.unwrap_or(folded.pitch_window),
         look_at_name: arguments.look_at_name,
+        arbitration: arguments.arbitration,
         ..limits
     };
     // One line to the journal on each change of mood, and twice a second
@@ -927,9 +998,16 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         }
         tipping_said = tipping;
         // Each gesture asked from outside, taken or dropped, and why.
+        // Under --arbitration on, with who asked for it when it said.
+        let source = |name: &str| match &*asked_by.borrow() {
+            Some((asked, source)) if *asked == name => format!(" (asked by {source})"),
+            _ => String::new(),
+        };
         if let Some((name, why)) = glimpse.gesture_fate
-            && let Some(line) =
-                fate_said.due(format!("gesture {name} {why}"), std::time::Instant::now())
+            && let Some(line) = fate_said.due(
+                format!("gesture {name} {why}{}", source(name)),
+                std::time::Instant::now(),
+            )
         {
             eprintln!("lamp-body: step {} {line}", glimpse.step);
         }
@@ -1092,9 +1170,14 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         news,
         || {
             let now_us = lamp_ipc::monotonic_us();
+            let (gesture, priority) = gesture_asked
+                .take()
+                .map_or((None, Default::default()), |(clip, priority)| {
+                    (Some(clip), priority)
+                });
             let asked = lamp_body::body::Asked {
                 seen: eyes(),
-                gesture: gesture_asked.take(),
+                gesture,
                 expression: expression
                     .as_mut()
                     .and_then(|asked| asked.offsets(now_us, |why| eprintln!("lamp-body: {why}"))),
@@ -1107,14 +1190,15 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
             // Read all the same, so that nothing kept from before the pause
             // is acted on after it.
             // A gesture is passed on to be dropped and said.
-            if paused.get() {
+            let asked = if paused.get() {
                 lamp_body::body::Asked {
                     gesture: asked.gesture,
                     ..lamp_body::body::Asked::PAUSED
                 }
             } else {
                 asked
-            }
+            };
+            (asked, priority)
         },
         watch,
         || {
@@ -1625,6 +1709,28 @@ mod tests {
         }
     }
 
+    /// Arbitration (#940) is on or off, and off unless given.
+    #[test]
+    fn arbitration_is_on_or_off_and_off_unless_given() {
+        let with = |more: &[&'static str]| parse(args(&[&FULL[..], more].concat()));
+        assert!(!with(&[]).unwrap().unwrap().arbitration);
+        assert!(with(&["--arbitration", "on"]).unwrap().unwrap().arbitration);
+        assert!(
+            !with(&["--arbitration", "off"])
+                .unwrap()
+                .unwrap()
+                .arbitration
+        );
+        for refused in [
+            &["--arbitration", "ON"][..],
+            &["--arbitration"],
+            &["--arbitration", "on", "--arbitration", "on"],
+            &["--arbitration", "on", "--help"],
+        ] {
+            assert!(with(refused).is_err(), "{refused:?}");
+        }
+    }
+
     #[test]
     fn eyes_are_a_socket_and_what_the_picture_is_worth_or_nothing() {
         let with = |more: &[&'static str]| parse(args(&[&FULL[..], more].concat()));
@@ -1764,6 +1870,57 @@ mod tests {
             heard(&long),
             Heard::Dropped("a datagram longer than 16 KiB, not read".into())
         );
+    }
+
+    /// Under --arbitration on, a gesture or a move may say who asks, and a
+    /// priority that is not one of the five refuses it, as does any other
+    /// field. Off, one that says either is not read, as before.
+    #[test]
+    fn who_asks_is_read_only_with_arbitration_and_an_unknown_priority_is_refused() {
+        use lamp_body::moves::{Asker, Priority};
+        let moves = lamp_body::moves::Loaded::default();
+        let mut sent = lamp_body::moves::Sent::default();
+        let mut heard =
+            |datagram: &str, on: bool| heard_asked(datagram.as_bytes(), &moves, &mut sent, on);
+        let skill = Asker {
+            source: Some("skill:dance".into()),
+            priority: Some(Priority::Skill),
+        };
+        let asked = r#"{"gesture":"nod","source":"skill:dance","priority":"skill"}"#;
+        assert_eq!(
+            heard(asked, true),
+            (Heard::Gesture(&lamp_body::clips::NOD), skill.clone())
+        );
+        let (said, asker) = heard(r#"{"gesture":"nod"}"#, true);
+        assert_eq!(said, Heard::Gesture(&lamp_body::clips::NOD));
+        assert_eq!(asker.priority(), Priority::Conversation);
+        let frames: Vec<String> = (0..=30)
+            .map(|at| format!("[{},0,0,0,0]", 15 - (at - 15i32).abs()))
+            .collect();
+        let sway = format!(
+            r#"{{"move":{{"name":"sway","step_ms":50,"frames":[{}]}},"source":"skill:dance","priority":"skill"}}"#,
+            frames.join(",")
+        );
+        match heard(&sway, true) {
+            (Heard::Gesture(clip), asker) => assert_eq!((clip.name, asker), ("sway", skill)),
+            other => panic!("{other:?}"),
+        }
+        for refused in [
+            r#"{"gesture":"nod","priority":"boss"}"#,
+            r#"{"gesture":"nod","priority":3}"#,
+            r#"{"gesture":"nod","priority":"skill","volume":3}"#,
+            &sway.replace(r#""skill"}"#, r#""boss"}"#),
+        ] {
+            let (said, _) = heard(refused, true);
+            assert!(
+                matches!(said, Heard::Dropped(ref why) if why.contains("not a mood or a gesture")),
+                "{refused}: {said:?}"
+            );
+        }
+        for not_read in [asked, &sway] {
+            let (said, _) = heard(not_read, false);
+            assert!(matches!(said, Heard::Dropped(_)), "{not_read}: {said:?}");
+        }
     }
 
     /// A line asked again and again is said once in five seconds, then with

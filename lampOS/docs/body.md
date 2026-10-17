@@ -1196,7 +1196,8 @@ What the body does with the request:
   stopping, held by a hand where a joint gave way, or that let go under
   overload or a hand and lies where it slumped (until a mood or somebody
   in front of it stands it up), and one that may not stand. A gesture
-  asked while another plays is dropped too. Paused after a gesture was
+  asked while another plays is dropped too, or, under `--arbitration on`,
+  weighed by who asks ("Who may ask over whom" below). Paused after a gesture was
   taken, the awake window it opened is given back, so the lamp folds as a
   paused body does: before it began, the gesture is dropped (`dropped:
   paused`); once it plays, it ends first and the lamp folds after it.
@@ -1223,6 +1224,9 @@ What the body does with the request:
   lamp-body: step N gesture nod dropped: another was asked after it
   lamp-body: step N gesture nod dropped: stale, it was not standing 3 s after it could have been
   lamp-body: step N gesture nod dropped: a joint could not keep up with it
+  lamp-body: step N gesture stretching dropped: held by a hand (asked by skill:stretch-break)
+  lamp-body: step N gesture stretching dropped: busy, conversation (asked by skill:stretch-break)
+  lamp-body: step N gesture stretching ended: by conversation
   lamp-body: dropped from the mood socket, not a mood or a gesture this body has: {"gesture":"dance"}
   ```
 
@@ -1360,8 +1364,41 @@ skill edited) replaces it. Past 64 names, a move of a new name is dropped
 until the body restarts; past 64 replacements in a run (each replaced move
 stays in memory, as it may still be playing), a changed move is dropped the
 same way, and the kept ones still play.
-How the body weighs a move against Expression and the eyes is the body's
-arbitration (#940), not built yet.
+
+### Who may ask over whom (#940)
+
+With `--arbitration on` (off unless given) a gesture or a move on the mood
+socket may say who asks: `{"gesture":"nod","source":"voice","priority":"conversation"}`,
+or `"source"` and `"priority"` beside `"move"`. `source` is free text for
+the journal (`skill:<name>`, `voice`); `priority` is one of `person`,
+`safety`, `conversation`, `skill` and `idle`, in that order
+([skills.md](skills.md)). With neither, it is `conversation`, as every
+caller was before. Any other priority, or any other field, is not read and
+is dropped as `not a mood or a gesture this body has`.
+
+- Safety wins without asking: the anti-tip rule, the guard on every arm
+  goal (`ARM_GOAL_STEP`) and the stop for a hot or loaded joint act on
+  whatever plays, as before.
+- A person's hand wins next: a gesture asked while a hand holds a joint
+  where it gave way is dropped as `held by a hand`, and one asked of a
+  lamp that slumped is dropped as before.
+- A gesture asked while another plays, at a higher priority than the one
+  playing, ends it (`ended: by conversation`): its offsets ease out at the
+  gesture's own step (at most 24, 34, 26, 21 and 21 counts a step), the
+  arm's through the same guarded write as every arm goal, and the new one
+  begins once they are back at nothing. Asked at the same priority or
+  lower, it is dropped, naming who holds the body (`dropped: busy,
+  conversation`). The body's own turn to a call is the conversation's.
+- The same holds for one waiting for the lamp to stand: a gesture asked
+  lower than the one waiting is dropped; one asked as high or higher takes
+  its place, as before.
+- A shift at rest (`--idle`) never starts while a gesture plays or waits,
+  as before, and any gesture asked ends one.
+
+The journal line says who asked, when the datagram said (`(asked by
+skill:stretch-break)`). Without the switch, a datagram that says `source`
+or `priority` is not read, as before, and a gesture asked while another
+plays is dropped whoever asks.
 
 ## Not tipping over (V1's anti-tip rule)
 
@@ -1459,6 +1496,7 @@ four rows, "Without it" is what `off` leaves.
 | `--gaze-reach Y,P` | the farthest the gaze takes yaw and pitch; the yaw may be wider than `--reach`'s | 250,120 | 500, 200 |
 | `--look-at-name on` (default) | the lamp's name heard on the bus taken as being spoken to for two seconds, and with nobody in view one small glance once it stands (see "Turning to a call") | a call is not taken | on or off |
 | `--idle on` (default) | a standing lamp at rest shifts a little now and then | off | on or off |
+| `--arbitration on` | a gesture or a move may say who asks (`source`, `priority`), and one asked higher ends the one playing (see "Who may ask over whom") | as before: a datagram that says either is not read, and a gesture asked while another plays is dropped | on or off |
 | `--stand-roll N` | the head's tilt reach once the lamp has stood up, where that is more than the roll of `--reach` | no more than folded | 200 |
 | `--pitch-window LOW,HIGH` | the window the head's pitch goal is kept in while the head is beside the base, this lamp's own; checked at start against the head pitch servo's own limits (registers 9 and 11), and the run refused with nothing written if it is not inside them | lamp-4ace's, 1,740 to 2,030, and the servo's limits are not read | LOW at least 1,670 (the head's floor) and under HIGH, and around `--home`'s pitch |
 

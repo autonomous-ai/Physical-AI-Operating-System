@@ -42,6 +42,8 @@ use crate::{
 use serde::Serialize;
 use std::{io, time::Duration};
 
+pub use crate::moves::{Asker, Priority};
+
 /// One step: goals are written and all five joints read this often.
 pub const TICK: Duration = Duration::from_millis(20);
 /// One request and its replies, or the step fails.
@@ -580,6 +582,13 @@ pub struct Limits {
     /// and the other ([`clips::CALLED`]) and lets it go. At most once in
     /// ten seconds. Off: a call is not taken.
     pub look_at_name: bool,
+    /// Who may ask for a gesture over whom (#940): a gesture asked while
+    /// another plays ends it if asked at a higher [`Priority`], easing out
+    /// as a dropped gesture does, and is dropped otherwise, naming who
+    /// holds the body; a hand on it drops any. Off: as before, a gesture
+    /// asked while another plays is dropped, whoever asks.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub arbitration: bool,
     /// A load above this on `load_steps` steps in a row makes the joint give
     /// way, and ends the run if it stays or comes back too often.
     pub load: [u16; 3],
@@ -705,6 +714,7 @@ impl Limits {
         overload_release: false,
         rest_glance: false,
         look_at_name: false,
+        arbitration: false,
     };
 }
 
@@ -2199,7 +2209,7 @@ fn let_go<P: PortIo, R: Runtime>(
     rest: Duration,
     (news, asked): (
         &mut impl FnMut() -> Option<(Mood, u8)>,
-        &mut impl FnMut() -> Asked,
+        &mut impl FnMut() -> (Asked, Priority),
     ),
     watch: &mut impl FnMut(&Glimpse),
     template: Glimpse,
@@ -2213,7 +2223,7 @@ fn let_go<P: PortIo, R: Runtime>(
         if !matches!(bus.runtime.cancelled(), Ok(false)) {
             return Err(Stop::Cancelled);
         }
-        let (_, asked_now) = (news(), asked());
+        let (_, (asked_now, _)) = (news(), asked());
         let failed = torque_off(bus, report, &mut holding);
         report.steps += 1;
         let read = bus.samples();
@@ -2480,6 +2490,7 @@ pub(crate) fn run_looking(
 /// joint held at its goal with torque on keeps pushing and heats). Not when
 /// asked to stop, not on a refusal (one for a hot or loaded joint has let
 /// go already), and not under overload, where torque is already off.
+#[cfg(test)]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn run_alive(
     io: &mut impl PortIo,
@@ -2489,7 +2500,33 @@ pub(crate) fn run_alive(
     standing: Option<Standing>,
     looking: Option<Looking>,
     news: impl FnMut() -> Option<(Mood, u8)>,
-    asked: impl FnMut() -> Asked,
+    mut asked: impl FnMut() -> Asked,
+    watch: impl FnMut(&Glimpse),
+) -> BodyReport {
+    run_arbitrated(
+        io,
+        runtime,
+        limits,
+        home,
+        standing,
+        looking,
+        news,
+        move || (asked(), Priority::Conversation),
+        watch,
+    )
+}
+
+/// The same, with who asked for each gesture (`Limits::arbitration`).
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn run_arbitrated(
+    io: &mut impl PortIo,
+    runtime: &mut impl Runtime,
+    limits: Limits,
+    home: Option<[u16; 3]>,
+    standing: Option<Standing>,
+    looking: Option<Looking>,
+    news: impl FnMut() -> Option<(Mood, u8)>,
+    asked: impl FnMut() -> (Asked, Priority),
     watch: impl FnMut(&Glimpse),
 ) -> BodyReport {
     let mut report = run_until_stopped(
@@ -2513,7 +2550,7 @@ fn run_until_stopped(
     standing: Option<Standing>,
     looking: Option<Looking>,
     news: impl FnMut() -> Option<(Mood, u8)>,
-    asked: impl FnMut() -> Asked,
+    asked: impl FnMut() -> (Asked, Priority),
     watch: impl FnMut(&Glimpse),
 ) -> BodyReport {
     let mut bus = Bus::new(io, runtime, standing);
@@ -2535,7 +2572,7 @@ fn run_on<P: PortIo, R: Runtime>(
     standing: Option<Standing>,
     looking: Option<Looking>,
     mut news: impl FnMut() -> Option<(Mood, u8)>,
-    mut asked: impl FnMut() -> Asked,
+    mut asked: impl FnMut() -> (Asked, Priority),
     mut watch: impl FnMut(&Glimpse),
 ) -> BodyReport {
     let mut standing = standing;
@@ -3180,6 +3217,11 @@ fn run_on<P: PortIo, R: Runtime>(
     // gesture is given.
     let mut playing: Option<(&'static Clip, Duration)> = None;
     let mut pending: Option<(&'static Clip, Duration)> = None;
+    // Under `Limits::arbitration`: who asked for the gesture playing and
+    // the one waiting (the body's own turn to a call is the
+    // conversation's), and whether one ended for another still eases out.
+    let (mut playing_by, mut pending_by) = (Priority::Conversation, Priority::Conversation);
+    let mut yielding = false;
     // The gesture waiting stood a folded lamp up; and what to say of a
     // gesture asked from outside, on the next glimpse.
     let mut pending_woke = false;
@@ -3316,7 +3358,7 @@ fn run_on<P: PortIo, R: Runtime>(
             heard = Some((mood, level, now));
         }
         // What its eyes saw and a gesture asked of it, since the last step.
-        let asked_now = asked();
+        let (asked_now, asked_by) = asked();
         // Somebody in front of it: a face in several looks running.
         match asked_now.seen {
             Some(Seen { face: Some(_) }) if looking.is_some() => {
@@ -3581,17 +3623,47 @@ fn run_on<P: PortIo, R: Runtime>(
             } else if slumped {
                 Some("dropped: it let go and lies where it slumped")
             } else if in_hand_now {
-                Some("dropped: a hand holds it")
+                Some(if limits.arbitration {
+                    "dropped: held by a hand"
+                } else {
+                    "dropped: a hand holds it"
+                })
             } else if standing.is_none() {
                 Some("dropped: it does not stand this run")
             } else if !(playing.is_none() || idling) {
-                Some("dropped: another gesture plays")
+                let by = playing
+                    .filter(|(clip, _)| from_outside(clip))
+                    .map_or(Priority::Conversation, |_| playing_by);
+                if !limits.arbitration {
+                    Some("dropped: another gesture plays")
+                } else if asked_by > by {
+                    None
+                } else {
+                    Some(by.busy())
+                }
+            } else if let Some((old, _)) = pending.filter(|_| limits.arbitration) {
+                let by = if from_outside(old) {
+                    pending_by
+                } else {
+                    Priority::Conversation
+                };
+                (asked_by < by).then(|| by.busy())
             } else {
                 None
             };
             match dropped {
                 Some(why) => gesture_fate = Some((clip.name, why)),
                 None => {
+                    // Asked over a gesture playing: it ends now and eases
+                    // out at the gesture's own step, and this one waits
+                    // until it has.
+                    if let Some((old, _)) = playing.filter(|(old, _)| !idle::is_move(old)) {
+                        if from_outside(old) {
+                            gesture_fate = Some((old.name, asked_by.ended()));
+                        }
+                        playing = None;
+                        yielding = true;
+                    }
                     if let Some((old, _)) = pending.filter(|(old, _)| from_outside(old)) {
                         gesture_fate = Some((old.name, "dropped: another was asked after it"));
                     }
@@ -3610,6 +3682,7 @@ fn run_on<P: PortIo, R: Runtime>(
                     let begins = (now + Duration::from_secs_f32(rising))
                         .max(earlier.map_or(now, |(_, since)| since));
                     pending = Some((clip, begins));
+                    pending_by = asked_by;
                     // It stays up for the whole of it: a window that ran
                     // out mid-clip, or `--awake-seconds` shorter than the
                     // rise, would fold it under the gesture.
@@ -3629,8 +3702,9 @@ fn run_on<P: PortIo, R: Runtime>(
         }
         let mut began_woke = None;
         if let Some((clip, since)) = pending {
-            if upright {
+            if upright && !yielding {
                 playing = Some((clip, now));
+                playing_by = pending_by;
                 pending = None;
                 report.gestures += 1;
                 began_woke = Some(pending_woke);
@@ -3705,6 +3779,7 @@ fn run_on<P: PortIo, R: Runtime>(
             *now_at += (wanted - *now_at).clamp(-GESTURE_STEP[index], GESTURE_STEP[index]);
         }
         let gesturing = playing.is_some() || gesture_now != [0.0; 5];
+        yielding &= gesturing;
         // A glance is a quick move of the head, and is judged as a gesture
         // is: a head that lags or strains lets the move go, not the run.
         gesture_cooling = if gesturing || glance_from.is_some() {

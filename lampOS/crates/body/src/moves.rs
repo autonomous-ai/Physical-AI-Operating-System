@@ -76,6 +76,85 @@ pub struct Move {
     pub frames: Vec<[i16; 5]>,
 }
 
+/// Who asks for a gesture on the mood socket, under `lamp-body --arbitration on`
+/// (#940, `docs/skills.md`): a person, over safety, over the conversation,
+/// over a skill, over idle life. A gesture asked without one is the
+/// conversation's, as every caller was before.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Priority {
+    Idle,
+    Skill,
+    #[default]
+    Conversation,
+    Safety,
+    Person,
+}
+
+impl Priority {
+    /// Why a gesture asked while one of this priority holds the body is
+    /// dropped, naming who holds it.
+    pub fn busy(self) -> &'static str {
+        match self {
+            Self::Idle => "dropped: busy, idle",
+            Self::Skill => "dropped: busy, skill",
+            Self::Conversation => "dropped: busy, conversation",
+            Self::Safety => "dropped: busy, safety",
+            Self::Person => "dropped: busy, person",
+        }
+    }
+
+    /// Why a gesture playing was ended for one asked at this priority.
+    pub fn ended(self) -> &'static str {
+        match self {
+            Self::Idle => "ended: by idle",
+            Self::Skill => "ended: by skill",
+            Self::Conversation => "ended: by conversation",
+            Self::Safety => "ended: by safety",
+            Self::Person => "ended: by person",
+        }
+    }
+}
+
+/// Who asked for a gesture or a move on the mood socket, as its datagram
+/// says, under `lamp-body --arbitration on`: neither, for every caller
+/// before #940.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Asker {
+    /// Free text naming the asker, for the journal (`skill:dance`, `voice`).
+    pub source: Option<String>,
+    pub priority: Option<Priority>,
+}
+
+impl Asker {
+    pub fn is_none(&self) -> bool {
+        self.source.is_none() && self.priority.is_none()
+    }
+
+    pub fn priority(&self) -> Priority {
+        self.priority.unwrap_or_default()
+    }
+}
+
+/// A `{"move":{...}}` datagram's move and who asks for it; `None` for a
+/// datagram that is not a move, or says anything else.
+fn asked(datagram: &[u8]) -> Option<(serde_json::Value, Asker)> {
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Message {
+        #[serde(rename = "move")]
+        sent: serde_json::Value,
+        source: Option<String>,
+        priority: Option<Priority>,
+    }
+    let message: Message = serde_json::from_slice(datagram).ok()?;
+    let asker = Asker {
+        source: message.source,
+        priority: message.priority,
+    };
+    Some((message.sent, asker))
+}
+
 /// At most this many times a run a sent move takes the place of one of the
 /// same name; past it, a changed move is refused until the body restarts.
 pub const MOST_REPLACED: usize = 64;
@@ -105,14 +184,18 @@ impl Sent {
     /// The clip of a `{"move":{...}}` datagram, or why the body cannot play
     /// it; `None` for a datagram that is not a move.
     pub fn take(&mut self, datagram: &[u8]) -> Option<Result<&'static Clip, String>> {
-        #[derive(Deserialize)]
-        #[serde(deny_unknown_fields)]
-        struct Message {
-            #[serde(rename = "move")]
-            sent: serde_json::Value,
-        }
-        let message: Message = serde_json::from_slice(datagram).ok()?;
-        Some(self.keep(message.sent))
+        let (sent, asker) = asked(datagram)?;
+        asker.is_none().then(|| self.keep(sent))
+    }
+
+    /// The same, for a datagram that may also say who asks (`source`,
+    /// `priority`), under `lamp-body --arbitration on` (#940).
+    pub fn take_asked(
+        &mut self,
+        datagram: &[u8],
+    ) -> Option<(Result<&'static Clip, String>, Asker)> {
+        let (sent, asker) = asked(datagram)?;
+        Some((self.keep(sent), asker))
     }
 
     fn keep(&mut self, sent: serde_json::Value) -> Result<&'static Clip, String> {

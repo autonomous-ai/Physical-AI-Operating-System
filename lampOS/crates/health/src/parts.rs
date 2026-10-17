@@ -201,39 +201,78 @@ pub fn mark_off(health: &mut Health, off: &[(String, String)]) {
 /// The name the self-test's newest run has among the lamp's parts.
 pub const SELFTEST: &str = "selftest";
 
-/// The self-test's newest run (`lamp/selftest`) as one item of the lamp's
-/// health (#812: a lamp says a part has failed before its person finds
-/// out). A part that failed makes it `error`, naming each such part and
-/// why; a run with none is `ok`, saying how many parts it could not check.
-/// Its age is since the run began (`now_unix_s`, the wall clock's seconds),
-/// and it is never stale: a run is rare and holds until the next.
-pub fn selftest_item(test: &SelfTest, now_unix_s: f64) -> HealthItem {
-    let failed: Vec<String> = test
-        .parts
-        .iter()
-        .filter(|part| part.verdict == Verdict::Fail)
-        .map(|part| format!("{} ({})", part.part, part.reason))
-        .collect();
-    let unchecked = test
-        .parts
-        .iter()
-        .filter(|part| part.verdict == Verdict::NotChecked)
-        .count();
-    let (level, message) = if failed.is_empty() {
-        let message = match unchecked {
-            0 => "passed".to_owned(),
-            n => format!("passed; {n} not checked"),
+/// The self-test's runs as they came (`lamp/selftest`), as one item of the
+/// lamp's health (#812: a lamp says a part has failed before its person
+/// finds out). Each part keeps its last *checked* verdict: a part that
+/// failed stays failed until a later run checks it again and it passes, or
+/// is not fitted. A run that could not check it (`not_checked`, or not in
+/// the run at all: a passive run checks no speaker, ring colours or head
+/// move) leaves its fail standing (the reviewer on #1243). Kept in memory
+/// only: `lamp/selftest` is on the bus's tmpfs, so a reboot forgets both.
+#[derive(Debug, Default)]
+pub struct SelfTests {
+    /// When the newest run began (the wall clock's seconds), and how many
+    /// of its parts it could not check.
+    newest: Option<(f64, usize)>,
+    /// The parts whose last checked verdict was a fail, and why, in the
+    /// order they first failed.
+    failed: Vec<(String, String)>,
+}
+
+impl SelfTests {
+    /// Take a whole run (one that passed `SelfTest::check`).
+    pub fn take(&mut self, test: &SelfTest) {
+        for part in &test.parts {
+            match part.verdict {
+                Verdict::Fail => {
+                    if let Some(kept) = self.failed.iter_mut().find(|(name, _)| *name == part.part)
+                    {
+                        kept.1.clone_from(&part.reason);
+                    } else if self.failed.len() < MOST_PARTS {
+                        self.failed.push((part.part.clone(), part.reason.clone()));
+                    }
+                }
+                Verdict::Pass | Verdict::NotFitted => {
+                    self.failed.retain(|(name, _)| *name != part.part);
+                }
+                Verdict::NotChecked => {}
+            }
+        }
+        let unchecked = test
+            .parts
+            .iter()
+            .filter(|part| part.verdict == Verdict::NotChecked)
+            .count();
+        self.newest = Some((test.started, unchecked));
+    }
+
+    /// The item, once a run has come: `error` naming each part still
+    /// failed and why; else `ok`, saying how many parts the newest run
+    /// could not check. Its age is since the newest run began
+    /// (`now_unix_s`, the wall clock's seconds); it is never stale.
+    pub fn item(&self, now_unix_s: f64) -> Option<HealthItem> {
+        let (started, unchecked) = self.newest?;
+        let (level, message) = if self.failed.is_empty() {
+            let message = match unchecked {
+                0 => "passed".to_owned(),
+                n => format!("passed; {n} not checked"),
+            };
+            (Level::Ok, message)
+        } else {
+            let failed: Vec<String> = self
+                .failed
+                .iter()
+                .map(|(part, reason)| format!("{part} ({reason})"))
+                .collect();
+            (Level::Error, format!("failed: {}", failed.join(", ")))
         };
-        (Level::Ok, message)
-    } else {
-        (Level::Error, format!("failed: {}", failed.join(", ")))
-    };
-    let age_s = (now_unix_s - test.started).max(0.0);
-    HealthItem {
-        name: SELFTEST.to_owned(),
-        level,
-        message: one_line(&message),
-        age_ms: (age_s * 1_000.0).min(u64::MAX as f64) as u64,
+        let age_s = (now_unix_s - started).max(0.0);
+        Some(HealthItem {
+            name: SELFTEST.to_owned(),
+            level,
+            message: one_line(&message),
+            age_ms: (age_s * 1_000.0).min(u64::MAX as f64) as u64,
+        })
     }
 }
 
@@ -412,9 +451,6 @@ mod tests {
             .collect()
     }
 
-    /// #811: a part that runs only where its file is (tasks needs Harness)
-    /// is listed as off while the file is missing: ok, never missing, and the
-    /// lamp's health stays ok.
     fn run(parts: &[(&str, Verdict, &str)], started: f64) -> SelfTest {
         let parts: Vec<lamp_msgs::PartResult> = parts
             .iter()
@@ -435,19 +471,22 @@ mod tests {
         }
     }
 
-    /// #812: a run's item names each part that failed and why, says how
-    /// many it could not check when none failed, and is as old as the run.
+    /// #812: the item names each part that failed and why, says how many
+    /// the newest run could not check when none failed, and is as old as
+    /// the newest run; there is none before a run came.
     #[test]
     fn the_selftests_item_names_what_failed_and_is_as_old_as_its_run() {
-        let failed = run(
+        let mut tests = SelfTests::default();
+        assert_eq!(tests.item(0.0), None);
+        tests.take(&run(
             &[
                 ("ring", Verdict::Fail, "red did not light"),
                 ("air", Verdict::NotFitted, "no sensor"),
                 ("storage", Verdict::Fail, "9 re-tunes timed out"),
             ],
             1_000.0,
-        );
-        let item = selftest_item(&failed, 1_090.5);
+        ));
+        let item = tests.item(1_090.5).unwrap();
         assert_eq!(item.name, SELFTEST);
         assert_eq!(item.level, Level::Error);
         assert_eq!(
@@ -455,23 +494,71 @@ mod tests {
             "failed: ring (red did not light), storage (9 re-tunes timed out)"
         );
         assert_eq!(item.age_ms, 90_500);
-        let passed = run(
+        let mut tests = SelfTests::default();
+        tests.take(&run(
             &[
                 ("ring", Verdict::Pass, ""),
                 ("touch", Verdict::NotChecked, "nobody there"),
                 ("air", Verdict::NotFitted, "no sensor"),
             ],
             1_000.0,
-        );
-        let item = selftest_item(&passed, 1_000.0);
+        ));
+        let item = tests.item(1_000.0).unwrap();
         assert_eq!(
             (item.level, item.message.as_str()),
             (Level::Ok, "passed; 1 not checked")
         );
-        let all = run(&[("ring", Verdict::Pass, "")], 1_000.0);
-        assert_eq!(selftest_item(&all, 999.0).message, "passed");
+        let mut tests = SelfTests::default();
+        tests.take(&run(&[("ring", Verdict::Pass, "")], 1_000.0));
+        assert_eq!(tests.item(999.0).unwrap().message, "passed");
         // A clock behind the run's start is no negative age.
-        assert_eq!(selftest_item(&all, 999.0).age_ms, 0);
+        assert_eq!(tests.item(999.0).unwrap().age_ms, 0);
+    }
+
+    /// The reviewer on #1243: a part that failed stays failed until a later
+    /// run checks it. A run that could not check it (`not_checked`, or
+    /// without it: a passive run checks no ring colours) leaves the fail;
+    /// a run where it passes, or is not fitted, clears it. Its reason is the
+    /// newest fail's.
+    #[test]
+    fn a_failed_part_stays_failed_until_a_later_run_checks_it() {
+        let mut tests = SelfTests::default();
+        tests.take(&run(
+            &[
+                ("storage", Verdict::Fail, "9 re-tunes timed out"),
+                ("ring", Verdict::Fail, "red did not light"),
+            ],
+            0.0,
+        ));
+        tests.take(&run(
+            &[("storage", Verdict::NotChecked, "no CAP_SYSLOG")],
+            100.0,
+        ));
+        let item = tests.item(100.0).unwrap();
+        assert_eq!(
+            (item.level, item.message.as_str()),
+            (
+                Level::Error,
+                "failed: storage (9 re-tunes timed out), ring (red did not light)"
+            )
+        );
+        tests.take(&run(
+            &[("storage", Verdict::Fail, "11 re-tunes timed out")],
+            200.0,
+        ));
+        assert_eq!(
+            tests.item(200.0).unwrap().message,
+            "failed: storage (11 re-tunes timed out), ring (red did not light)"
+        );
+        tests.take(&run(
+            &[
+                ("storage", Verdict::Pass, ""),
+                ("ring", Verdict::NotFitted, "none"),
+            ],
+            300.0,
+        ));
+        let item = tests.item(300.0).unwrap();
+        assert_eq!((item.level, item.message.as_str()), (Level::Ok, "passed"));
     }
 
     /// A failed run makes a well lamp `error`, with the item first and the
@@ -479,9 +566,10 @@ mod tests {
     /// reported as `selftest` keeps its own report.
     #[test]
     fn a_failed_selftest_makes_the_lamp_error_and_still_passes_the_check() {
+        let mut failed = SelfTests::default();
+        failed.take(&run(&[("ring", Verdict::Fail, "red did not light")], 0.0));
         let mut health = of(&[(Level::Ok, "voice", "", 0)], &["voice", "body"]);
-        let failed = run(&[("ring", Verdict::Fail, "red did not light")], 0.0);
-        mark_selftest(&mut health, selftest_item(&failed, 1.0));
+        mark_selftest(&mut health, failed.item(1.0).unwrap());
         assert_eq!(health.check(), Ok(()), "{health:?}");
         assert_eq!(health.items[0].name, SELFTEST);
         assert_eq!(
@@ -490,18 +578,22 @@ mod tests {
         );
         assert_eq!(health.missing, ["body"]);
 
+        let mut passed = SelfTests::default();
+        passed.take(&run(&[("ring", Verdict::Pass, "")], 0.0));
         let mut health = of(&[(Level::Ok, "voice", "", 0)], &["voice"]);
-        let passed = run(&[("ring", Verdict::Pass, "")], 0.0);
-        mark_selftest(&mut health, selftest_item(&passed, 1.0));
+        mark_selftest(&mut health, passed.item(1.0).unwrap());
         assert_eq!(health.check(), Ok(()), "{health:?}");
         assert_eq!((health.level, health.message.as_str()), (Level::Ok, ""));
         assert_eq!(health.items.len(), 2);
 
         let mut health = of(&[(Level::Warn, SELFTEST, "its own", 0)], &[]);
-        mark_selftest(&mut health, selftest_item(&failed, 1.0));
+        mark_selftest(&mut health, failed.item(1.0).unwrap());
         assert_eq!(shape(&health), [(SELFTEST, Level::Warn, "its own")]);
     }
 
+    /// #811: a part that runs only where its file is (tasks needs Harness)
+    /// is listed as off while the file is missing: ok, never missing, and the
+    /// lamp's health stays ok.
     #[test]
     fn a_part_off_for_want_of_its_file_is_listed_off_not_missing() {
         let parts = Parts::new();

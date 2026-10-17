@@ -328,8 +328,8 @@ struct Serve<'a> {
     passed_over: u64,
     full: bool,
     totals: Totals,
-    /// The self-test's newest run, if one was heard (#812).
-    selftest: Option<SelfTest>,
+    /// The self-test's runs as they came (#812).
+    selftest: parts::SelfTests,
 }
 
 impl Serve<'_> {
@@ -473,19 +473,27 @@ impl Serve<'_> {
         kept
     }
 
-    /// Take the self-test's newest run, if one came: true if it did.
-    fn hear_selftest(&mut self, tests: &mut Subscriber) -> bool {
+    /// Take the self-test's runs that came: `Some(true)` if one did,
+    /// `None` if its subscription can no longer be read (it is said, and
+    /// the caller makes it again).
+    fn hear_selftest(&mut self, tests: &mut Subscriber) -> Option<bool> {
         let mut heard = false;
-        while let Ok(Some(message)) = tests.recv(Duration::ZERO) {
-            match message.parse::<SelfTest>() {
-                Ok(test) if test.check().is_ok() => {
-                    self.selftest = Some(test);
-                    heard = true;
+        loop {
+            match tests.recv(Duration::ZERO) {
+                Ok(Some(message)) => match message.parse::<SelfTest>() {
+                    Ok(test) if test.check().is_ok() => {
+                        self.selftest.take(&test);
+                        heard = true;
+                    }
+                    _ => (self.say)(Note::SelfTestUnreadable),
+                },
+                Ok(None) => return Some(heard),
+                Err(error) => {
+                    (self.say)(Note::NoSelfTest { kind: error.kind() });
+                    return None;
                 }
-                _ => (self.say)(Note::SelfTestUnreadable),
             }
         }
-        heard
     }
 
     /// Work the lamp's health out, say so if its level is another, and
@@ -506,8 +514,8 @@ impl Serve<'_> {
             .collect();
         let mut health = parts::health(self.parts.reports(), now, &expected, options.stale_after);
         parts::mark_off(&mut health, &off);
-        if let Some(test) = &self.selftest {
-            parts::mark_selftest(&mut health, parts::selftest_item(test, unix_now()));
+        if let Some(item) = self.selftest.item(unix_now()) {
+            parts::mark_selftest(&mut health, item);
         }
         if self.level != Some(health.level) {
             (self.say)(Note::Health {
@@ -598,7 +606,7 @@ pub fn run(
         passed_over: 0,
         full: false,
         totals: Totals::default(),
-        selftest: None,
+        selftest: parts::SelfTests::default(),
     };
     let (mut board_read, mut reported): (Option<Instant>, Option<Instant>) = (None, None);
     while !stop.load(Ordering::Relaxed) {
@@ -642,8 +650,12 @@ pub fn run(
             .min(until(reported, times.report_every, now))
             .min(serve.health_due.saturating_duration_since(now));
         work_out |= serve.listen(&mut ear, wait);
-        if let Some(tests) = tests.as_mut() {
-            work_out |= serve.hear_selftest(tests);
+        if let Some(subscribed) = tests.as_mut() {
+            match serve.hear_selftest(subscribed) {
+                Some(heard) => work_out |= heard,
+                // Made again at the next report's time.
+                None => tests = None,
+            }
         }
         let now = Instant::now();
         serve.only_reports(now);

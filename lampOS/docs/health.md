@@ -158,18 +158,26 @@ news is published when five seconds have passed since the last.
 A lamp says a part has failed before its person finds out (#812). The
 self-test (`lamp-selftest`, [selftest.md](selftest.md)) publishes no
 `diagnostics`: a run is rare, and a one-off part would go stale here. So
-`serve` subscribes to `lamp/selftest` and keeps its newest whole run (one
-that passes `SelfTest::check`), the run kept on the topic first. Each time
-the health is worked out it gets one more item, `selftest`
-(`parts::selftest_item`, `parts::mark_selftest`):
+`serve` subscribes to `lamp/selftest` and takes each whole run (one that
+passes `SelfTest::check`), the run kept on the topic first. Each part keeps
+its last *checked* verdict (`parts::SelfTests`): a part that failed stays
+failed until a later run checks it and it passes, or is not fitted. A run
+that could not check it (`not_checked`, or without it: a passive run checks
+no speaker, ring colours or head move) leaves the fail standing (the
+reviewer on #1243). Each time the health is worked out it gets one more
+item, `selftest` (`SelfTests::item`, `parts::mark_selftest`):
 
-- **A part failed:** `error`, `failed: PART (REASON), …` for each part that
-  failed, in the order they ran. The lamp is then `error` too, with that as
-  its message, until a run passes.
-- **None failed:** `ok`, `passed`, or `passed; N not checked`. An ok item
-  lowers nothing.
-- **Its age** is since the run began, by the wall clock. It is never
+- **A part still failed:** `error`, `failed: PART (REASON), …` for each,
+  in the order they first failed, with each one's newest reason. The lamp
+  is then `error` too, with that as its message.
+- **None failed:** `ok`, `passed`, or `passed; N not checked` for the newest
+  run. An ok item lowers nothing.
+- **Its age** is since the newest run began, by the wall clock. It is never
   stale: a run holds until the next.
+- **A reboot forgets it:** what was heard is kept in `serve`'s memory, and
+  `lamp/selftest` is kept on the bus's tmpfs, so after a reboot there is no
+  item until the next run (on a product lamp, five minutes after the lamp
+  starts, #1245).
 - A part that reports on `diagnostics` under the name `selftest` keeps its
   own report.
 - `lamp-keeper`, which restarts a part unwell for long enough, passes the
@@ -179,9 +187,9 @@ the health is worked out it gets one more item, `selftest`
 
 A message on `lamp/selftest` that is no whole run is passed over and said
 (`a message on lamp/selftest is not a whole run`); the run before it
-stands. If the topic cannot be subscribed to, that is said once
-(`lamp/selftest cannot be received from (…)`) and the health goes on
-without the item, trying again each second.
+stands. If the topic cannot be subscribed to, or can no longer be read,
+that is said (`lamp/selftest cannot be received from (…)`) and the health
+goes on with what it had, making the subscription again each second.
 
 ## Memory reports
 

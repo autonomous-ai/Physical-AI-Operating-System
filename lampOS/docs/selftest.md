@@ -33,9 +33,10 @@ two minutes are spent is `not_checked` and says so.
 The self-test publishes its own topic and no `diagnostics`: `lamp-health`
 keeps every part it has ever heard and would show a one-off `selftest`
 part as stale until it restarts (`crates/health/src/parts.rs`). Instead
-`lamp-health` reads `lamp/selftest` and carries the newest run as one item
-of `lamp/health`: `error` naming each part that failed and why, until a run
-passes (#812; [health.md](health.md#the-self-tests-run)).
+`lamp-health` reads `lamp/selftest` and carries the runs as one item of
+`lamp/health`: `error` naming each part that failed and why, until a later
+run checks that part and it passes; a run that could not check it leaves the
+fail (#812; [health.md](health.md#the-self-tests-run)). A reboot forgets it.
 
 ## How each part is checked
 

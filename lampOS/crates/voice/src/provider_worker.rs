@@ -1950,7 +1950,8 @@ async fn serve_with_visual<C: Connect>(
                                 }
                                 addressed_said = Some(said);
                             }
-                            attention.lamp_asked(crate::thread::THREAD.lock().is_ok_and(|thread| thread.lamp_asked(request)));
+                            let lamp_asked = crate::thread::THREAD.lock().is_ok_and(|thread| thread.lamp_asked(request));
+                            attention.lamp_asked(lamp_asked);
                             // #829: a line in another voice than the
                             // conversation's is no part of it. Judged once,
                             // while its answer's verdict is still to come
@@ -2032,6 +2033,7 @@ async fn serve_with_visual<C: Connect>(
                                     addressed: addressed_said.filter(|said| {
                                         said.session == lineage.session.get() && said.request == request
                                     }),
+                                    lamp_asked,
                                 });
                             }
                             // The rise the near rule judged, on the lines the

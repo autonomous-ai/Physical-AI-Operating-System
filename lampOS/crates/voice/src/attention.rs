@@ -607,6 +607,7 @@ const TURNED: &str = "someone is turned to the lamp";
 const SOUND_A_WORD: &str = "a short sound, heard as a short word said to the lamp";
 const SOUND_NEAR: &str = "a short sound, said close to the lamp";
 const SOUND_TURNED: &str = "a short sound, with someone turned to the lamp";
+const SOUND_ANSWERS: &str = "a short sound with a word in it, right after the lamp's own question, in a conversation going on";
 const SOUND_HELD: &str = "a short sound, and nothing shows it was said to the lamp: not a short word, not close, nobody turned to it";
 const NAMED_PLAINLY: &str = "its name was heard plainly in the room's sound";
 
@@ -1232,7 +1233,8 @@ impl Attention {
         // 2026-10-15 at 13:03 a room sound of 0.7 s was heard as "¿Qué?" and
         // answered, nobody having spoken to the lamp. It is answered only
         // when what was heard is a short word said to the lamp, or it was
-        // said close to the lamp, or someone is turned to it.
+        // said close to the lamp, or someone is turned to it, or it has a
+        // word in it and answers the lamp's own question in a conversation.
         if self.sound_in_hand() && !own {
             // A reply to someone the room had just called by name is not
             // the lamp's, short or not (the reviewer on #918 at 06:06): only
@@ -1245,6 +1247,14 @@ impl Attention {
                 Verdict::Play(SOUND_NEAR)
             } else if turned == Some(true) {
                 Verdict::Play(SOUND_TURNED)
+            } else if self.lamp_asked && going_on && self.heard.chars().any(char::is_alphanumeric) {
+                // On lamp-4ace on 2026-10-17 at 16:11, "Yes. Please start
+                // it." to the lamp's "Shall I start it?" was ended after
+                // "Yes." and heard as "bien": held, its handing over was
+                // never run. A line with a word in it, right after the
+                // lamp's own question in a conversation going on, is the
+                // person's answer, and the model judges it.
+                Verdict::Play(SOUND_ANSWERS)
             } else {
                 Verdict::Hold(SOUND_HELD)
             };
@@ -1488,6 +1498,82 @@ mod tests {
         assert!(attention.sound_in_hand());
         attention.began_at(8, 1, 80_000_000);
         assert!(!attention.sound_in_hand());
+    }
+
+    /// On lamp-4ace on 2026-10-17 at 16:11 "Yes. Please start it.", said
+    /// to the lamp's "Shall I start it?", was ended after "Yes." as a short
+    /// sound heard as "bien", and its handing over was held. With a word in
+    /// it, right after the lamp's own question, in a conversation going on,
+    /// it is the person's answer; without any one of the three it is held
+    /// as before, and a room sound with no question before it most of all.
+    #[test]
+    fn a_short_sound_with_a_word_right_after_the_lamps_question_is_its_answer() {
+        let decide = |heard: &str, asked: bool, going_on: bool, room: Room| {
+            let mut attention = Attention::default();
+            attention.check_sounds(true);
+            attention.began_at(7, 1, 70_000_000);
+            attention.heard(heard);
+            attention.ended_as_sound(7);
+            attention.lamp_asked(asked);
+            attention
+                .first_output_busy(7, room, going_on, false, None)
+                .unwrap()
+        };
+        // The scene of 16:11, in every room.
+        for room in [Room::Quiet, Room::Busy, Room::Unknown] {
+            assert_eq!(
+                decide("bien", true, true, room),
+                Verdict::Play(SOUND_ANSWERS),
+                "{room:?}"
+            );
+        }
+        assert_eq!(
+            decide("¿Qué?", true, true, Room::Quiet),
+            Verdict::Play(SOUND_ANSWERS)
+        );
+        // A room sound with no question before it, or no conversation, or
+        // no word heard in it: held.
+        assert_eq!(
+            decide("bien", false, true, Room::Quiet),
+            Verdict::Hold(SOUND_HELD)
+        );
+        assert_eq!(
+            decide("¿Qué?", false, true, Room::Quiet),
+            Verdict::Hold(SOUND_HELD)
+        );
+        assert_eq!(
+            decide("bien", true, false, Room::Quiet),
+            Verdict::Hold(SOUND_HELD)
+        );
+        for heard in ["", " ", "…", "¿?"] {
+            assert_eq!(
+                decide(heard, true, true, Room::Quiet),
+                Verdict::Hold(SOUND_HELD),
+                "{heard:?}"
+            );
+        }
+        // A short word keeps its own reason.
+        assert_eq!(
+            decide("Yes.", true, true, Room::Quiet),
+            Verdict::Play(SOUND_A_WORD)
+        );
+        // Not checked, or not a sound: the question changes nothing here.
+        let unchecked = |sound: bool, checked: bool| {
+            let mut attention = Attention::default();
+            attention.check_sounds(checked);
+            attention.began_at(7, 1, 70_000_000);
+            attention.heard("bien");
+            if sound {
+                attention.ended_as_sound(7);
+            }
+            attention.lamp_asked(true);
+            attention
+                .first_output_busy(7, Room::Quiet, true, false, None)
+                .unwrap()
+        };
+        assert_ne!(unchecked(true, false), Verdict::Play(SOUND_ANSWERS));
+        assert_ne!(unchecked(false, true), Verdict::Play(SOUND_ANSWERS));
+        assert_eq!(unchecked(true, false), unchecked(false, false));
     }
 
     #[test]

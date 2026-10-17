@@ -43,7 +43,9 @@ run on a lamp.
   five and nothing else written: such a joint is pushing at something, and
   left held it would push on and be refused at every start until a power cut
   (base yaw on lamp-52e6, 2026-10-16: load 212, 65 °C, refused at every
-  restart).
+  restart). A first temperature over 100 takes the same path, refused with
+  torque off on all five: there is no good reading yet to judge it by
+  (`Bus::judge_temperatures`).
 - With `--torque on` (off unless given) it first takes hold of a joint it
   would otherwise refuse because its torque is off: the three it commands
   always, the shoulder and the elbow only for a lamp given `--stand`. A
@@ -257,16 +259,25 @@ of 37,639 went out as the elbow's goal. The tests are
 Temperatures pass one place too, `Bus::judge_temperatures` in
 `src/body.rs`, right after the positions of the same read and before a
 peak (`peak_temperature`, `arm_peak_temperature`) or the hot-servo stop uses
-them. A temperature is a bad read if it is over 100 (`TEMPERATURE_MAX`) or
-more than 15 (`TEMPERATURE_JUMP`) from the joint's last good one; heat
-rises by a degree in tens of seconds, not 15 in a 20 ms step. A bad one is
-counted in the end report as `bad_temperatures` (per joint, in the order of
-`bad_reads`) and replaced by the joint's last good one; with no good one yet
-the read fails. Bad ones in a row do not stop the run, unlike positions:
-the hot-servo stop they would stand in for needs `temperature_steps` (50)
-hot steps in a row, and letting go of a lamp for a sensor glitch is worse
-than the glitch. The last good one counts in that streak as it did, so a
-bad read neither starts nor resets it. How often, on lamp-52e6 on
+them. A temperature is a bad read if it is over 100 (`TEMPERATURE_MAX`), or
+farther from the joint's last good one than 3 (`TEMPERATURE_JUMP`) and a
+degree per 100 steps (2 s, `STEPS_PER_DEGREE`) since that one. That is 30
+degrees a minute, ten times the fastest real warming seen: on lamp-52e6 on
+2026-10-17, over 632 pairs of the arm's logged standing steps 20 to 30 s
+apart (readings under 58), none rose more than a degree, 3 degrees a minute
+at most. A bad one is counted in the end report as `bad_temperatures` (per
+joint, in the order of `bad_reads`) and replaced by the joint's last good
+one, so it is never a peak and neither starts nor resets the heat streak.
+A bad value that stays within 2 degrees (`TEMPERATURE_SETTLE`) of itself
+for `temperature_steps` (50) reads in a row is what the servo reads now and
+becomes the good one, so a servo really at 70 after a low first read, a
+jump to 70 that stays, or a steady 150 still stops on heat, a second later
+than without the check; one 150 is still dropped. With no good one yet (the
+first read) a reading is taken as it is: one over 100 is counted and goes
+down the found-hot path, refused with torque off on all five. Bad ones in a
+row do not stop the run, unlike positions: the hot-servo stop they would
+stand in for needs 50 hot steps in a row, and letting go of a lamp for a
+sensor glitch is worse than the glitch. How often, on lamp-52e6 on
 2026-10-17 from 02:42 to 07:35: of 1,839 logged standing steps (one every
 30 s, and each change of mood), the shoulder read 60 or over on 23 (about 5
 an hour) and the elbow on 19 (about 4 an hour), about one logged step in
@@ -289,7 +300,10 @@ same replies were where the joint was. It is what the servo's temperature
 register (63) said. The tests are
 `a_shoulder_reading_150_degrees_once_is_counted_and_never_a_peak`,
 `bad_temperatures_in_a_row_do_not_stop_the_run`,
-`a_joint_that_really_warms_still_stops_after_its_hot_steps` and
+`a_joint_that_really_warms_still_stops_after_its_hot_steps`,
+`a_joint_really_at_70_after_a_first_read_of_40_still_stops_on_heat`,
+`a_jump_that_stays_becomes_the_reading_and_stops_on_heat`,
+`a_glitch_of_32_between_47_and_48_is_dropped` and
 `one_hot_reading_while_it_moves_is_not_heat` (lamp-4ace's yaw reading 72
 for one step, now a bad read).
 

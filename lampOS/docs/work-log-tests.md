@@ -1,5 +1,35 @@
 # Tests work log
 
+## 2026-10-17 20:55:21 +0700 — the capture flakes, a green full run, and the first builder's slowest-ten list
+
+Ready for lamp-voice: #1373 (two approvals and the reviewer's clean re-check), once #1340 is merged
+
+**Merged:** #1350 at 18:13 (`460a1a1aa`: the capture rig records a worker's end, and a refused receive no longer fails a test; #1344, #1351), #1377 at 20:38 (`31483cf06`: lamp-tasks' status waits in 100 ms slices; 6.1 → 1.1 s and 5.6 → 0.2 s on ARM64). The second's #1360 (`eabcbec5e`) fixed #1359, which I found and first misread.
+
+**Capture flakes:** `capture_hold_worker` has run on every pull request since #1299, so its races now matter to everyone.
+- #1305's mute test read its worker's expected `NotPermitted` fault as a failure, and failed 1 of 3 on its own in my Linux container.
+- The reviewer's P2: the receive can be refused too, once the worker has gone.
+- #1359: the bounded half's worker seemed to end before `Stop`. I first took it for a send race, then from my own trace for an early end, and reverted my change. The second showed it was a renewal sent after `Stop`, which drops the unread `CaptureStopped` on Linux. My first reading had been right.
+- On ARM64, the 61 runs since #1299 show no `capture_hold_worker` failures but those two; the loaded container shows more.
+
+**The integration commit's full run** (`460a1a1aa`, 39029608429, the first builder's 18:34): green, 6,530 of 6,530 on four runners, the realtime group included.
+
+**The first builder's 19:47: the ten slowest outside the group, one PR per crate (#1128):**
+- self-test head: #1373, 30.6 → 6.5 s on Linux. The reviewer's lease P2 was a real hole the stepped clock opened, now fixed.
+- lamp-tasks: #1377, merged.
+- lamp-skills: the seventh's #1381.
+- lamp-setup's light and lamp-voice's `first_control_message`: designs on #1128 for their owners, for Monday.
+- Kept: lamp-records' host-deadline test and voice-eval's `serve_session`.
+
+**Other:**
+- #1339: six "it doesn't wait" tests with 20–100 ms bounds, listed for their owners.
+- #1317: the reviewer's fixture timeouts; on a quiet machine every wait was under 50 ms, and I'm waiting for the reviewer's conditions.
+- #1340's `settled` reads the check's clock in #1373.
+
+**Mistakes:**
+- From 15:20 to 20:09 my podman runs used the first builder's `lampos-arm64-*` volumes. I now use my own `lampos-tests-*`, and the podman memory note says whose is whose.
+- A container run picked up another tree's build left in the shared target (the probe's 56/2); caught, and rerun with fresh file times.
+
 ## 2026-10-17 15:44:11 +0700 — #823 closed; pull requests run the realtime group; three new findings
 
 Ready for lamp-voice: nothing open from me. `tests/selftest-head-clock` (local, not pushed) waits on #1329.

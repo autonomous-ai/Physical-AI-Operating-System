@@ -7611,6 +7611,32 @@ fn a_joint_flapping_between_60_and_64_stops_on_heat() {
     );
 }
 
+/// eighth's probe on #1347: a cool head at 56 whose register reads 57 to
+/// 66 on one read in 27 at random (lamp-52e6's rate) runs ten minutes. Lone
+/// glitches inside the flap window hold; none adds up to heat.
+#[test]
+fn a_cool_joint_glitching_within_the_flap_window_runs_ten_minutes() {
+    let mut seed: u32 = 0x5eed_1e57;
+    let readings = (0..30_500)
+        .map(|_| {
+            seed = seed.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+            Some(if (seed >> 8).is_multiple_of(27) {
+                57 + ((seed >> 20) % 10) as u8
+            } else {
+                56
+            })
+        })
+        .collect();
+    let (report, _) = scripted_pitch(
+        56,
+        Vec::new(),
+        Duration::from_millis(1_500),
+        readings,
+        Duration::from_secs(600),
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+}
+
 /// Taking hold of an arm joint writes its goal by itself, and that write is
 /// checked as every other arm goal is: an elbow found without torque
 /// outside its window is not given that as its goal.

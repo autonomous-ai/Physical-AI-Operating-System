@@ -1208,11 +1208,19 @@ const TEMPERATURE_JUMP: u8 = 3;
 /// values by turns. lamp-4ace's shoulder on 2026-10-17 read about 55 and 59
 /// to 61 by turns for hours (its settles 4 to 6 apart), and ended on
 /// `Stop::BadTemperature` at 15:25 though every read was under 62. A flap
-/// is never counted toward that stop: the joint is judged on the higher of
-/// its recent values (`Bus::judge_temperatures`), the cautious side for
-/// heat. 10 takes in twice lamp-4ace's flap and is still far from the
+/// is never counted toward that stop. Once its value repeats, within
+/// `TEMPERATURE_SETTLE` of the last flap's and within
+/// `TEMPERATURE_FLAP_READS`, the joint is judged on the
+/// higher of it and the good one (`Bus::judge_temperatures`), the cautious
+/// side for heat; a lone flap holds, as a replaced read does. 10 takes in twice lamp-4ace's flap and is still far from the
 /// glitches of 60 to 150 from under 58 that lamp-52e6 reads.
 const TEMPERATURE_FLAP: u8 = 10;
+/// Reads within which a flap must repeat to be judged, and for which the
+/// good reads after a repeated one are judged on it. A flap that is heat
+/// comes every read or two (60 and 64 by turns), lamp-4ace's every 8 or
+/// so; lamp-52e6's glitches, one read in 27 at random, seldom come twice
+/// within 10 reads and alike, so they never chain into 50 hot steps.
+const TEMPERATURE_FLAP_READS: u8 = 10;
 /// How near the last agreeing one a bad read must be to agree with it: a
 /// bad value settles once half of `Limits::temperature_steps` reads agree.
 const TEMPERATURE_SETTLE: u8 = 2;
@@ -1276,11 +1284,12 @@ struct Bus<'a, P, R> {
     /// Each joint's replaced temperature reads in a row, less one for each
     /// good read.
     bad_warm_in_row: [u8; 5],
-    /// Each joint's flap (`TEMPERATURE_FLAP`): the higher value it read,
-    /// and reads since the last flap read. It is judged on that value until
-    /// half of `settle_steps` reads pass with no flap, fewer than the heat
-    /// streak, so one glitch alone is never heat.
-    flap: [Option<(u8, u8)>; 5],
+    /// Each joint's last flap (`TEMPERATURE_FLAP`): its value, whether it
+    /// repeated the flap before it (within `TEMPERATURE_SETTLE`), and reads
+    /// since. A repeated flap's value is the floor of the good reads after
+    /// it until `TEMPERATURE_FLAP_READS` pass with no flap; a lone one is
+    /// forgotten then, so glitches that do not repeat are never heat.
+    flap: [Option<(u8, bool, u8)>; 5],
     /// Joints whose temperature this read was replaced: their heat streak
     /// holds for the step, neither adding nor resetting.
     pub(crate) temperature_held: [bool; 5],
@@ -1527,9 +1536,13 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
                 // in 27 still never adds up.
                 self.bad_warm_in_row[index] = self.bad_warm_in_row[index].saturating_sub(1);
                 self.flap[index] = match self.flap[index] {
-                    Some((high, since)) if since.saturating_add(1) < self.settle_steps / 2 => {
-                        sample.temperature = read.max(high);
-                        Some((high, since + 1))
+                    Some((last, repeated, since))
+                        if since.saturating_add(1) < TEMPERATURE_FLAP_READS =>
+                    {
+                        if repeated {
+                            sample.temperature = read.max(last);
+                        }
+                        Some((last, repeated, since + 1))
                     }
                     _ => None,
                 };
@@ -1561,14 +1574,15 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
             self.settling[index] = Some(settling);
             self.bad_temperatures[index] = self.bad_temperatures[index].saturating_add(1);
             if flap {
-                // Its peak is the higher of it, the good one and the flap's
-                // own; it holds the heat streak as a replaced read does, and
-                // the good reads between are judged on that higher value.
-                // Never toward the unreadable stop.
-                let high = self.flap[index].map_or(0, |(high, _)| high);
-                let high = read.max(good).max(high);
-                self.flap[index] = Some((high, 0));
-                sample.temperature = high;
+                // It holds the heat streak as a replaced read does and never
+                // adds toward the unreadable stop. Only a flap that repeats
+                // the last one is judged: on the higher of it and the good
+                // one, and the good reads after it on it too. A lone flap,
+                // a glitch within the window, is replaced by the good one.
+                let repeated = self.flap[index]
+                    .is_some_and(|(last, _, _)| read.abs_diff(last) <= TEMPERATURE_SETTLE);
+                self.flap[index] = Some((read, repeated, 0));
+                sample.temperature = if repeated { read.max(good) } else { good };
                 self.temperature_held[index] = true;
                 continue;
             }

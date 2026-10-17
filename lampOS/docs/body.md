@@ -49,14 +49,18 @@ run on a lamp.
   otherwise let go of a lamp found standing, and it falls. Only the joints
   judged here are read for it: the three it commands, and the shoulder and
   the elbow of a lamp given `--stand` (a folded lamp's warm arm is not read
-  again). Two reads that agree cool start as usual (150, then 45 and 45);
-  two that agree hot are acted on with the hot one, and reads that never
-  agree with the last hot one, so one low glitch on a read again does not let a real heat in
-  (70, then 5, 70 and 70 is refused with nothing moved). The reads again are
-  in the end report (`hot_rereads`, per joint). Heat that is acted on is let
-  go as before, where the lamp stands, arm up or not. A first temperature over 100 is judged the
-  same way: there is no good reading yet to judge it by
-  (`Bus::judge_temperatures`).
+  again). Two reads that agree start as usual unless both are hot (62 then
+  61 starts; 70 then 70 is refused). Reads that never agree are acted on
+  with the last hot one, so one low glitch on a read again does not let a
+  real heat in (70, then 5, 70 and 70 is refused with nothing moved). A read
+  again that fails after a hot one is acted on with that hot one. A read
+  over 100 (`TEMPERATURE_MAX`) is a glitch: never heat and never agreeing,
+  so 150, 150, then 45 and 45 starts as usual. Over 100 on every read is a
+  temperature that cannot be read: the run is refused with nothing written
+  and nothing let go, so a standing arm stays held (`would not start:
+  temperature unreadable at start: wrist_pitch reads 150`). The reads again
+  are in the end report (`hot_rereads`, per joint). Heat that is acted on is
+  let go as before, where the lamp stands, arm up or not.
 - With `--torque on` (off unless given) it first takes hold of a joint it
   would otherwise refuse because its torque is off: the three it commands
   always, the shoulder and the elbow only for a lamp given `--stand`. A

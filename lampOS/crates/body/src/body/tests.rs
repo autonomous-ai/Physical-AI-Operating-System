@@ -616,8 +616,9 @@ fn it_does_not_start_on_a_lamp_that_is_not_as_expected() {
     assert!(refused(&|lamp| lamp.servos[ROLL].torque = 0).contains("torque"));
     assert!(refused(&|lamp| lamp.servos[PITCH].status = 0x20).contains("0x20"));
     assert!(refused(&|lamp| lamp.servos[YAW].temperature = 70).contains("70"));
-    // Over 100 on the first read is still found hot: let go, not a failed read.
-    assert!(refused(&|lamp| lamp.servos[YAW].temperature = 150).contains("150 already"));
+    // Over 100 on every first read is unreadable, not heat: refused with
+    // nothing written and nothing let go.
+    assert!(refused(&|lamp| lamp.servos[YAW].temperature = 150).contains("unreadable at start"));
     assert!(refused(&|lamp| lamp.servos[PITCH].load = 200).contains("200"));
     // A joint that does not answer, commanded or not.
     assert!(refused(&|lamp| lamp.servos[1].answers = false).contains("first read"));
@@ -7094,6 +7095,96 @@ fn a_hot_first_read_with_one_low_glitch_read_again_is_still_refused() {
     assert_eq!(report.hot_rereads.len(), 3, "{report:?}");
     assert_eq!(report.goal_writes, 0, "{report:?}");
     assert!(!report.moved, "{report:?}");
+}
+
+/// A read again that fails after a read found the joint hot is acted on
+/// with the hottest read: refused and let go, not left held on a hot joint.
+#[test]
+fn a_failed_read_again_after_a_hot_first_read_is_refused_and_let_go() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(4));
+    lamp.servos[PITCH].temperature = 70;
+    lamp.silent_from = Some(Duration::from_micros(100));
+    lamp.silent_until = Some(Duration::from_micros(400));
+    let news = script(&clock.time);
+    let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
+    assert!(
+        matches!(&report.stop, Stop::Refused { why } if why.contains("70 already")),
+        "{report:?}"
+    );
+    assert!(report.hot_rereads.is_empty(), "{report:?}");
+    assert!(let_go_of_the_whole_lamp(&lamp), "{:?}", lamp.registers);
+}
+
+/// A lamp found standing, its head pitch's first reads `reads` and then
+/// what it is (45): run until asked to stop at 1 s.
+fn found_standing_with_first_reads(reads: Vec<Option<u8>>) -> (BodyReport, Lamp) {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(1));
+    lamp.arm_moves = true;
+    for (index, at) in [(1usize, 2_650.0f32), (2, 2_600.0), (PITCH, 1_900.0)] {
+        lamp.servos[index].position = at;
+        lamp.servos[index].goal = at as u16;
+        lamp.servos[index].status = 0;
+    }
+    lamp.flicker = Some((Duration::ZERO, PITCH, reads, 0));
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        Limits::FOLDED,
+        Some(HOME),
+        Some(standing(100, 60)),
+        || Some((Mood::Resting, 0)),
+        |_| {},
+    );
+    (report, lamp)
+}
+
+/// No torque off was written to the shoulder or the elbow.
+fn arm_never_let_go(lamp: &Lamp) -> bool {
+    !lamp
+        .registers
+        .iter()
+        .any(|(id, address, data)| (*id == 2 || *id == 3) && *address == 40 && data == &[0])
+}
+
+/// Two glitches of 150 in a row on the first reads are not heat: a read
+/// over 100 never agrees hot. 150, 150, then 45 and 45 starts as usual,
+/// and a lamp found standing is not let go.
+#[test]
+fn two_first_reads_of_150_then_45_start_as_usual_standing() {
+    let (report, lamp) = found_standing_with_first_reads(vec![Some(150), Some(150)]);
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.hot_rereads.len(), 3, "{report:?}");
+    assert!(arm_never_let_go(&lamp), "{:?}", lamp.registers);
+    assert_eq!((lamp.servos[1].torque, lamp.servos[2].torque), (1, 1));
+}
+
+/// 150 on every first read is a temperature that cannot be read: refused
+/// with nothing written, so a lamp found standing keeps its arm held.
+#[test]
+fn every_first_read_over_100_is_refused_as_unreadable_holding_the_arm() {
+    let (report, lamp) = found_standing_with_first_reads(vec![Some(150); 4]);
+    assert!(
+        matches!(&report.stop, Stop::Refused { why }
+            if why == "temperature unreadable at start: wrist_pitch reads 150"),
+        "{report:?}"
+    );
+    assert!(lamp.nothing_was_written(), "{:?}", lamp.registers);
+    assert!(lamp.servos.iter().all(|servo| servo.torque == 1));
+}
+
+/// A first read at the limit with a cool read agreeing after it is not
+/// heat: both agreeing reads must be hot. 62, then 61, starts as usual
+/// (70 and 70: `a_hot_first_read_that_repeats_is_refused_as_before`).
+#[test]
+fn a_first_read_at_the_limit_then_one_below_starts_as_usual() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(4));
+    lamp.servos[PITCH].temperature = 61;
+    lamp.flicker = Some((Duration::ZERO, PITCH, vec![Some(62)], 0));
+    let news = script(&clock.time);
+    let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.hot_rereads, vec![[45, 45, 45, 45, 61]]);
+    assert!(report.moved, "{report:?}");
 }
 
 /// A folded lamp's arm is not judged on heat at the start, so a warm

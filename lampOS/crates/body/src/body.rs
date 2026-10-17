@@ -820,7 +820,8 @@ pub struct Tipping {
 }
 
 /// Why the run ended. Only `Cancelled` is an ordinary end. Every other end
-/// but `Refused` leaves torque off on all five, as V1 let the lamp go.
+/// but `Refused` leaves torque off on all five, as V1 let the lamp go (a
+/// `Refused` of a lamp found standing does too, once folded).
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Stop {
@@ -828,6 +829,8 @@ pub enum Stop {
     Cancelled,
     /// A reason not to start. Nothing was written, except torque off on all
     /// five when a joint was found hot or loaded: as V1, the lamp is let go.
+    /// A lamp found standing whose start is refused with nothing written
+    /// folds down first and is then let go on it.
     Refused {
         why: String,
     },
@@ -2280,6 +2283,17 @@ fn on_the_way(up: Standing, arm: [u16; 2]) -> (f32, [f32; 2]) {
     (lift, off)
 }
 
+/// Whether a lamp that may stand was found up on its way: a twentieth of
+/// the way or more, both arm joints within `Standing::FOUND_SLACK` of it. A
+/// start refused for such a lamp folds it down first, then lets it go.
+fn found_up(up: Standing, found: &[Sample; 5]) -> bool {
+    let (lift, offs) = on_the_way(up, ARM.map(|joint| found[joint.index()].position));
+    lift >= 0.05
+        && offs
+            .iter()
+            .all(|off| *off <= f32::from(Standing::FOUND_SLACK))
+}
+
 /// Under `--overload release`: let go. Nothing more is asked of the joints:
 /// torque off (register 40, 0) is written to all five, each acknowledged,
 /// and one that failed is tried again on the next step. For `rest` from
@@ -2724,10 +2738,15 @@ fn run_on<P: PortIo, R: Runtime>(
     // are hot, or reads never agree and one was. A read over
     // `TEMPERATURE_MAX` is a glitch, never heat and never agreeing: one on
     // every read is a temperature that cannot be read, and the run is
-    // refused with nothing written and nothing let go. Only the joints the
+    // refused (a lamp found up folds down first, then is let go; otherwise
+    // nothing is written and nothing let go). Only the joints the
     // found-hot checks below judge are read for it: the three commanded,
     // and the arm of a lamp that may stand. Nothing has been written yet.
     let arm_judged = standing.is_some() && home.is_some();
+    // A refusal of a lamp found up on its way, with nothing written: it is
+    // not left up held, where nothing would ever lower it. It folds down
+    // first, as when asked to stop, and is let go folded, on this refusal.
+    let mut refusal: Option<String> = None;
     let judged = |read: &[Sample; 5]| {
         let commanded =
             COMMANDED.map(|joint| (read[joint.index()].temperature, limits.temperature));
@@ -2760,10 +2779,19 @@ fn run_on<P: PortIo, R: Runtime>(
                             .map(|joint| (joint, found[joint.index()].temperature))
                             .max_by_key(|(_, temperature)| *temperature)
                             .unwrap_or((Joint::WristPitch, 0));
-                        report.stop = refused(format!(
-                            "temperature unreadable at start: {joint} reads {temperature}"
-                        ));
-                        return report;
+                        let why =
+                            format!("temperature unreadable at start: {joint} reads {temperature}");
+                        if !(arm_judged && standing.is_some_and(|up| found_up(up, &found))) {
+                            report.stop = refused(why);
+                            return report;
+                        }
+                        // Folding, these joints' temperatures are not judged.
+                        for joint in COMMANDED {
+                            if found[joint.index()].temperature > TEMPERATURE_MAX {
+                                bus.unjudged[joint.index()] = true;
+                            }
+                        }
+                        refusal = Some(why);
                     }
                 }
                 break;
@@ -2890,13 +2918,15 @@ fn run_on<P: PortIo, R: Runtime>(
     report.home = Some(home);
     for (index, joint) in COMMANDED.iter().enumerate() {
         let sample = found[joint.index()];
+        let hot = !bus.unjudged[joint.index()] && sample.temperature >= limits.temperature;
+        let loaded = sample.load > limits.start_load[index];
         let why = if profiles[index].0 != 1 {
             Some(format!("{joint} torque is not on"))
         } else if sample.status != 0 {
             Some(format!("{joint} status is {:#04x}", sample.status))
-        } else if sample.temperature >= limits.temperature {
+        } else if hot {
             Some(format!("{joint} is at {} already", sample.temperature))
-        } else if sample.load > limits.start_load[index] {
+        } else if loaded {
             Some(format!("{joint} already carries load {}", sample.load))
         } else {
             None
@@ -2904,8 +2934,11 @@ fn run_on<P: PortIo, R: Runtime>(
         if let Some(why) = why {
             // A joint found hot or loaded is pushing at something: as V1,
             // the whole lamp is let go, or every restart finds it so again.
-            if sample.temperature >= limits.temperature || sample.load > limits.start_load[index] {
+            if hot || loaded {
                 let_go_at_end(bus, &mut report);
+            } else if arm_judged && standing.is_some_and(|up| found_up(up, &found)) {
+                refusal.get_or_insert(why);
+                continue;
             }
             report.stop = refused(why);
             return report;
@@ -3014,6 +3047,11 @@ fn run_on<P: PortIo, R: Runtime>(
             Some(why) => {
                 standing = None;
                 report.standing_refused = Some(why);
+                // An arm that cannot be folded: refused as before.
+                if let Some(why) = refusal.take() {
+                    report.stop = refused(why);
+                    return report;
+                }
             }
             None => {
                 // Under a twentieth of the way it is folded.
@@ -3032,6 +3070,27 @@ fn run_on<P: PortIo, R: Runtime>(
                     }
                 });
             }
+        }
+    }
+    if let Some(why) = &refusal {
+        fold_for = fold_for.or(Some(refused(why.clone())));
+        // A head or base found without torque is taken hold of where it
+        // is, goal first, to come down with the arm.
+        let without: Vec<Joint> = COMMANDED
+            .into_iter()
+            .zip(profiles)
+            .filter(|(_, profile)| profile.0 != 1)
+            .map(|(joint, _)| joint)
+            .collect();
+        if !without.is_empty() {
+            found = match take_hold(bus, &mut report, &without, &found) {
+                Ok(now) => now,
+                Err(stop) => {
+                    report.stop = stop;
+                    return report;
+                }
+            };
+            report.found = Some(found);
         }
     }
     let home_of = |standing: Option<Standing>, stand: f32| home_with(home, standing, stand);
@@ -3159,6 +3218,13 @@ fn run_on<P: PortIo, R: Runtime>(
         }
     }
     report.standing = standing;
+    // An arm whose overload stayed is not folded: refused, left as it is.
+    if standing.is_none()
+        && let Some(why) = refusal.take()
+    {
+        report.stop = refused(why);
+        return report;
+    }
 
     // The servo's own speed bound, where it is not already the one wanted.
     for (index, joint) in COMMANDED.iter().enumerate() {
@@ -3501,7 +3567,9 @@ fn run_on<P: PortIo, R: Runtime>(
     let mut leave_for = fold_for;
     if leave_for.is_some() {
         leaving = Some(bus.runtime.now());
-        bus.unjudged = Joint::ALL.map(|joint| ARM.contains(&joint));
+        for joint in ARM {
+            bus.unjudged[joint.index()] = true;
+        }
     }
     let mut resting_steps = 0u16;
     let mut relaxed = false;
@@ -5167,6 +5235,9 @@ fn run_on<P: PortIo, R: Runtime>(
     if left_as_is {
         // Let go under overload, or already held where it is: nothing more.
         // A goal written to a servo whose torque is off turns it back on.
+    } else if matches!(stop, Stop::Refused { .. }) {
+        // A lamp found up whose start was refused, folded: let go.
+        let_go_at_end(bus, &mut report);
     } else if stop == Stop::Cancelled {
         // Leave the goals exactly at home: of a lamp that is down. One
         // that did not get down in time is left as it is.

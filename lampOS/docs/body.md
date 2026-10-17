@@ -30,7 +30,8 @@ run on a lamp.
   (41), so that the servo itself is slow whatever this process sends. Unless
   it was given a pose to stand in, `--torque on` or `--overload release`, it
   writes torque only off, on all five, as a run ends on a surprise or a start
-  is refused for heat or load (see "When it stops"). With
+  is refused for heat or load (see "When it stops"), and on to a head or
+  base found without torque on a lamp found standing, to fold it (below). With
   `--force-limit` it writes one more, once at start: the force limit (48)
   of the joints that carry the lamp (below, "The force its servos are
   allowed").
@@ -56,12 +57,29 @@ run on a lamp.
   again that fails after a hot one is acted on with that hot one. A read
   over 100 (`TEMPERATURE_MAX`) is a glitch: never heat and never agreeing,
   so 150, 150, then 45 and 45 starts as usual. Over 100 on every read is a
-  temperature that cannot be read: the run is refused with nothing written
-  and nothing let go (`would not start: temperature unreadable at start:
-  wrist_pitch reads 150`). Only the arm of a lamp given `--stand` over 100
-  on every read is judged too warm (below). The reads again
-  are in the end report (`hot_rereads`, per joint). Heat that is acted on is
+  temperature that cannot be read: the run is refused (`would not start:
+  temperature unreadable at start: wrist_pitch reads 150`), with nothing
+  written and nothing let go unless the lamp is found standing (below).
+  Only the arm of a lamp given `--stand` over 100 on every read is judged
+  too warm (below). The reads again are in the end report (`hot_rereads`, per joint). Heat that is acted on is
   let go as before, where the lamp stands, arm up or not.
+- A lamp given `--stand` and found up on its way (a twentieth of the way or
+  more, both arm joints within 80 counts of it) whose start is refused with
+  nothing written is not left up held, where every restart would refuse it
+  again and nothing would lower it. It folds down first, as when asked to
+  stop: at its own pace, every arm goal through the guarded write, at most
+  50 counts a write, within the time a stop allows. Then all five are let
+  go and the run ends on the refusal. This covers a commanded joint over
+  100 on every first read (its temperature is not judged while it folds),
+  and one found with torque off or a status flag (one without torque is
+  taken hold of where it is, goal first, as `--torque on` does, to come
+  down with the arm). Started again, it is found folded and refused, with
+  nothing left powered
+  (`a_lamp_found_standing_whose_start_is_refused_folds_then_lets_go`). It
+  is refused as before, arm up and held, when the arm itself cannot be
+  folded: its profile read fails, it has torque off, another flag, or an
+  overload that stays, or the head does not take hold. A joint found hot or
+  loaded still lets go of all five at once.
 - With `--torque on` (off unless given) it first takes hold of a joint it
   would otherwise refuse because its torque is off: the three it commands
   always, the shoulder and the elbow only for a lamp given `--stand`. A
@@ -117,7 +135,8 @@ not come down when it is lowered all end with torque off on all five, after
 the hold where there is one. Every way a run ends passes through one place
 (`run_alive`) that does this. It is not done when the body is asked to
 stop, on a refusal to start (one for a hot or loaded joint has let go
-already), or under `--overload release`, where torque is already off. A
+already, and one of a lamp found standing lets go once it has folded), or
+under `--overload release`, where torque is already off. A
 standing lamp whose shoulder or elbow cannot be read (`Stop::BadTemperature`,
 below), or is found too warm, is not let go up, where it falls, nor left up
 held, where it may heat on: it folds down first, then is let go.

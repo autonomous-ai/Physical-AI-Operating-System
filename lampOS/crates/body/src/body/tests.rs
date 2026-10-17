@@ -7537,7 +7537,8 @@ fn flapping_4ace_shoulder(reads: usize, low: u8, high: u8) -> Vec<Option<u8>> {
         .collect()
 }
 
-/// That shoulder, standing for 20 minutes: never ended as unreadable, and
+/// That shoulder, standing for 20 minutes (awake the whole run, so an arm
+/// heat retreat would show): never ended as unreadable, and
 /// judged on its higher values, 61.
 #[test]
 fn a_shoulder_flapping_between_55_and_61_runs_20_minutes_judged_at_61() {
@@ -7557,7 +7558,7 @@ fn a_shoulder_flapping_between_55_and_61_runs_20_minutes_judged_at_61() {
         &mut clock,
         Limits::FOLDED,
         Some(HOME),
-        Some(standing(100, 5)),
+        Some(standing(100, 1_300)),
         news,
         |_| {},
     );
@@ -7635,6 +7636,38 @@ fn a_cool_joint_glitching_within_the_flap_window_runs_ten_minutes() {
         Duration::from_secs(600),
     );
     assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+}
+
+/// A sensor whose reads are all 4 to 10 from a stale good one is still
+/// unreadable: last good 60, then 64 and 70 by turns (a joint really at
+/// 70), ends on `BadTemperature` within about a second, as on lamp-voice;
+/// a flap holds only next to its good value. So does the 60/64 flap after
+/// a last good 55, which never reads 55 again.
+#[test]
+fn reads_within_the_flap_window_of_a_stale_good_one_still_stop() {
+    for (good, low, high) in [(60, 64, 70), (55, 60, 64)] {
+        let at = Duration::from_millis(1_500);
+        let readings = (0..3_000)
+            .map(|n| Some(if n % 2 == 0 { low } else { high }))
+            .collect();
+        let (report, lamp) =
+            scripted_pitch(good, Vec::new(), at, readings, Duration::from_secs(60));
+        assert!(
+            matches!(
+                report.stop,
+                Stop::BadTemperature { joint: 5, .. } | Stop::Temperature { joint: 5, .. }
+            ),
+            "{good}: {report:?}"
+        );
+        if good == 60 {
+            assert!(
+                matches!(report.stop, Stop::BadTemperature { from: 60, .. }),
+                "{report:?}"
+            );
+        }
+        let reads = lamp.read_times.iter().filter(|t| **t >= at).count();
+        assert!(reads <= 75, "{good}: {reads}");
+    }
 }
 
 /// Taking hold of an arm joint writes its goal by itself, and that write is

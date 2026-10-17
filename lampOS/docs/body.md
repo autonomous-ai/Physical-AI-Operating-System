@@ -345,8 +345,8 @@ later than without the check; one 150 is still dropped. Each settle is in
 the end report, `temperature_settles` (joint, last good, settled; the first
 16), so a stop on a steady 150 says it settled there rather than looking
 like heat that was read. A good read no longer ends a settle in progress: it counts as one of
-the settle's skipped outliers, so a value read by turns with the good one
-still settles. A bad read within 10 degrees of the last good one, both
+the settle's skipped outliers, so a value read on 25 of 30 reads, the good
+one on the rest, still settles; half and half never does. A bad read within 10 degrees of the last good one, both
 under 100 (`TEMPERATURE_FLAP`), is a flap: a register reading two
 plausible values by turns. lamp-4ace's shoulder on 2026-10-17 read about 55
 and 59 to 61 by turns (its settles 4 to 6 apart) and ended at 15:25:38 on
@@ -360,7 +360,12 @@ does. Only a flap that repeats the last one, within 2 degrees
 heat evidence: it is judged on the higher of it and the good one (the
 cautious side for heat), and the good reads in the 10 after it on it too.
 A lone flap, a glitch inside the window, is replaced by the good one as
-before. So lamp-52e6's glitches, one read in 27 at random, never chain
+before. A flap holds only next to its good value: a read with no
+good read in the last 10 is a bad read as before, toward
+`BadTemperature`, so a sensor whose reads all sit 4 to 10 from a stale good
+one (last good 60, then 64 and 70 by turns) still ends within about a
+second (`reads_within_the_flap_window_of_a_stale_good_one_still_stop`, the
+reviewer's case on #1347). So lamp-52e6's glitches, one read in 27 at random, never chain
 into heat: a cool head at 56 whose glitches read 57 to 66 runs ten
 minutes (`a_cool_joint_glitching_within_the_flap_window_runs_ten_minutes`,
 the eighth's probe on #1347, which judging on the highest flap ever seen

@@ -1027,7 +1027,7 @@ pub async fn run_with_continuation(
         crate::not_speech::with_transcription(
             provider_config.into_session_with_camera(visual.is_some())?,
             files.transcription_language.as_deref(),
-        )?
+        )
         .barrier_policy(barrier),
     )?;
     // Each session it opens is told how the conversation went until then.

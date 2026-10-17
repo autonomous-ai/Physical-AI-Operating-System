@@ -376,10 +376,9 @@ impl SessionConfig {
         Ok(self)
     }
     /// A language hint for the service's transcript of what it hears, sent
-    /// as `inputAudioTranscription.languageCodes`. Not set by the voice: only
-    /// the transcript probe sets it, to find whether the service takes it
-    /// (#926: English said with a Vietnamese accent transcribed in
-    /// Devanagari).
+    /// as `inputAudioTranscription.languageCodes`: set by the voice with
+    /// `LAMP_TRANSCRIPTION_LANGUAGE`, and by the transcript probe (#926:
+    /// English said with a Vietnamese accent transcribed in Devanagari).
     pub fn transcription_language(mut self, language_code: &str) -> Result<Self> {
         if !valid_language_code(language_code) {
             return Err(Error::InvalidConfiguration);
@@ -512,7 +511,9 @@ fn validate_thinking_level(model: &str, level: Option<ThinkingLevel>) -> Result<
     }
     Ok(())
 }
-fn valid_language_code(value: &str) -> bool {
+/// Whether `value` is a language tag this crate takes: the voice checks a
+/// switch's value with it before passing it on, so the two never differ.
+pub fn valid_language_code(value: &str) -> bool {
     // Bounded language/script/region/variant form, not a registry allowlist or
     // full BCP-47 extension/private-use parser. The provider checks support.
     if value.len() > 63 {

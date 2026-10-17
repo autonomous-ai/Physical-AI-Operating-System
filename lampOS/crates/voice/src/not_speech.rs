@@ -484,17 +484,11 @@ fn transcription_arguments(value: Option<&str>) -> Vec<String> {
     }
 }
 
-/// A language tag as `lamp_gemini` takes one: a language of 2 to 8 letters,
-/// then subtags of 1 to 8 letters or digits, at most 63 bytes.
+/// A language tag exactly as `lamp_gemini` takes one, by its own rule, so
+/// a value passed on is never one the worker's session refuses (the
+/// reviewer on #1367: `en-U` passed here and stopped the worker).
 fn language_tag(value: &str) -> bool {
-    let mut subtags = value.split('-');
-    value.len() <= 63
-        && subtags.next().is_some_and(|language| {
-            (2..=8).contains(&language.len()) && language.bytes().all(|b| b.is_ascii_alphabetic())
-        })
-        && subtags.all(|subtag| {
-            (1..=8).contains(&subtag.len()) && subtag.bytes().all(|b| b.is_ascii_alphanumeric())
-        })
+    lamp_gemini::valid_language_code(value)
 }
 
 /// Take a leading [`TRANSCRIPTION_FLAG`] and its tag off a worker's flags.
@@ -509,10 +503,20 @@ pub fn take_transcription(flags: &[String]) -> (Option<String>, &[String]) {
 pub fn with_transcription(
     session: lamp_gemini::SessionConfig,
     language: Option<&str>,
-) -> Result<lamp_gemini::SessionConfig, lamp_gemini::Error> {
-    match language {
-        Some(language) => session.transcription_language(language),
-        None => Ok(session),
+) -> lamp_gemini::SessionConfig {
+    let Some(language) = language else {
+        return session;
+    };
+    // A hint the session refuses is said and dropped: the voice starts
+    // without it rather than not at all.
+    match session.clone().transcription_language(language) {
+        Ok(hinted) => hinted,
+        Err(error) => {
+            eprintln!(
+                "lamp-voice provider: transcript language {language:?} refused ({error:?}); no hint"
+            );
+            session
+        }
     }
 }
 
@@ -787,6 +791,8 @@ mod tests {
             Some("english please"),
             Some("e"),
             Some("en_US"),
+            Some("en-U"),
+            Some("en-u-ca-gregory"),
         ] {
             assert!(transcription_arguments(value).is_empty(), "{value:?}");
         }
@@ -808,7 +814,7 @@ mod tests {
         let setup = |config: &lamp_gemini::SessionConfig| -> serde_json::Value {
             serde_json::from_str(&lamp_gemini::wire::encode_setup(config).unwrap()).unwrap()
         };
-        let hinted = setup(&with_transcription(session(), Some("en-US")).unwrap());
+        let hinted = setup(&with_transcription(session(), Some("en-US")));
         assert_eq!(
             hinted["setup"]["inputAudioTranscription"],
             serde_json::json!({"languageCodes": ["en-US"]})
@@ -818,8 +824,10 @@ mod tests {
                 .get("languageCode")
                 .is_none()
         );
-        let plain = setup(&with_transcription(session(), None).unwrap());
+        let plain = setup(&with_transcription(session(), None));
         assert_eq!(plain, setup(&session()));
+        // A tag the session refuses is dropped, never the worker.
+        assert_eq!(setup(&with_transcription(session(), Some("en-U"))), plain);
     }
 
     /// The first builder on #1148: a Stop, then the tap's thump taken as a

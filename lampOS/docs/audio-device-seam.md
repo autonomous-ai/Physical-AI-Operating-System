@@ -157,6 +157,58 @@ the loop the session ends in an error).
 queued on the device, and the prime again after it, are shown on a lamp
 only.
 
+**A speaker held up, with recovery off** (#1178, lamp-cb94 at 04:53:53 UTC
+on 17 October, 4 h 34 min into Thirteen's soak). The journal had a bare
+"Connection refused (os error 111)", then `reference ReferenceLate`, then
+the voice's own "Connection refused (os error 111); verified cleanup failed:
+capture worker exited abnormally: exit status: 1". Nothing there connects.
+Read from the code, the chain was:
+1. Every unit runs `--reference-clock capture --reference-recovery off`.
+   With those, the capture worker ends on `ReferenceLate` once the
+   speaker's newest reference is more than 40 ms old
+   (`MAX_REFERENCE_AGE_US`), or its ring runs dry: a speaker held up that
+   long while the microphone goes on.
+2. Its datagram sockets close. On Linux the next send to a closed peer is
+   refused. The first bare refusal is most likely the speaker's next
+   reference to it: a worker's last line, since each worker prints its
+   error and exits 1, and the log relay doesn't keep order across
+   processes. The voice's own is the coordinator's next `publish`
+   (authority to every worker), which ended it.
+3. That refused send also drops what the gone worker had sent and not yet
+   been read, its fault among it
+   (`transport::tests::a_refused_send_drops_what_the_gone_peer_had_sent`).
+   So the voice ends on the refusal and not on the fault.
+
+A refused send now names its socket (`capture.c.p: Connection refused …`,
+`ref.d.speaker: …`), as a refused receive does. A full queue is still a
+plain `WouldBlock`.
+
+What keeps the voice up is `--reference-recovery bounded`
+(`reference/recovery.rs`), which already exists. A speaker held up past its
+queue, or a dry ring, makes the reference **untrusted** instead of a fault:
+the canceller isn't run and no echo evidence is given, for at most 1 s,
+then it reseeds from fresh reference. It allows three reseeds a minute and
+warms for 3 s. That costs the canceller for a moment, not the voice. It has
+never run on a lamp, so every unit has it off (`switches.md`). Turning it on
+is the first builder's call, after a lamp check: a soak on lamp-4ace with
+it on, counting `NRestarts`, the reference statuses (untrusted, reseeded)
+and any yields or misses near them.
+
+Tests: `tests/capture_hold_worker.rs`'s
+`a_speaker_held_up_ends_the_capture_worker_unless_recovery_is_bounded`
+(Linux only, so the ARM64 run), the worker's own loop and sockets:
+- **Off:** after 1 s of stream the speaker accepts nothing while the
+  microphone goes on. The worker ends on `ReferenceLate` 40 ms or more
+  after the speaker's last packet, and the speaker's next reference and the
+  controller's next authority are refused, each naming its socket.
+- **Bounded:** the same 100 ms pause; every block is handed on through it
+  and after it, and the worker stops cleanly.
+
+`transport::tests::a_send_to_a_peer_that_has_gone_is_refused_with_the_sockets_name`
+checks the name. Why the speaker was held up 40 ms or more at that moment
+isn't known. The ring's slow SPI write in the same second (its third in
+4.5 h) points at a moment the lamp's processes were held up.
+
 ## Not done
 
 - **The speaker half.** `pcm.rs` still calls ALSA directly and is Linux

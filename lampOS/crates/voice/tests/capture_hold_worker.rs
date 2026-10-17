@@ -26,8 +26,8 @@ use lamp_voice::{
     reference::{PRIME_FRAMES, hold},
     transport::{ReferenceChannels, WorkerChannels},
     wire::{
-        ClockPrimed, Control, MicrophoneFrame, ReferenceControl, RenderPayload, RenderReference,
-        WorkerEvent,
+        ClockPrimed, Control, MicrophoneFrame, ReferenceControl, ReferenceFaultKind, RenderPayload,
+        RenderReference, WorkerEvent,
     },
 };
 use std::{
@@ -140,6 +140,11 @@ struct Rig {
     /// The epoch of each start the worker reported, and its gaps.
     epochs: Vec<u64>,
     gaps: usize,
+    /// A reference fault and a refused send are recorded, not a failure
+    /// (#1178): the worker is expected to end.
+    tolerate_fault: bool,
+    fault: Option<ReferenceFaultKind>,
+    refused: Option<std::io::Error>,
 }
 
 impl Rig {
@@ -232,6 +237,9 @@ impl Rig {
             stopped: false,
             epochs: Vec::new(),
             gaps: 0,
+            tolerate_fault: false,
+            fault: None,
+            refused: None,
         };
         rig.service();
         rig.parent
@@ -300,10 +308,13 @@ impl Rig {
             .is_none_or(|at| at.elapsed() >= Duration::from_millis(40))
         {
             let snapshot = self.controller.snapshot(now()).unwrap();
-            self.parent
-                .control
-                .send(Control::Authority { snapshot })
-                .unwrap();
+            let sent = self.parent.control.send(Control::Authority { snapshot });
+            match sent {
+                Err(error) if self.tolerate_fault => {
+                    self.refused.get_or_insert(error);
+                }
+                sent => sent.unwrap(),
+            }
             self.authority_at = Some(Instant::now());
         }
         while let Some(event) = self.parent.control.receive::<WorkerEvent>().unwrap() {
@@ -316,6 +327,9 @@ impl Rig {
                 }
                 WorkerEvent::CaptureGap { .. } => self.gaps += 1,
                 WorkerEvent::CaptureStopped => self.stopped = true,
+                WorkerEvent::ReferenceFault { fault } if self.tolerate_fault => {
+                    self.fault.get_or_insert(fault.reason);
+                }
                 WorkerEvent::ReferenceFault { fault } => {
                     panic!(
                         "reference fault {:?} after {} frames: at {} us, last render accepted at {} us, \
@@ -378,24 +392,44 @@ impl Rig {
 
     /// The speaker accepts one more block.
     fn accept(&mut self, samples: Vec<i16>) {
+        self.try_accept(samples).unwrap();
+    }
+
+    /// The same, saying whether the reference reached the worker's socket.
+    fn try_accept(&mut self, samples: Vec<i16>) -> std::io::Result<()> {
         let at = monotonic_us();
-        self.speaker
-            .data
-            .send(RenderReference {
-                playback_epoch: 1,
-                privacy_generation: self.privacy,
-                sequence: self.references + 1,
-                accepted_at_us: at,
-                queue_observed_at_us: at,
-                first_sample: PRIME_FRAMES as u64 + self.references * RENDER_SAMPLES as u64,
-                queued_frames: 960,
-                payload: RenderPayload::Speech {
-                    owner: self.owner,
-                    samples,
-                },
-            })
-            .unwrap();
+        self.speaker.data.send(RenderReference {
+            playback_epoch: 1,
+            privacy_generation: self.privacy,
+            sequence: self.references + 1,
+            accepted_at_us: at,
+            queue_observed_at_us: at,
+            first_sample: PRIME_FRAMES as u64 + self.references * RENDER_SAMPLES as u64,
+            queued_frames: 960,
+            payload: RenderPayload::Speech {
+                owner: self.owner,
+                samples,
+            },
+        })?;
         self.references += 1;
+        Ok(())
+    }
+
+    /// The microphone holds a block every 10 ms for `ticks`, and the speaker
+    /// accepts nothing, as a speaker held up does (#1178): its last packet,
+    /// and the 40 ms its queue held, grow old.
+    fn speaker_quiet(&mut self, signal: &Signal, ticks: usize) {
+        let from = self.pushed_at.len();
+        for tick in from..from + ticks {
+            let due = self.origin + TICK * tick as u32;
+            while Instant::now() < due {
+                self.service();
+                sleep(Duration::from_micros(300));
+            }
+            self.device.push(&signal.microphone(tick));
+            self.pushed_at.push(monotonic_us());
+            self.service();
+        }
     }
 
     /// No authority from the controller and nothing in the microphone for
@@ -713,4 +747,91 @@ fn stalls_in_a_row_each_reopen_the_microphone_while_the_reference_goes_on() {
     assert_eq!(rig.gaps, 3);
     rig.parent.control.send(Control::Stop).unwrap();
     rig.finish();
+}
+
+/// #1178, lamp-cb94 at 04:53:53 UTC on 17 October: the speaker accepts
+/// nothing for a while as the microphone goes on, as a speaker held up does.
+/// With recovery off, as every unit runs (`--reference-recovery off`), the
+/// capture worker ends on `ReferenceLate`. Its sockets close. The speaker's
+/// next reference to it, and the controller's next authority, are refused:
+/// "Connection refused (os error 111)". That is cb94's chain: the
+/// speaker's bare refusal, the capture worker's `reference ReferenceLate`,
+/// then the voice's own refusal and "capture worker exited abnormally". Each
+/// refusal now names its socket. With bounded recovery the worker goes on:
+/// its frames are handed on through the pause and after it, and it stops
+/// cleanly.
+#[test]
+fn a_speaker_held_up_ends_the_capture_worker_unless_recovery_is_bounded() {
+    warm_up();
+    let signal = Signal::new(400);
+    let mut rig = Rig::start_with("scripted held-up speaker, off", 0, ReferenceRecovery::Off);
+    rig.tolerate_fault = true;
+    rig.stream(&signal, 100);
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while !rig.worker.as_ref().unwrap().is_finished() {
+        assert!(
+            Instant::now() < deadline,
+            "the worker did not end: {} frames",
+            rig.frames.len()
+        );
+        rig.speaker_quiet(&signal, 1);
+    }
+    // Its fault, if the controller read it before a send of its own found
+    // the worker gone: on Linux that send drops what was waiting
+    // (`a_refused_send_drops_what_the_gone_peer_had_sent`).
+    assert!(
+        rig.fault
+            .is_none_or(|kind| kind == ReferenceFaultKind::ReferenceLate),
+        "{:?}",
+        rig.fault
+    );
+    // Not before the speaker's last packet is 40 ms old; the worker ends a
+    // block or two after the block it found that on.
+    let quiet_for = rig.pushed_at.len() - 100;
+    eprintln!("off: ended after {quiet_for} quiet blocks");
+    assert!(quiet_for >= 4, "ended after {quiet_for} quiet blocks");
+    let ended = rig.worker.take().unwrap().join().unwrap();
+    assert!(
+        ended.as_ref().unwrap_err().contains("ReferenceLate"),
+        "{ended:?}"
+    );
+    let refused = rig.try_accept(vec![0; RENDER_SAMPLES]).unwrap_err();
+    assert_eq!(
+        refused.kind(),
+        std::io::ErrorKind::ConnectionRefused,
+        "{refused}"
+    );
+    assert!(
+        refused.to_string().starts_with("ref.d.speaker: "),
+        "{refused}"
+    );
+    rig.authority_at = None;
+    rig.service();
+    let refused = rig
+        .refused
+        .take()
+        .expect("the controller's send is refused");
+    assert_eq!(
+        refused.kind(),
+        std::io::ErrorKind::ConnectionRefused,
+        "{refused}"
+    );
+    assert!(
+        refused.to_string().starts_with("capture.c.p: "),
+        "{refused}"
+    );
+
+    let mut rig = Rig::start_with(
+        "scripted held-up speaker, bounded",
+        0,
+        ReferenceRecovery::Bounded,
+    );
+    rig.stream(&signal, 100);
+    rig.speaker_quiet(&signal, 10);
+    rig.stream(&signal, 200);
+    rig.settle(0);
+    assert_eq!(rig.frames.len(), rig.pushed_at.len());
+    rig.parent.control.send(Control::Stop).unwrap();
+    let frames = rig.finish();
+    assert_eq!(frames.len(), 310);
 }

@@ -374,11 +374,17 @@ fn said(health: &Health, first: Option<&lamp_msgs::HealthItem>) -> String {
 fn zones_said(text: &str) -> String {
     let mut said = String::new();
     for word in text.split_inclusive(' ') {
-        let bare = word.trim_end().trim_end_matches([',', ';', ':', '.']);
+        // A zone may come after "(" (the self-test's line wraps a part's
+        // reason so, the reviewer on #1337) and before ",", ";", ":", ".", ")".
+        let trimmed = word.trim_end();
+        let inner = trimmed.trim_start_matches('(');
+        let bare = inner.trim_end_matches([',', ';', ':', '.', ')']);
         match zone_said(bare) {
             Some(plain) => {
+                said.push_str(&trimmed[..trimmed.len() - inner.len()]);
                 said.push_str(plain);
-                said.push_str(&word[bare.len()..]);
+                said.push_str(&inner[bare.len()..]);
+                said.push_str(&word[trimmed.len()..]);
             }
             None => said.push_str(word),
         }
@@ -725,6 +731,12 @@ mod tests {
             "busiest: the processor; then"
         );
         assert_eq!(zones_said("no zone here, at all"), "no zone here, at all");
+        // The self-test's line, as `parts.rs` wraps the board's reason.
+        assert_eq!(
+            zones_said("the air sensor (no reading), the computer (cpub_idle_zone is at 88 °C)"),
+            "the air sensor (no reading), the computer (the processor is at 88 °C)"
+        );
+        assert_eq!(zones_said("(skin_zone)"), "(the lamp's case)");
     }
 
     #[test]

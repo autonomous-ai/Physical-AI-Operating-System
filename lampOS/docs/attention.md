@@ -1215,7 +1215,19 @@ on only with it. On lamp-4ace both are on since 16 October 07:25 (the first buil
 Off unless `LAMP_SPOKEN_TO=on` in the voice's environment (built by the
 fourth builder on 16 October 2026, from the first builder's judgement on
 #829 at 22:13 on 15 October; the coordinator passes the worker
-`--spoken-to`, right after `--name-in-passing-ignored`). `day-and-night`
+`--spoken-to`, right after `--name-in-passing-ignored`). The product unit
+sets `on` since 17 October (#828): with `LAMP_ATTENTION=busy-near` and no
+face seen, the battery that evening on `460a1a1aa` answered 6 of 12 day
+lines without it and 11 of 12 with it. Without it a busy room holds every
+line nobody calls the lamp in, its name heard too, and a held line gets no
+answer, so no conversation begins again: the line after the lamp's own
+task news, about 100 s later, was held, and so was everything after it.
+With it, that line is a reply to the news (`AFTER_NEWS`), its answer makes
+the next a conversation going on, and the name counts with no face. Test:
+`with_the_switch_a_busy_room_after_the_lamps_news_does_not_go_deaf` (five
+lines 17 s apart after the news, all answered with the switch, all held
+without it when the first comes 100 s after; within the news's own 45 s,
+answered either way). `day-and-night`
 is the switch with the day's own bars as well (below; the worker's
 `--spoken-to-by-day`, right after `--spoken-to`).
 

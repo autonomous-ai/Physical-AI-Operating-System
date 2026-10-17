@@ -26,7 +26,7 @@ const CALLER_WAIT: Duration = Duration::from_secs(1);
 const MAX_REQUEST_BYTES: u64 = 8_192;
 /// How often what can be done is looked at again: a ring owner that starts
 /// or stops changes the list.
-const LOOK_AGAIN: Duration = Duration::from_secs(2);
+pub const LOOK_AGAIN: Duration = Duration::from_secs(2);
 const IDLE: Duration = Duration::from_millis(50);
 
 /// Write a file whole: beside its place, then moved into it.
@@ -183,8 +183,23 @@ pub fn serve_reporting_with_schedule<S: Mixer, L: Light>(
     directory: &Path,
     executive: &mut Executive<S, L>,
     stop: &AtomicBool,
+    health: Option<lamp_bus::Publisher>,
+    schedule: Option<&crate::schedule::Adapter>,
+) -> io::Result<()> {
+    serve_with_clock(directory, executive, stop, health, schedule, &Instant::now)
+}
+
+/// [`serve_reporting_with_schedule`] with the clock its two periods are
+/// read on ([`LOOK_AGAIN`] and [`REPORT_EVERY`]): for a test that moves
+/// that clock on instead of waiting out the lamp's seconds. A caller's
+/// waits, the idle pause and the light's freshness stay on the host's.
+pub fn serve_with_clock<S: Mixer, L: Light>(
+    directory: &Path,
+    executive: &mut Executive<S, L>,
+    stop: &AtomicBool,
     mut health: Option<lamp_bus::Publisher>,
     schedule: Option<&crate::schedule::Adapter>,
+    now: &dyn Fn() -> Instant,
 ) -> io::Result<()> {
     std::fs::create_dir_all(directory)?;
     let listener = listen(directory)?;
@@ -202,14 +217,14 @@ pub fn serve_reporting_with_schedule<S: Mixer, L: Light>(
         offered.iter().map(|f| f.name).collect::<Vec<_>>().join(" ")
     };
     eprintln!("lamp-actions: serving; can do now: {}", names(&offered));
-    let mut looked = Instant::now();
+    let mut looked = now();
     let mut reported: Option<Instant> = None;
     let mut answered = 0u64;
     while !stop.load(Ordering::Acquire) {
         if let Some(health) = health.as_mut()
-            && reported.is_none_or(|at| at.elapsed() >= REPORT_EVERY)
+            && reported.is_none_or(|at| now().saturating_duration_since(at) >= REPORT_EVERY)
         {
-            reported = Some(Instant::now());
+            reported = Some(now());
             let _ = health.publish_json(lamp_ipc::monotonic_us(), &report(&offered, answered));
         }
         match listener.accept() {
@@ -223,8 +238,8 @@ pub fn serve_reporting_with_schedule<S: Mixer, L: Light>(
                 std::thread::sleep(IDLE);
             }
         }
-        if looked.elapsed() >= LOOK_AGAIN {
-            looked = Instant::now();
+        if now().saturating_duration_since(looked) >= LOOK_AGAIN {
+            looked = now();
             let now = offered_now(executive);
             if now != offered {
                 put(directory, CATALOG_FILE, &catalog_file(&now))?;

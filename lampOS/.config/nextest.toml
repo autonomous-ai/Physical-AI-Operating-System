@@ -14,6 +14,10 @@
 # The same filterset appears twice below (the group override and
 # `realtime`'s selection). Keep both identical.
 
+# The group's `priority` needs nextest 0.9.91 or later; an older one stops
+# here and says so, rather than ignoring the key (Nine on #1299).
+nextest-version = { required = "0.9.91" }
+
 [test-groups]
 # One at a time: these tests measure real time and must not compete.
 realtime = { max-threads = 1 }

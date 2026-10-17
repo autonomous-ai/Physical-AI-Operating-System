@@ -132,7 +132,8 @@ on; the runner had 0.9.148) the group starts first and was done by about test
 10 s of a 10 to 16 minute job.
 
 Since 2026-10-17 the `pr` profile's filter is `all()`, and the group's
-override has `priority = 100`. The workflow's table (DevOps' file) still says
+override has `priority = 100`. The config requires nextest 0.9.91 or later
+(`nextest-version`), so an older install stops and says so. The workflow's table (DevOps' file) still says
 pull requests skip the group until DevOps changes it.
 
 ## Slow-transport wait entry point (#823)

@@ -1219,6 +1219,34 @@ fourth builder on 16 October 2026, from the first builder's judgement on
 is the switch with the day's own bars as well (below; the worker's
 `--spoken-to-by-day`, right after `--spoken-to`).
 
+**On in the product since 17 October (#828, #1378).** With
+`LAMP_ATTENTION=busy-near` and no face seen (the camera saw the floor),
+the battery that evening on `460a1a1aa` answered 6 of 12 day lines without
+the switch and 11 of 12 with it. Without it a busy room holds every line
+nobody calls the lamp in, its name heard too, and a held line gets no
+answer, so no conversation begins again. "How is that task going?", 46.8 s
+after the lamp's own task news began (35.2 s after it ended), just past the
+45 s a conversation lasts, was held, and so was everything after it. With
+the switch it asks about the lamp's work (`ABOUT_ITS_WORK`), its answer
+makes the next lines a conversation going on, and the name counts with no
+face. In a busy room a reply to the news is taken only so, or as any other
+line is: taken on timing alone (`AFTER_NEWS`), two colleagues talking 45 to
+180 s after the news were answered every line (the Second on #1378). Its
+cost: a reply that says nothing of the work, past the news's own 45 s in a
+busy room, is held, as without the switch. Outside a busy room the first
+line after the news is still a reply to it. Tests:
+`with_the_switch_the_battery_after_the_lamps_news_does_not_go_deaf` (the
+battery's four lines at their times: answered with the switch, held without
+it), `with_the_switch_five_follow_ups_after_the_news_are_answered_and_talk_is_held`
+(five follow-ups 17 s apart, the first asking about the task 100 s after
+the news, all answered with the switch and held without it; a line calling
+someone else by name inside the conversation and one a minute after it
+held; within the news's own 45 s the five answered either way) and
+`two_people_talking_soon_after_the_news_in_a_busy_room_are_held` (the
+Second's colleagues 120 s after the news, held with the switch and without;
+within 45 s a conversation going on either way; a reply about nothing held
+in a busy room and taken in a quiet one).
+
 Without it the rule holds answers only in a busy room. In a room not known
 to be busy, and in a session it trusts, every answer is played, whatever
 was said and to whom. On lamp-4ace at 02:16 on 16 October, "Did you get my
@@ -1262,7 +1290,9 @@ busy.
   needs the same-voice part (#865) on the lamp.
 - **The lamp's own news is replied to.** The first thing anyone says
   within 3 minutes of a turn the lamp began itself (a task's news, a
-  reminder) is played, once, in every room. Its answers keep their 45 s.
+  reminder) is played, once, in a room not known to be busy. In a busy
+  room only a reply that asks about its work (next) is (#1378). Its
+  answers keep their 45 s.
   The 3 minutes start when the turn's first sound is handed on to be
   played, owner-checked and with output credit. An own turn that ends
   silent, is cancelled before it speaks, or whose sound a cancellation
@@ -1556,7 +1586,8 @@ since 16 October; needs `lamp-policy --act attention`.
 or name from the sound without `LAMP_BUS=on`): in every room, an answer is
 played only when the lamp was spoken to (above). `day-and-night` adds the
 day's own bars (the worker's `--spoken-to-by-day`, right after
-`--spoken-to`). Off by default; not on any lamp.
+`--spoken-to`). Off by default; on in the product unit since 17 October
+(#1378), and on lamp-4ace by its drop-in.
 
 `LAMP_CUT_INS_NOT_TALK=on` (the worker's `--cut-ins-not-talk`, right
 after `--room-facts`): a line said while the lamp's answer could be heard,

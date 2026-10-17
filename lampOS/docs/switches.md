@@ -9,7 +9,8 @@ group: each switch that passes its check becomes the default in code before
 1 November (the first builder, #705, 07:30).
 
 **As of** `lamp-voice` `8c3df0449` (17 October 2026, about 08:50 +07), and the
-product column as #1332 (17 October, 15:41) sets it. The code is the source of
+product column as #1332 (17 October, 15:41) sets it, with `LAMP_SPOKEN_TO`
+from #1378. The code is the source of
 truth; this page is a census of it, to be kept up as switches are added, turned
 on or removed.
 
@@ -41,9 +42,9 @@ on or removed.
 
 | | Voice: hearing, turns, ring | Voice: tasks, memory, schedule, skills, looks | Voice: its own flags | Other parts | All |
 |---|---|---|---|---|---|
-| On already, or right at its default | 14 | 10 | 8 | 16 | **48** |
+| On already, or right at its default | 15 | 10 | 8 | 16 | **49** |
 | **Proposed to turn on now** | 0 | 1 | 0 | 1 | **2** |
-| Off until its named lamp check | 28 | 13 | 0 | 6 | **47** |
+| Off until its named lamp check | 27 | 13 | 0 | 6 | **46** |
 | Stays off (diagnostic, turned down, or not needed) | 5 | 1 | 2 | 2 | **10** |
 | A setting, not a behaviour | 1 | 2 | 0 | 0 | **3** |
 
@@ -52,9 +53,12 @@ on or removed.
   works end to end on lamp-4ace and has answered there since 16 Oct 03:17
   (#842), with things held up by a person shown on lamp-52e6.
 
-`LAMP_SPOKEN_TO`, `LAMP_POLICY_HOLDS_ACTIONS` and `LAMP_TASKS_WHO` were proposed
-here at first on earlier passes; each has a newer lamp-4ace record that fails
-(the reviewer on #1238), so each is "off until" its scenes pass.
+`LAMP_POLICY_HOLDS_ACTIONS` and `LAMP_TASKS_WHO` were proposed here at first
+on earlier passes; each has a newer lamp-4ace record that fails (the reviewer
+on #1238), so each is "off until" its scenes pass. So was `LAMP_SPOKEN_TO`,
+until the battery of 17 October showed the product deaf in a busy room
+without it (#828, 19:22): it is on in the product unit since, and its two
+failing scenes are for Sunday's two-people table (#829).
 
 **The quickest wins among "off until"** are the switches whose check needs no
 motion, since lamp-4ace's motors stay still until Monday: `LAMP_STAFF_NOTE`
@@ -102,7 +106,7 @@ motion, since lamp-4ace's motors stay still until Monday: `LAMP_STAFF_NOTE`
 | LAMP_SECOND_WAIT_CUE | `on`; off. Backup voice makes one soft "Hm." if its first round is slow | — | — | #1086 | "Draft until lamp-52e6": five questions with Gemini down, how often/when the sound played | off until that lamp-52e6 run | No result of the named run in the PR or second-voice.md (which notes 9 of 10 turns waited past 1.5 s on lamp-4ace) |
 | LAMP_SHORT_SOUNDS | `quiet-room`/`quiet-room-checked`; off. Short sounds still go to the model in a quiet room | quiet-room | quiet-room-checked (#1332) | commit 3e3de2d7a (direct) | not-speech.md: 13 of 36 short words lost on lamp-4ace 14 Oct; #800: a room sound answered under quiet-room | quiet-room-checked once played (quiet-room meanwhile) | not-speech.md #800 shows quiet-room answers room sounds; the checked form exists but has no lamp result |
 | LAMP_SPEAK_FIRST | `on`; otherwise moments only recorded. The voice's own hello on arrival | — (commented out) | — (commented out) | commit 4985caf77 (direct) | RUNBOOK: on since 15 Oct, never due in 0 of 680 sessions; now replaced by Welcome back | off | Both units leave it commented so only the Welcome back skill greets (install.md, skills.md) |
-| LAMP_SPOKEN_TO | `on`, or `day-and-night` (by day the name also needs a sure hearing, a face or its words, #1158); off. In every room an answer plays only when the lamp was spoken to | — | — | #918 | Passed on lamp-4ace 16 Oct 04:38 on the pre-merge `211f32c74` (budget line 0 of 8, named 6 of 6, day.sh 12 of 12); **newer and failing**: 06:06 on `1dc286181` the budget line was answered 3 of 4 (#918, 06:15), and 15:39 "Yes, give me five minutes.", said to someone else, set a timer (#829, attention.md "To another"). The rules added for both (`TO_ANOTHER`, `AFTER_QUESTION`, `TALK_ENDS_CONVERSATION`) are not yet played | off until those two scenes pass on the merged build | The newest record is a failure, and the rules made for it are unplayed (attention.md, the "Not yet played" list) |
+| LAMP_SPOKEN_TO | `on`, or `day-and-night` (by day the name also needs a sure hearing, a face or its words, #1158); off. In every room an answer plays only when the lamp was spoken to | — | on (#828, 17 Oct) | #918 | Passed on lamp-4ace 16 Oct 04:38 on the pre-merge `211f32c74` (budget line 0 of 8, named 6 of 6, day.sh 12 of 12). Failing then: 06:06 on `1dc286181` the budget line was answered 3 of 4 (#918, 06:15), and 15:39 "Yes, give me five minutes.", said to someone else, set a timer (#829, attention.md "To another"); the rules added for both (`TO_ANOTHER`, `AFTER_QUESTION`, `TALK_ENDS_CONVERSATION`) are for Sunday's two-people table. **Without it, deaf**: on 17 Oct on `460a1a1aa` with `busy-near`, the battery answered 6 of 12 day lines without it (19:02) and 11 of 12 with it (19:26–19:40, as at 16:11); the cut-ins cost nothing (12 against 11 of 20). In a busy room a reply to the lamp's news is taken only when it asks about its work, so two colleagues talking a minute or two after the news stay held (#1378) | on | Without it a busy room holds every line nobody calls the lamp in, its name too with no face, and a held line starts no conversation, so it stays deaf (#828, 19:22) |
 | LAMP_STALLS | `on`; off. Logs loop stalls ≥50 ms with getrusage to /run/lampos-voice | — | on (#1332) | #1179 | Next: on in lamp-4ace's drop-in, a scene across 00:00 (#1178) | off | A diagnostic for #1178, meant for lamp-4ace (serve-runtime.md) |
 | LAMP_QUIET_PACE | `on`; off. The voice's idle loops look at their inputs less often while nobody talks and the lamp is silent, and at once again when a turn begins | — (lamp-4ace's drop-in sets it) | on (#1332) | #1261 | lamp-4ace A/B on 17 Oct, same build: the coordinator 16.3% → 14.4% of a core (the first builder, 11:46); a turn goes back to the fast pace at once (Twelve's review) | on (#1332) | About 2% of a core with hearing unchanged; the lamp runs hot (83–92 °C) |
 | LAMP_START_OFFLINE | `on`; off. Voice started without internet keeps listening past the 25 s budget | — | on (#1332) | #884 | Stop Wi-Fi, restart the voice, it stays up logging "listening with no link"; lamp-4ace's installed unit has run it since 16 Oct, and the line never printed because that day's cut left the link up (#1242, offline.md) | off until the Wi-Fi-off restart check | offline.md: "Not yet shown on a host with its network cut or on a lamp" |

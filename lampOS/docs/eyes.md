@@ -254,6 +254,18 @@ the ask, or a side outside 320 to 4096, asks nothing):
    frame comes is waited for again. It waits at most 2 s in all. With no
    joint states on the bus (no body, `LAMP_BUS` off on either side) it does
    not wait; a paused body's joints do not turn.
+
+   With `--full-look-movement on` (off unless given) the head settles on
+   movement only: no joint's distance to its goal counts, and `shoulder`
+   and `elbow`, which carry the head and the camera with it, are waited
+   for while they turn faster than 25 counts a second, as the head's joints
+   are (by their speed only; a reading without speeds watches the head's
+   drift alone). lamp-52e6's standing shoulder pushes 22 to 34 counts short
+   of its goal for as long as it stands ([body.md](body.md)), and a head
+   joint may rest further short than 64 counts: neither is a move, and the
+   still is taken at once. The 0.3 s wait after a move, the 160 ms
+   freshness and the 2 s bound are as above. Off, the head settles as
+   described above and the arm is not read.
 2. The still is the first frame after that. It is passed as it is when it is
    a whole JPEG of at most 64 KiB and 1024 across; otherwise it is decoded,
    shrunk to 1024 across by averaging, and encoded (`jpeg-encoder`, pure
@@ -710,7 +722,7 @@ looking.
 lamp-eyes --device /dev/video0 --lock-directory /home/WORKER/private-camera-locks --usb 01da:5875@3-1.1.4 --model /opt/lampOS/eyes/face_detection_yunet_2023mar.onnx --permit-socket /run/lampos-eyes/permit.sock --body-socket /run/lampos-body/gaze.sock
 ```
 
-Every option shown is required; `--sight-file ABSOLUTE_PATH`, `--leave-still-faces on` and `--full-look 1280x960 --full-look-file /run/lampos-eyes/full-look.jpg` (up to `3264x2448`) may be added.
+Every option shown is required; `--sight-file ABSOLUTE_PATH`, `--leave-still-faces on` and `--full-look 1280x960 --full-look-file /run/lampos-eyes/full-look.jpg` (up to `3264x2448`) may be added, the last with `--full-look-movement on`.
 `--usb` is `VENDOR:PRODUCT@TOPOLOGY`, the two numbers as four hex digits; the
 lock directory must be private to the user it runs as. A camera that does not open, or fails, is tried again every five
 seconds while permission lasts. A start is given a 2 s budget (`OPEN_BUDGET_US`)

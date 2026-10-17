@@ -961,9 +961,14 @@ async fn with_the_switch_and_a_voice_check_a_line_held_as_another_voice_counts_a
 /// #829, through the worker's own loop, with a conversation going on: after
 /// Daniel's call is answered, a line of 1.5 s in another voice is held, and
 /// one in his is played. Said over the lamp, or with no voice check, the
-/// other voice is played as before.
-#[tokio::test]
+/// other voice is played as before. On the paused clock: the rig's leases
+/// are 100 ms, so on the host's clock a stall of the test's thread past
+/// that, between a heartbeat and the line's end, revoked the turn
+/// (`StaleOwner` at `input_ended`, the first builder's emulated ARM64 run of
+/// `6ea956900`).
+#[tokio::test(start_paused = true)]
 async fn with_the_switch_and_a_voice_check_another_voice_is_no_part_of_the_conversation() {
+    let _clock = logical_clock();
     const CALL: &str = "Hey Lamp, how much is one hundred dollars in euros?";
     const SAMANTHA: &str = "Anyway, if we drop the trip we save almost half.";
     let scene = |check: bool, over_the_lamp: bool, voice: i16| async move {

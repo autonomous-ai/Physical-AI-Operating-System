@@ -6798,14 +6798,17 @@ fn conversation_with_gate(
                     json!({"kind":"hello_due","at_us":clock,"said":false,"policy":"wait","provider_session":provider_session}),
                 )?;
             } else if arrival.speaks() {
-                // By name, for someone who asked the lamp to know their face.
-                let by_name = crate::known_faces::known_from_environment()
-                    .map(|name| crate::known_faces::hello(&name));
+                // By name: someone who asked the lamp to know their face,
+                // else the name typed at setup (`LAMP_PERSON_NAME`, #806).
+                let by_name = crate::person::hello_for(
+                    crate::known_faces::known_from_environment().as_deref(),
+                    crate::person::from_environment().as_deref(),
+                );
                 snapshot = commit_written_turn(
                     owner,
                     reply,
                     &mut provider_queue,
-                    by_name.as_deref().unwrap_or(crate::speak_up::NOTE),
+                    &by_name,
                     false,
                     "lamp_speaks_first",
                     provider_session,

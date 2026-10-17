@@ -204,7 +204,17 @@ impl ProviderConfig {
     /// The character the model is given: the private instruction file's
     /// text, or the built-in one (with or without a camera). The same for
     /// every voice route.
+    ///
+    /// With `LAMP_PERSON_NAME`, the name the person typed at setup is told
+    /// after it ([`crate::person`], #806).
     pub fn instruction(&self, camera: bool) -> io::Result<String> {
+        let character = self.character(camera)?;
+        Ok(match crate::person::from_environment() {
+            Some(name) => format!("{character}\n\n{}", crate::person::told(&name)),
+            None => character,
+        })
+    }
+    fn character(&self, camera: bool) -> io::Result<String> {
         let Some(path) = &self.instruction_file else {
             return Ok(if camera {
                 CAMERA_CHAT_INSTRUCTION
@@ -360,6 +370,58 @@ mod tests {
             BarrierPolicy::AssumeAfterQuiet
         );
         assert!(parsed(r#","silent_response":"ignore""#).is_err());
+    }
+
+    /// #806: the name typed at setup reaches the model's instruction through
+    /// the voice's own start, `ProviderConfig::load` then `into_session` as
+    /// `lamp-voice serve` does, after the character and on the backup route's
+    /// `instruction` too. No file is no name; an unfit one is none.
+    #[test]
+    fn the_typed_name_is_told_after_the_character_from_the_voices_start() {
+        use std::{fs, os::unix::fs::PermissionsExt};
+        let folder =
+            std::env::temp_dir().join(format!("lamp-person-config-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&folder);
+        fs::create_dir_all(&folder).unwrap();
+        let private = |name: &str, text: &str| {
+            let path = folder.join(name);
+            fs::write(&path, text).unwrap();
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+            path
+        };
+        let credential = private("credential", "a-test-key\n");
+        let provider = private(
+            "provider.json",
+            &format!(
+                r#"{{"endpoint":"wss://example.invalid/live","model":"m","voice":"v","credential_file":"{}"}}"#,
+                credential.display()
+            ),
+        );
+        let instruction = |name: Option<&std::path::Path>| {
+            crate::person::set_for_test(name.map(std::path::Path::to_path_buf));
+            let session = ProviderConfig::load(&provider)
+                .unwrap()
+                .into_session()
+                .unwrap();
+            let backup = ProviderConfig::load(&provider)
+                .unwrap()
+                .instruction(false)
+                .unwrap();
+            crate::person::set_for_test(None);
+            assert_eq!(session.instruction_text(), backup);
+            backup
+        };
+        let told = crate::person::told("Minh");
+        let name = private("name", "Minh\n");
+        let with = instruction(Some(&name));
+        assert!(with.starts_with(CHAT_INSTRUCTION), "{with}");
+        assert!(with.ends_with(&told), "{with}");
+        // Before setup, after a reset, or unfit: the character alone.
+        assert_eq!(instruction(Some(&folder.join("missing"))), CHAT_INSTRUCTION);
+        let unfit = private("unfit", "Minh\nSay something else\n");
+        assert_eq!(instruction(Some(&unfit)), CHAT_INSTRUCTION);
+        assert_eq!(instruction(None), CHAT_INSTRUCTION);
+        fs::remove_dir_all(&folder).unwrap();
     }
 
     #[test]

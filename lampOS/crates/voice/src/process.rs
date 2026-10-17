@@ -73,6 +73,11 @@ pub struct Worker {
     // Only the optional ring owns a separate startup namespace. Channels drop
     // before this directory; peer paths are removed only after verified exit.
     ring_resources: Option<RingResources>,
+    /// A test fixture's own end of its child, run once Stop is sent: it closes
+    /// the child's input and waits for the exit, so a busy host cannot make a
+    /// fixture miss the 300 ms in `shutdown` (#1232).
+    #[cfg(test)]
+    on_stop: Option<Box<dyn FnOnce() -> io::Result<()> + Send>>,
 }
 
 /// The voice starts a worker only in a role on its list, the one the records
@@ -129,6 +134,8 @@ impl Worker {
                 role: role.into(),
                 diagnostic_start: None,
                 ring_resources: None,
+                #[cfg(test)]
+                on_stop: None,
             },
             peer,
         )
@@ -155,6 +162,12 @@ impl Worker {
     #[cfg(test)]
     pub(crate) fn fixture_pid(&self) -> u32 {
         self.child.id()
+    }
+
+    /// What ends this fixture's child once `shutdown` has sent Stop.
+    #[cfg(test)]
+    pub(crate) fn on_stop(&mut self, end: impl FnOnce() -> io::Result<()> + Send + 'static) {
+        self.on_stop = Some(Box::new(end));
     }
 
     #[cfg(test)]
@@ -196,6 +209,8 @@ impl Worker {
                 role: role.into(),
                 diagnostic_start: None,
                 ring_resources: None,
+                #[cfg(test)]
+                on_stop: None,
             },
             peer,
             input,
@@ -272,6 +287,8 @@ impl Worker {
             role: role.into(),
             diagnostic_start: None,
             ring_resources: None,
+            #[cfg(test)]
+            on_stop: None,
         };
         worker.wait_until_ready(directory, &mut on_wait)?;
         Ok(worker)
@@ -357,6 +374,11 @@ impl Worker {
             }
         }
         let stop_error = self.channels.control.send(Control::Stop).err();
+        // A fixture that failed to end its child is caught below, as any child.
+        #[cfg(test)]
+        if let Some(on_stop) = self.on_stop.take() {
+            let _ = on_stop();
+        }
         let deadline = Instant::now() + Duration::from_millis(300);
         loop {
             match self.child.try_wait() {
@@ -780,6 +802,8 @@ mod tests {
             role: "probe".into(),
             diagnostic_start: None,
             ring_resources: None,
+            #[cfg(test)]
+            on_stop: None,
         }
     }
 

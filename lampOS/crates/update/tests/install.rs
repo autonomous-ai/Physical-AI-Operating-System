@@ -252,6 +252,8 @@ fn a_blank_lamp_gets_every_part_its_units_and_nothing_started() {
     }
     assert!(lamp.on("/etc/tmpfiles.d/lampos.conf").is_file());
     assert!(lamp.on("/etc/lampOS/controls/controls-pins.json").is_file());
+    // Records' bound, or its timer runs nothing on a product lamp.
+    assert!(lamp.on("/etc/lampOS/records.json").is_file());
     assert!(lamp.on("/etc/lampOS/expression/expression.json").is_file());
     assert_eq!(
         fs::read_to_string(lamp.on("/etc/lampOS/zone.env"))

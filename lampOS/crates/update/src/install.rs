@@ -158,6 +158,13 @@ pub const SETTINGS: &[(&str, &str)] = &[
         "/etc/lampOS/controls/controls-pins.json",
         include_str!("../../../deploy/product/settings/controls-pins.json"),
     ),
+    // Records' bound on the voice's sessions, without which its timer runs
+    // nothing and they grow without end (Twelve on lamp-cb94, the first
+    // builder on #705, 17 Oct): 2.0 GB, as on lamp-4ace, and two weeks.
+    (
+        "/etc/lampOS/records.json",
+        include_str!("../../../deploy/product/settings/records.json"),
+    ),
     // The first skill (#811): Welcome back, the hello on arrival. Its tests
     // stay in the repository; `lamp-skills` reloads the folder by itself.
     (

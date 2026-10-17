@@ -366,6 +366,18 @@ As built on 2026-10-16 (#938, `crates/skills`, not yet run on a lamp):
   actions part is not called for the light. `done` says
   `light warm: asked of the ring at level 5` and
   `light given back: asked again with a time already passed`.
+- **With `LAMP_BODY_REQUESTS=on`** (#940), each gesture and move a skill
+  sends on `mood.sock` says who asks:
+  `{"gesture":"nod","source":"skill:<name>","priority":"skill"}`, and the
+  same two fields beside `"move"`. The skill runner stamps them, never the
+  skill file, so a skill can't claim more. A body with `--arbitration on`
+  weighs them ([body.md](body.md)), so the conversation's gestures end a
+  skill's move, and a skill's move is dropped while the conversation's
+  plays. A body with its switch off takes the gesture and ignores the two
+  fields (#1239), so the switches needn't go on together. Only a body older
+  than #1239 refuses such a datagram (`not a mood or a gesture this body
+  has`): switch this on where the lamp's body has #1239. Off, the datagrams
+  are as before.
 - `done` says how each step went: `look at the face: told the body`,
   `light warm: done`, `say: spoken`, `light given back to on blue at 3:
   done`, or why not.
@@ -474,13 +486,12 @@ What is not done, and why:
    lapses ([ring-choreography.md](ring-choreography.md#the-lamps-own-light)).
    The body's is built behind `lamp-body --arbitration on`: a gesture or a
    move on the mood socket may say its `source` and `priority`
-   ([body.md](body.md#who-may-ask-over-whom-940)). Nothing sends them yet:
-   `lamp-skills` writes `{"gesture":NAME}` and `{"move":{...}}` and the
-   voice neither, so with the switch on today a skill's move counts as the
-   conversation's and a conversation gesture cannot end it. The skill runner,
-   not the skill file, must stamp `source = "skill:<name>"` and
-   `priority = "skill"` (a follow-up in `crates/skills`), so that no skill
-   can claim a higher priority.
+   ([body.md](body.md#who-may-ask-over-whom-940)). With
+   `LAMP_BODY_REQUESTS=on`, `lamp-skills` stamps every gesture and move it
+   sends with `source = "skill:<name>"` and `priority = "skill"` (#1252):
+   the skill runner does, never the skill file, so that no skill can claim
+   a higher priority. The voice sends its gestures unstamped, so they are
+   the conversation's.
 3. **The eyes publish `camera/image`** (a file and when it was taken), so a
    skill can look.
 4. **The body plays move files** from a skill, within its own speed and

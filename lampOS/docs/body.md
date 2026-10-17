@@ -1449,10 +1449,10 @@ a mood or a gesture this body has`. Callers may stamp always; each body
 decides by its own switch: only with `--arbitration on` (off unless given)
 is who asks weighed, and off, `source` and `priority` (even `null`) are
 read and ignored, so a stamped gesture plays exactly as an unstamped one.
-So the callers' stamping and every lamp's switch need not flip together. Nothing sends either
-yet: `lamp-skills` and the voice send the datagrams of before, so with the
-switch on a skill's move is still the conversation's until the skill runner
-stamps `skill:<name>` and `skill` ([skills.md](skills.md)).
+So the callers' stamping and every lamp's switch need not flip together.
+`lamp-skills` stamps `skill:<name>` at `skill` with `LAMP_BODY_REQUESTS=on`
+([skills.md](skills.md), #1252); the voice sends its gestures unstamped,
+so they are the conversation's.
 
 - Safety wins without asking: the anti-tip rule, the guard on every arm
   goal (`ARM_GOAL_STEP`) and the stop for a hot or loaded joint act on

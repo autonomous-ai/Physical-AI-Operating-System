@@ -820,8 +820,7 @@ pub struct Tipping {
 }
 
 /// Why the run ended. Only `Cancelled` is an ordinary end. Every other end
-/// but `Refused` leaves torque off on all five, as V1 let the lamp go,
-/// except `BadTemperature` of the shoulder or the elbow, which holds the arm.
+/// but `Refused` leaves torque off on all five, as V1 let the lamp go.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Stop {
@@ -1238,6 +1237,9 @@ struct Bus<'a, P, R> {
     /// Joints whose temperature this read was replaced: their heat streak
     /// holds for the step, neither adding nor resetting.
     pub(crate) temperature_held: [bool; 5],
+    /// Arm joints whose temperature is no longer judged: unreadable, the
+    /// arm is folding down to be let go (`run_on`). Each read is held.
+    unjudged: [bool; 5],
 }
 
 impl<'a, P: PortIo, R: Runtime> Bus<'a, P, R> {
@@ -1260,6 +1262,7 @@ impl<'a, P: PortIo, R: Runtime> Bus<'a, P, R> {
             settle_steps: Limits::FOLDED.temperature_steps,
             bad_warm_in_row: [0; 5],
             temperature_held: [false; 5],
+            unjudged: [false; 5],
         }
     }
 }
@@ -1439,6 +1442,11 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
     fn judge_temperatures(&mut self, samples: &mut [Sample; 5]) -> Result<(), String> {
         self.temperature_held = [false; 5];
         for (index, sample) in samples.iter_mut().enumerate() {
+            if self.unjudged[index] {
+                self.temperature_held[index] = true;
+                sample.temperature = self.warm[index].unwrap_or(0);
+                continue;
+            }
             let read = sample.temperature;
             let Some(good) = self.warm[index] else {
                 if read > TEMPERATURE_MAX {
@@ -2567,9 +2575,9 @@ pub(crate) fn run_looking(
 /// lamp, as V1 did, after the joints were held where they are (a stuck
 /// joint held at its goal with torque on keeps pushing and heats). Not when
 /// asked to stop, not on a refusal (one for a hot or loaded joint has let
-/// go already), and not under overload, where torque is already off. On a
-/// shoulder or an elbow whose temperature cannot be read
-/// (`Stop::BadTemperature`), only the head and the base: the arm is held.
+/// go already), and not under overload, where torque is already off. A
+/// standing lamp whose shoulder or elbow is too warm at start, or cannot be
+/// read while it runs, folds down first (`run_on`).
 #[cfg(test)]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn run_alive(
@@ -2612,19 +2620,11 @@ pub(crate) fn run_arbitrated(
     let mut report = run_until_stopped(
         io, runtime, limits, home, standing, looking, news, asked, watch,
     );
-    match report.stop {
-        Stop::Cancelled | Stop::Refused { .. } | Stop::Overload { .. } => {}
-        // An arm whose temperature cannot be read is held where it was,
-        // torque on: let go standing, it drops the lamp. Only the head and
-        // the base are let go.
-        Stop::BadTemperature { joint, .. } if ARM.iter().any(|arm| arm.id() == joint) => {
-            let _ = torque_off(
-                &mut Bus::new(io, runtime, None),
-                &mut report,
-                &mut COMMANDED.to_vec(),
-            );
-        }
-        _ => let_go_at_end(&mut Bus::new(io, runtime, None), &mut report),
+    if !matches!(
+        report.stop,
+        Stop::Cancelled | Stop::Refused { .. } | Stop::Overload { .. }
+    ) {
+        let_go_at_end(&mut Bus::new(io, runtime, None), &mut report);
     }
     report
 }
@@ -2748,11 +2748,16 @@ fn run_on<P: PortIo, R: Runtime>(
             if report.hot_rereads.len() >= FIRST_HEAT_REREADS {
                 match (hottest, cool) {
                     (Some(read), _) | (None, Some(read)) => found = read,
+                    // Only the arm of a lamp that may stand reads over 100:
+                    // it is judged too warm below, and a standing one folds.
+                    (None, None)
+                        if COMMANDED
+                            .iter()
+                            .all(|joint| found[joint.index()].temperature <= TEMPERATURE_MAX) => {}
                     (None, None) => {
-                        let (joint, temperature) = Joint::ALL
+                        let (joint, temperature) = COMMANDED
                             .into_iter()
                             .map(|joint| (joint, found[joint.index()].temperature))
-                            .filter(|(joint, _)| COMMANDED.contains(joint) || arm_judged)
                             .max_by_key(|(_, temperature)| *temperature)
                             .unwrap_or((Joint::WristPitch, 0));
                         report.stop = refused(format!(
@@ -2911,6 +2916,9 @@ fn run_on<P: PortIo, R: Runtime>(
     let mut stand = 0.0f32;
     let mut arm_written = ARM.map(|joint| found[joint.index()].position);
     let mut arm_profiles = [(0u8, 0u8, 0u16, 0u16); 2];
+    // Found standing with an arm too warm (or reading over 100): it folds
+    // down first and is let go folded, on this heat stop.
+    let mut fold_for: Option<Stop> = None;
     if let Some(up) = standing {
         arm_profiles = match bus.arm_profiles() {
             Ok(profiles) => profiles,
@@ -2967,15 +2975,24 @@ fn run_on<P: PortIo, R: Runtime>(
             (lift, offs) = on_the_way(up, ARM.map(|joint| found[joint.index()].position));
         }
         let mut why = None;
+        let mut warm = None;
+        let mut otherwise = false;
         for (index, joint) in ARM.iter().enumerate() {
             let sample = found[joint.index()];
             let off = offs[index];
+            otherwise |= off > f32::from(Standing::FOUND_SLACK);
             if arm_profiles[index].0 != 1 {
+                otherwise = true;
                 why.get_or_insert(format!("{joint} torque is not on"));
             } else if sample.status & !StatusFlags::OVERLOAD != 0 {
+                otherwise = true;
                 why.get_or_insert(format!("{joint} status is {:#04x}", sample.status));
             } else if sample.temperature >= Standing::TEMPERATURE {
                 why.get_or_insert(format!("{joint} is at {} already", sample.temperature));
+                warm.get_or_insert(Stop::Temperature {
+                    joint: joint.id(),
+                    temperature: sample.temperature,
+                });
             } else if off > f32::from(Standing::FOUND_SLACK) {
                 let mut said =
                     format!("{joint} is {off:.0} counts off the way between folded and stood up");
@@ -2986,6 +3003,12 @@ fn run_on<P: PortIo, R: Runtime>(
                 }
                 why.get_or_insert(said);
             }
+        }
+        // Up on its way and only too warm: left up and held it may heat on,
+        // let go it falls. It folds down first.
+        if why.is_some() && !otherwise && lift >= 0.05 {
+            fold_for = warm;
+            why = None;
         }
         match why {
             Some(why) => {
@@ -3473,6 +3496,13 @@ fn run_on<P: PortIo, R: Runtime>(
     let mut misses = 0u8;
     let mut unsent = 0u8;
     let mut leaving: Option<Duration> = None;
+    // What the run ends on once a lamp leaving for it is down: an arm too
+    // warm, or unreadable, is folded first and let go folded.
+    let mut leave_for = fold_for;
+    if leave_for.is_some() {
+        leaving = Some(bus.runtime.now());
+        bus.unjudged = Joint::ALL.map(|joint| ARM.contains(&joint));
+    }
     let mut resting_steps = 0u16;
     let mut relaxed = false;
     // Under `--rest-glance`: where the head and the base rested when a
@@ -4400,6 +4430,22 @@ fn run_on<P: PortIo, R: Runtime>(
             }
             Err(detail) => {
                 report.missed_reads += 1;
+                // A shoulder or an elbow whose temperature cannot be read,
+                // on a lamp that may stand: let go up, the lamp falls, and
+                // held it may be heating. It folds down as when asked to
+                // stop, its temperature no longer judged, and is let go
+                // once down.
+                if let Some(Stop::BadTemperature { joint, .. }) = bus.refused
+                    && standing.is_some()
+                    && let Some(arm) = ARM.into_iter().find(|arm| arm.id() == joint)
+                {
+                    bus.unjudged[arm.index()] = true;
+                    let stop = bus.refused.take();
+                    leave_for = leave_for.or(stop);
+                    leaving.get_or_insert(now);
+                    bus.sleep_until(due);
+                    continue;
+                }
                 misses += 1;
                 overloaded = [0; 5];
                 if misses >= WIRE_STEPS || bus.refused.is_some() {
@@ -5102,7 +5148,7 @@ fn run_on<P: PortIo, R: Runtime>(
                     Duration::from_secs_f32(up.seconds * 2.0)
                 });
             if settled || now.saturating_sub(since) >= allowed {
-                break Stop::Cancelled;
+                break leave_for.take().unwrap_or(Stop::Cancelled);
             }
         }
         bus.sleep_until(due);

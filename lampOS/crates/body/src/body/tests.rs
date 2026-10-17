@@ -6957,40 +6957,52 @@ fn garbage_with_one_good_read_in_50_still_stops_within_seconds() {
     assert!(reads <= 150, "{reads}");
 }
 
-/// Elbow temperature reads that never settle (150 and 5 by turns) from
-/// `from`: the run ends as unreadable with the arm held, torque on and no
-/// torque off written to it, and the head and the base let go.
-fn assert_arm_held_on_unreadable_elbow(report: &BodyReport, lamp: &Lamp) {
-    assert!(
-        matches!(report.stop, Stop::BadTemperature { joint: 3, .. }),
-        "{report:?}"
-    );
-    assert_eq!(lamp.servos[1].torque, 1);
-    assert_eq!(lamp.servos[2].torque, 1);
-    assert!(
-        !lamp
-            .registers
-            .iter()
-            .any(|(id, address, data)| (*id == 2 || *id == 3) && *address == 40 && data == &[0]),
-        "{:?}",
-        lamp.registers
-    );
-    assert!(
-        [0, 3, 4]
-            .iter()
-            .all(|index| lamp.servos[*index].torque == 0)
-    );
+/// Every arm goal written, shoulder and elbow, in order.
+fn arm_goal_writes(lamp: &Lamp) -> Vec<[u16; 2]> {
+    lamp.goals
+        .iter()
+        .filter(|write| write.iter().any(|(id, _)| *id == 2))
+        .map(|write| {
+            [
+                goal_of(write, Joint::BasePitch),
+                goal_of(write, Joint::ElbowPitch),
+            ]
+        })
+        .collect()
 }
 
-/// The reviewer's 11:50 case on #1270: standing, an elbow unreadable for 50
-/// reads in a row stops the run, but let go it would drop the lamp, so the
-/// arm is held.
+/// The arm folded down by steps of at most `ARM_GOAL_STEP` to the folded
+/// pose (2,050 and 2,047), and then the whole lamp let go.
+fn assert_folded_then_let_go(lamp: &Lamp) {
+    let arm = arm_goal_writes(lamp);
+    assert!(
+        arm.windows(2).all(
+            |pair| (0..2).all(|index| pair[0][index].abs_diff(pair[1][index]) <= ARM_GOAL_STEP)
+        ),
+        "{arm:?}"
+    );
+    assert_eq!(arm.last(), Some(&[2_050, 2_047]), "{arm:?}");
+    assert!(
+        (lamp.servos[1].position - 2_050.0).abs() <= 3.0,
+        "{}",
+        lamp.servos[1].position
+    );
+    assert!(let_go_of_the_whole_lamp(lamp), "{:?}", lamp.registers);
+}
+
+/// The reviewer's 11:50 and 12:15 cases on #1281: standing, an elbow whose
+/// temperature reads 150 and 5 by turns from 8 s. Let go up, the lamp would
+/// fall; held up, it may be heating with nothing to end it. It folds down
+/// at its own pace, its arm goals a step at a time, is let go once folded,
+/// and ends on `BadTemperature`. Started again 15 s later (the unit's
+/// restart) with the elbow still unreadable, no arm is left up with torque
+/// on.
 #[test]
-fn a_standing_lamp_whose_elbow_temperature_is_unreadable_stops_holding_the_arm() {
+fn a_standing_lamp_whose_elbow_temperature_is_unreadable_folds_then_lets_go() {
     let (mut lamp, mut clock) = folded(Duration::from_secs(20));
     lamp.arm_moves = true;
     lamp.overload_clears = 1;
-    lamp.flicker = Some((Duration::from_secs(8), 2, by_turns(2_000), 0));
+    lamp.flicker = Some((Duration::from_secs(8), 2, by_turns(5_000), 0));
     let report = run_standing(
         &mut lamp,
         &mut clock,
@@ -7002,21 +7014,82 @@ fn a_standing_lamp_whose_elbow_temperature_is_unreadable_stops_holding_the_arm()
     );
     assert!(report.stood, "{report:?}");
     assert!(
-        lamp.servos[1].position > 2_500.0,
-        "{}",
-        lamp.servos[1].position
+        matches!(report.stop, Stop::BadTemperature { joint: 3, .. }),
+        "{report:?}"
     );
-    assert_arm_held_on_unreadable_elbow(&report, &lamp);
+    let up = arm_goal_writes(&lamp);
+    assert!(up.iter().any(|arm| arm[0] > 2_600), "{up:?}");
+    assert_folded_then_let_go(&lamp);
+
+    let again = lamp.time.get() + Duration::from_secs(15);
+    lamp.time.set(again);
+    let mut clock = Clock {
+        time: lamp.time.clone(),
+        cancel_at: again + Duration::from_secs(20),
+    };
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        Limits::FOLDED,
+        Some(HOME),
+        Some(standing(100, 60)),
+        || Some((Mood::Listening, 100)),
+        |_| {},
+    );
+    assert_ne!(report.stop, Stop::Cancelled, "{report:?}");
+    for index in [1, 2] {
+        let servo = lamp.servos[index];
+        assert!(
+            servo.torque == 0 || servo.position < 2_100.0,
+            "{index}: {report:?}"
+        );
+    }
 }
 
-/// Folded, the same: the arm is held where it rests.
+/// Folded, the same ends at once, let go: it is down already.
 #[test]
-fn a_folded_lamp_whose_elbow_temperature_is_unreadable_stops_holding_the_arm() {
+fn a_folded_lamp_whose_elbow_temperature_is_unreadable_lets_go() {
     let (mut lamp, mut clock) = folded(Duration::from_secs(10));
     lamp.flicker = Some((Duration::from_millis(1_500), 2, by_turns(2_000), 0));
     let news = script(&clock.time);
     let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
-    assert_arm_held_on_unreadable_elbow(&report, &lamp);
+    assert!(
+        matches!(report.stop, Stop::BadTemperature { joint: 3, .. }),
+        "{report:?}"
+    );
+    assert!(let_go_of_the_whole_lamp(&lamp), "{:?}", lamp.registers);
+}
+
+/// Found standing with an elbow too warm, or reading over 100 on every
+/// read: it is not let go up nor left up held. It folds down first and is
+/// let go folded, on `Temperature`.
+#[test]
+fn a_lamp_found_standing_with_a_warm_or_unreadable_elbow_folds_then_lets_go() {
+    for (reads, temperature) in [(vec![], 70), (vec![Some(150); 6], 45)] {
+        let (mut lamp, mut clock) = folded(Duration::from_secs(20));
+        lamp.arm_moves = true;
+        for (index, at) in [(1usize, 2_650.0f32), (2, 2_600.0), (PITCH, 1_900.0)] {
+            lamp.servos[index].position = at;
+            lamp.servos[index].goal = at as u16;
+            lamp.servos[index].status = 0;
+        }
+        lamp.servos[2].temperature = temperature;
+        lamp.flicker = Some((Duration::ZERO, 2, reads, 0));
+        let report = run_standing(
+            &mut lamp,
+            &mut clock,
+            Limits::FOLDED,
+            Some(HOME),
+            Some(standing(100, 60)),
+            || Some((Mood::Resting, 0)),
+            |_| {},
+        );
+        assert!(
+            matches!(report.stop, Stop::Temperature { joint: 3, .. }),
+            "{temperature}: {report:?}"
+        );
+        assert_folded_then_let_go(&lamp);
+    }
 }
 
 /// A low first read, then the true value rising 5 degrees a second with a

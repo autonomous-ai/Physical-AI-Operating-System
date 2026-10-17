@@ -403,11 +403,11 @@ pub fn serve(
         {
             heeding.hear_levels(root);
         }
-        engine = engine.heeding(Arc::new(move |request, said, heard, continues| {
+        engine = engine.heeding(Arc::new(move |request, said, heard, from| {
             heeding
                 .lock()
                 .ok()
-                .and_then(|mut heeding| heeding.heed(request, said, heard, continues))
+                .and_then(|mut heeding| heeding.heed(request, said, heard, from))
         }));
     }
     tokio::runtime::Builder::new_current_thread()
@@ -459,9 +459,9 @@ pub(crate) struct Heeding {
     /// The room microphone's rise over its quiet, by when it was sampled,
     /// with `--attention-near`: the last [`LEVELS_KEPT_US`].
     levels: Option<Levels>,
-    /// The session the rule's last judged request began, which a request
-    /// going on from it keeps.
-    judged: Option<u64>,
+    /// The request the rule judged last, and the session it is judged in,
+    /// which a request going on from it keeps.
+    judged: Option<(u64, u64)>,
 }
 
 /// The room microphone's rise over its quiet, dB, by when it was sampled.
@@ -479,9 +479,10 @@ pub(crate) struct Signs {
     /// The room microphone rose [`crate::attention::NEAR_RISE_DB`] or more
     /// over its quiet during the line.
     pub near: bool,
-    /// The same utterance going on after the lamp ended it early
-    /// (`ProviderInput::Start::continues`, `LAMP_CUT_KEEPS_NAME=on`).
-    pub continues: bool,
+    /// The request this one goes on from, the same utterance after the lamp
+    /// ended it early (`ProviderInput::Start::continues`,
+    /// `LAMP_CUT_KEEPS_NAME=on`): the one begun just before, same session.
+    pub continues_from: Option<u64>,
 }
 
 /// Hearings of the name read in one turn's judgement; more wait for the next.
@@ -579,10 +580,10 @@ impl Heeding {
         request: u64,
         said: (u64, u64),
         heard: &str,
-        continues: bool,
+        continues_from: Option<u64>,
     ) -> Option<&'static str> {
         let signs = Signs {
-            continues,
+            continues_from,
             ..self.signs(request, said)
         };
         self.judge(request, said, heard, signs)
@@ -609,7 +610,7 @@ impl Heeding {
                         (began..=ended).contains(at) && *rise >= crate::attention::NEAR_RISE_DB
                     })
                 }),
-            continues: false,
+            continues_from: None,
         };
         let Some((bus, names)) = &mut self.bus else {
             return signs;
@@ -646,15 +647,24 @@ impl Heeding {
     ) -> Option<&'static str> {
         let attention = &mut self.attention;
         // Each turn is its own session here. One going on from the request
-        // judged just before keeps what the rule knew of it (its name, the
-        // words so far, whether it was close), as on the Live route.
-        match self.judged.filter(|_| signs.continues) {
-            Some(before) => attention.continued_at(request, before, began_us),
-            None => attention.began_at(request, request, began_us),
-        }
-        if !signs.continues || self.judged.is_none() {
-            self.judged = Some(request);
-        }
+        // begun just before it, when the rule judged that one last, keeps
+        // what the rule knew of it (its name, the words so far, whether it
+        // was close), as on the Live route. Anything else, a request never
+        // judged among them, is judged fresh (the reviewer on #1226).
+        let session = match self
+            .judged
+            .filter(|(last, _)| signs.continues_from == Some(*last))
+        {
+            Some((_, session)) => {
+                attention.continued_at(request, session, began_us);
+                session
+            }
+            None => {
+                attention.began_at(request, request, began_us);
+                request
+            }
+        };
+        self.judged = Some((request, session));
         attention.ended(request, ended_us);
         for (at_us, score) in signs.names {
             attention.name_heard_scored(at_us, score);
@@ -946,36 +956,55 @@ mod tests {
         );
     }
 
-    /// A request going on from the one judged just before it, the same
+    /// A request going on from the one begun just before it, the same
     /// utterance after the lamp ended it early (`continues`), keeps what the
-    /// rule knew of it: "Hey Lamp, what" then "time is it?" in a busy room
-    /// is answered; the rest alone, not going on, is office talk.
+    /// rule knew of it when the rule judged that one: "Hey Lamp, what" then
+    /// "time is it?" in a busy room is answered. One going on from a request
+    /// the rule never judged (replaced before its words came back) is judged
+    /// fresh, never as going on from an older question (the reviewer on
+    /// #1226: "budget" ten minutes after "weather").
     #[test]
-    fn a_request_going_on_keeps_the_name_of_the_one_before() {
+    fn a_request_going_on_keeps_only_the_one_just_before_it() {
         use crate::room_told::Room;
-        let busy = |continues: bool| Signs {
+        let busy = |continues_from: Option<u64>| Signs {
             room: Room::Busy,
             going_on: false,
             lamp_asked: false,
             turned: Some(false),
             names: Vec::new(),
             near: false,
-            continues,
+            continues_from,
         };
         let said = (10_000_000, 11_000_000);
         let rest = (11_400_000, 12_000_000);
         let mut heeding = Heeding::new(true, true, None, None);
+        assert_eq!(heeding.judge(300, said, "Hey Lamp, what", busy(None)), None);
         assert_eq!(
-            heeding.judge(300, said, "Hey Lamp, what", busy(false)),
+            heeding.judge(301, rest, "time is it?", busy(Some(300))),
             None
         );
-        assert_eq!(heeding.judge(301, rest, "time is it?", busy(true)), None);
+        // Not going on: the same words alone are office talk.
         let mut fresh = Heeding::new(true, true, None, None);
-        assert_eq!(fresh.judge(300, said, "Hey Lamp, what", busy(false)), None);
-        assert!(fresh.judge(301, rest, "time is it?", busy(false)).is_some());
-        // Going on with nothing judged before it is judged as a new one.
-        let mut first = Heeding::new(true, true, None, None);
-        assert!(first.judge(400, rest, "time is it?", busy(true)).is_some());
+        assert_eq!(fresh.judge(300, said, "Hey Lamp, what", busy(None)), None);
+        assert!(fresh.judge(301, rest, "time is it?", busy(None)).is_some());
+        // The reviewer's probe: 302 goes on from 301, which was never judged
+        // (replaced before its words came back), ten minutes after 300.
+        let mut probe = Heeding::new(true, true, None, None);
+        assert_eq!(
+            probe.judge(300, said, "Hey Lamp, what's the weather", busy(None)),
+            None
+        );
+        let later = (610_000_000, 611_000_000);
+        assert!(
+            probe
+                .judge(
+                    302,
+                    later,
+                    "do you think the budget is fine",
+                    busy(Some(301))
+                )
+                .is_some()
+        );
     }
 
     /// The two remarks on lamp-4ace on 2026-10-16 that this route answered
@@ -992,7 +1021,7 @@ mod tests {
             turned: Some(false),
             names,
             near: false,
-            continues: false,
+            continues_from: None,
         };
         let said = (10_000_000, 11_500_000);
         let mut heeding = Heeding::new(true, true, None, None);

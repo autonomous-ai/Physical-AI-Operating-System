@@ -1573,6 +1573,55 @@ fn a_tap_while_muted_gets_the_asleep_face_once() {
     }
 }
 
+/// The reviewer on #1288 (P3): the muted wait's own closures, run through
+/// `muted_wait` with a waiter that says the slide's state and then looks,
+/// as the privacy wait does. With the software mute open, a tap while the
+/// slide is closed gets the asleep face; with the slide open, the same tap
+/// is the one that lets it hear, and gets none.
+#[test]
+fn the_muted_waits_own_closures_count_the_slide_for_a_taps_face() {
+    use crate::privacy::PrivacyState;
+    use crate::ring_asleep::{Asleep, TapFace};
+    use crate::service_privacy::WaitOutcome;
+    let faces_for = |said: PrivacyState| {
+        let controls = RefCell::new(Some(head_tap()));
+        let reminders = RefCell::new(None);
+        let face = TapFace::new(|| {
+            Some(Asleep::tapped_with(
+                || lamp_ring::asleep::AsleepRing::new(DiscardFrames),
+                lamp_ring::ChannelCeiling::new(24).unwrap(),
+            ))
+        });
+        let mut trace = SessionState::default();
+        let outcome = muted_wait(
+            &mut trace,
+            &mut None,
+            &controls,
+            &reminders,
+            Some(face),
+            |on_state, gate| {
+                on_state(said, crate::process::new_boot().unwrap(), 1)?;
+                for _ in 0..3 {
+                    gate()?;
+                }
+                Ok(WaitOutcome::Allowed)
+            },
+        )
+        .unwrap();
+        assert_eq!(outcome, WaitOutcome::Allowed);
+        trace
+            .iter()
+            .filter(|row| row["kind"] == "head_tap_muted_face")
+            .count()
+    };
+    assert_eq!(
+        faces_for(PrivacyState::Muted),
+        1,
+        "the slide closed, the mute open"
+    );
+    assert_eq!(faces_for(PrivacyState::Allowed), 0, "the slide open");
+}
+
 /// A ring that takes every frame and keeps none.
 struct DiscardFrames;
 impl lamp_ring::FrameSink for DiscardFrames {

@@ -321,7 +321,12 @@ Tests: `ring_asleep`'s
 `a_tap_face_comes_one_at_a_time_and_never_for_a_tap_that_wakes_it`, and the
 coordinator's `a_tap_while_muted_gets_the_asleep_face_once` (the muted
 wait's call, `answer_muted_tap`, the slide closed with the mute open, and
-where the face is allowed). Not shown on a lamp.
+where the face is allowed) and
+`the_muted_waits_own_closures_count_the_slide_for_a_taps_face`. That one
+runs the muted wait's own closures (`muted_wait`, whose privacy wait is a
+parameter) with a waiter that says the slide closed or open and then
+looks; it fails if the slide's state isn't kept or isn't given to the face
+(the reviewer on #1288). Not shown on a lamp.
 
 ### The lamp's own light
 

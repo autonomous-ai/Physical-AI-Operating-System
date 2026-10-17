@@ -3969,6 +3969,11 @@ fn conversation_with_gate(
                     // on #1278), with `LAMP_STOP_TOLD` or without.
                     lamp_words_ended_us = None;
                 }
+                // A stop word said over the lamp's speech ends its words too
+                // (`LAMP_STOP_WORDS`, the reviewer's optional P3 on #1278).
+                if spoken_stop && !muted {
+                    lamp_words_ended_us = None;
+                }
                 let reason = if asleep {
                     HEAD_SLEEP
                 } else if muted {

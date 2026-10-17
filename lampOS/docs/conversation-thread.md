@@ -222,7 +222,8 @@ session trace's `input_admitted`).
   sound plays. It isn't when the worker handed the sound on, which runs
   ahead by the queued audio. Only a reply that played to its end starts the
   clock; one cut off never does.
-- **After a Stop that cut the lamp's speech** the clock is cleared, so
+- **After a Stop that cut the lamp's speech** (a hand, the head, or a stop
+  word said over it with `LAMP_STOP_WORDS`) the clock is cleared, so
   nothing said next is marked from an earlier answer, with
   `LAMP_STOP_TOLD` or without. With it, the first line after the Stop is
   told the lamp's words are over (`STOPPED_NOTE`) instead.
@@ -261,7 +262,8 @@ Tests:
   is a sound.
 
 Not exercised through the loop: a line begun over a sound sent on (it's
-`takes_over`'s case, pinned in the rule's own test).
+`takes_over`'s case, pinned in the rule's own test), and the clock cleared
+at a Stop (the early-end harness has no hand, head or stop word).
 
 ## What it keeps to itself
 

@@ -244,12 +244,32 @@ pub const CREDENTIAL_PATH: &str = "/etc/lampOS/voice/credential";
 /// (`deploy/product/lamp-policy.service`; the first builder on #811, 13:09:
 /// provision it like the voice's).
 pub const JEV_KEY_PATH: &str = "/etc/lampOS/policy/jev.key";
-/// What a key missing when the records were set aside is recorded as: once
+/// What each key path is recorded as when the records were set aside: once
 /// written, with no hash any file can match. So the rule for a key removed
 /// since it was written holds on every later run, not only on the run that
 /// found the damage, which saves records with no key in them (Third on
 /// #1263). A key setup writes later is kept as the lamp's own.
 pub const SET_ASIDE: &str = "unknown: the records were set aside";
+
+/// Whether the records in `folder` were set aside: by this run's read
+/// (`existed`, and now gone), or by an earlier run that could not save what
+/// it marked, which left no `state.json` and a `state.json.corrupt-*` beside
+/// it (the reviewer on #1263). Either way, what was written before is not
+/// known.
+fn records_lost(folder: &Path, existed: bool) -> bool {
+    if folder.join("state.json").exists() {
+        return false;
+    }
+    existed
+        || fs::read_dir(folder).is_ok_and(|entries| {
+            entries.flatten().any(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with("state.json.corrupt-")
+            })
+        })
+}
 pub const V1_CONFIG: &str = "/root/config/config.json";
 /// Where lamp-update keeps its records on a lamp.
 pub const RECORDS: &str = "/var/lib/lampos-update/";
@@ -471,7 +491,7 @@ pub fn install(
     let mut state = records
         .state(say)
         .map_err(|error| format!("the state cannot be read: {error}"))?;
-    let records_lost = existed && !state_file.exists();
+    let records_lost = records_lost(&config.on(&config.records), existed);
     let mut changed = Vec::new();
 
     // The users first: a folder or a part made below may name them.
@@ -580,7 +600,11 @@ pub fn install(
     for (path, part) in [(CREDENTIAL_PATH, "the voice"), (JEV_KEY_PATH, "the Policy")] {
         let there = config.on(path).exists();
         let had = state.settings.contains_key(path);
-        if records_lost && !there {
+        // Every key path, the ones there too: a key there now is removed by
+        // a later reset, and must not come back then. One there that is
+        // V1's gets its real hash below; any other is kept as the lamp's own
+        // (the reviewer on #1263).
+        if records_lost {
             state.settings.insert(path.to_owned(), SET_ASIDE.to_owned());
             marked = true;
         }
@@ -1138,9 +1162,15 @@ pub fn provision_device_key(
             return Ok(Vec::new());
         }
     };
-    let records_lost = existed && !state_file.exists();
+    let records_lost = records_lost(&config.on(&config.records), existed);
     let mut wanted = Vec::new();
     for path in [CREDENTIAL_PATH, JEV_KEY_PATH] {
+        // Every key path is marked, the ones there too: a key there now is
+        // removed by a later reset, and must not come back then (the
+        // reviewer on #1263).
+        if records_lost {
+            state.settings.insert(path.to_owned(), SET_ASIDE.to_owned());
+        }
         if fs::symlink_metadata(config.on(path)).is_ok() {
             continue;
         }
@@ -1148,7 +1178,6 @@ pub fn provision_device_key(
             say(&format!(
                 "{path} is missing and the records were set aside: V1's key is not copied; setup takes the user's"
             ));
-            state.settings.insert(path.to_owned(), SET_ASIDE.to_owned());
         } else if state.settings.contains_key(path) {
             say(&format!(
                 "{path} was removed since it was written (a reset?): V1's key is not put back; setup takes the user's"

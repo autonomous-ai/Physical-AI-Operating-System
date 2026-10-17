@@ -1923,6 +1923,76 @@ fn prepare_sets_corrupt_records_aside_and_leaves_unreadable_ones_alone() {
     assert_eq!(prepare(lamp.path()).0.unwrap().len(), 2);
 }
 
+/// The reviewer on #1263: the set-aside must hold for keys that are there
+/// when the records are lost (a later reset removes them), and on the run
+/// after one that could not save its mark (no `state.json`, a
+/// `state.json.corrupt-*` beside it).
+#[test]
+fn a_set_aside_holds_for_keys_there_and_after_a_mark_that_was_not_saved() {
+    let keys = [install::CREDENTIAL_PATH, install::JEV_KEY_PATH];
+    let at = |root: &Path, path: &str| root.join(path.trim_start_matches('/'));
+    let damage = |root: &Path| {
+        fs::write(root.join("var/lib/lampos-update/state.json"), b"{ not json").unwrap();
+    };
+    let reset = |root: &Path| {
+        for path in keys {
+            fs::remove_file(at(root, path)).unwrap();
+        }
+    };
+    let none = |root: &Path| keys.iter().all(|path| !at(root, path).exists());
+
+    // (a) prepare writes both, the records are damaged with the keys there,
+    // prepare, a reset: neither prepare nor install puts V1's key back.
+    let lamp = v1_lamp(Some(&v1_config()));
+    assert_eq!(prepare(lamp.path()).0.unwrap().len(), 2);
+    damage(lamp.path());
+    assert!(prepare(lamp.path()).0.unwrap().is_empty());
+    reset(lamp.path());
+    assert!(prepare(lamp.path()).0.unwrap().is_empty());
+    assert!(none(lamp.path()), "prepare after a reset wrote V1's key");
+
+    // (b) install, setup writes the user's key, damage, install, a reset,
+    // install: nothing written; then prepare writes nothing either.
+    let mut lamp = Lamp::new(195, &[]);
+    fs::create_dir_all(lamp.on("/root/config")).unwrap();
+    fs::write(lamp.on(install::V1_CONFIG), v1_config()).unwrap();
+    lamp.install().unwrap();
+    fs::write(lamp.on(install::CREDENTIAL_PATH), "new-users-key").unwrap();
+    damage(&lamp.root);
+    lamp.install().unwrap();
+    assert_eq!(
+        fs::read_to_string(lamp.on(install::CREDENTIAL_PATH)).unwrap(),
+        "new-users-key"
+    );
+    reset(&lamp.root);
+    lamp.install().unwrap();
+    assert!(none(&lamp.root), "install after a reset wrote V1's key");
+    assert!(prepare(&lamp.root).0.unwrap().is_empty());
+    assert!(none(&lamp.root));
+
+    // A run that set the records aside and could not save its mark leaves
+    // no `state.json` and the damaged file beside: taken as set aside.
+    let lamp = v1_lamp(Some(&v1_config()));
+    let folder = lamp.path().join("var/lib/lampos-update");
+    fs::create_dir_all(&folder).unwrap();
+    fs::write(folder.join("state.json.corrupt-1"), b"{ not json").unwrap();
+    let (wrote, said) = prepare(lamp.path());
+    assert!(wrote.unwrap().is_empty());
+    assert!(none(lamp.path()));
+    assert!(
+        said.iter()
+            .any(|line| line.contains("the records were set aside")),
+        "{said:?}"
+    );
+    // That run saves the mark, and the next one keeps to it.
+    assert!(folder.join("state.json").exists());
+    assert!(prepare(lamp.path()).0.unwrap().is_empty());
+    assert!(none(lamp.path()));
+    // A blank lamp, no records and nothing beside: V1's key, as before.
+    let blank = v1_lamp(Some(&v1_config()));
+    assert_eq!(prepare(blank.path()).0.unwrap().len(), 2);
+}
+
 /// Where prepare's record and install's rule meet: a key prepare wrote and a
 /// reset removed is not put back by the install that follows the migration.
 #[test]

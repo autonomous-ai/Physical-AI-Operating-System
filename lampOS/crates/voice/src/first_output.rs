@@ -128,6 +128,12 @@ impl FirstOutputLog {
     /// A new file for this run in `directory`, which must exist, be a
     /// directory and be open to its owner only.
     pub fn open(directory: &Path) -> io::Result<Self> {
+        Self::open_hashing(directory, std::env::current_exe().ok())
+    }
+
+    /// [`Self::open`], naming the program its first line hashes: only its
+    /// path is taken here, and it is read on the writer's thread.
+    fn open_hashing(directory: &Path, program: Option<PathBuf>) -> io::Result<Self> {
         let metadata = std::fs::metadata(directory)?;
         if !metadata.is_dir() || metadata.permissions().mode() & 0o077 != 0 {
             return Err(io::Error::new(
@@ -154,6 +160,7 @@ impl FirstOutputLog {
                 machine: machine.clone(),
                 boot: boot.clone(),
                 began_unix_ms,
+                program,
             };
             std::thread::Builder::new()
                 .name("first-output".into())
@@ -282,6 +289,8 @@ struct Start {
     machine: Option<String>,
     boot: Option<String>,
     began_unix_ms: u64,
+    /// The program to hash, read here on the writer's thread.
+    program: Option<PathBuf>,
 }
 
 /// The writer's thread. Its first line names the run and the program that
@@ -295,7 +304,7 @@ fn write_lines(mut file: std::fs::File, start: &Start, queued: &Receiver<String>
         "machine": start.machine,
         "os_boot": start.boot,
         "voice_run": start.run,
-        "build_sha256": build_sha256(),
+        "build_sha256": build_sha256(start.program.as_deref()),
         "began_unix_ms": start.began_unix_ms,
     });
     let mut written_bytes = 0u64;
@@ -357,9 +366,9 @@ fn read_trimmed(path: &str) -> Option<String> {
 }
 
 /// The running program's SHA-256, which names its build exactly.
-fn build_sha256() -> Option<String> {
+fn build_sha256(program: Option<&Path>) -> Option<String> {
     use sha2::{Digest, Sha256};
-    let bytes = std::fs::read(std::env::current_exe().ok()?).ok()?;
+    let bytes = std::fs::read(program?).ok()?;
     Some(format!("{:x}", Sha256::digest(&bytes)))
 }
 
@@ -568,17 +577,50 @@ mod tests {
 
     #[test]
     fn opening_reads_nothing_large_on_the_callers_thread() {
-        // Hashing the program happens on the writer's thread: opening is
-        // quick whatever the program's size.
+        // Hashing the program happens on the writer's thread: opening never
+        // waits for it. The program here is a FIFO, whose read waits until
+        // something is written to it, so `open` returning while the writer
+        // is held there shows the read isn't on the caller's thread, with no
+        // clock to miss under load (it was a 50 ms bound before).
+        use sha2::{Digest, Sha256};
         let directory = private_directory("quick");
-        let started = std::time::Instant::now();
-        let log = FirstOutputLog::open(&directory).unwrap();
+        let program = directory.join("program");
         assert!(
-            started.elapsed() < std::time::Duration::from_millis(50),
-            "{:?}",
-            started.elapsed()
+            std::process::Command::new("mkfifo")
+                .arg(&program)
+                .status()
+                .unwrap()
+                .success()
         );
+        let (opened, open) = std::sync::mpsc::channel();
+        let opening = {
+            let (directory, program) = (directory.clone(), program.clone());
+            std::thread::spawn(move || {
+                let log = FirstOutputLog::open_hashing(&directory, Some(program));
+                opened.send(()).unwrap();
+                log
+            })
+        };
+        // Generous, only so that a regression fails rather than hangs.
+        open.recv_timeout(std::time::Duration::from_secs(30))
+            .expect("open waited for the program to be read");
+        // The program's bytes come, and the writer goes on.
+        std::fs::write(&program, b"a build").unwrap();
+        let log = opening.join().unwrap().unwrap();
+        let path = log.path().to_owned();
         drop(log);
+        let first: serde_json::Value = serde_json::from_str(
+            std::fs::read_to_string(&path)
+                .unwrap()
+                .lines()
+                .next()
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            first["build_sha256"],
+            format!("{:x}", Sha256::digest(b"a build"))
+        );
         std::fs::remove_dir_all(directory).unwrap();
     }
 

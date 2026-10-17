@@ -9,8 +9,8 @@ use lamp_msgs::{
 };
 use lamp_skills::glow::{GLOW_EVERY, Glow, Glows, REQUESTS_ENVIRONMENT};
 use lamp_skills::{
-    Admission, CLIP_GAP_US, Call, Engine, Run, clip_us, clock, duration_us, load_all, run_tests,
-    told, tools_file,
+    Admission, BODY_REQUESTS_ENVIRONMENT, CLIP_GAP_US, Call, Engine, Run, body_ask, clip_us, clock,
+    duration_us, load_all, run_tests, told, tools_file,
 };
 use serde_json::json;
 use std::{
@@ -130,6 +130,7 @@ fn main() -> ExitCode {
         tools,
         ask,
         light_requests: std::env::var(REQUESTS_ENVIRONMENT).is_ok_and(|value| value == "on"),
+        body_requests: std::env::var(BODY_REQUESTS_ENVIRONMENT).is_ok_and(|value| value == "on"),
         boot_id,
         clock_control,
         utc_offset_minutes: offset,
@@ -245,6 +246,9 @@ struct Options {
     ask: String,
     /// `LAMP_LIGHT_REQUESTS=on`: a skill's light is asked of the ring.
     light_requests: bool,
+    /// `LAMP_BODY_REQUESTS=on`: a skill's gestures and moves say who asks,
+    /// for a body with `--arbitration on` (#940).
+    body_requests: bool,
     /// `--boot-id`: the boot a light request's claim is on, in place of the
     /// host's own, which only Linux has.
     boot_id: Option<String>,
@@ -410,6 +414,7 @@ fn serve(
         finished,
         bus: bus.clone(),
         glows,
+        body_requests: options.body_requests,
         ends: RefCell::new(HashMap::new()),
         utc_offset_minutes: options.utc_offset_minutes,
     };
@@ -728,6 +733,8 @@ struct Runner {
     bus: Bus,
     /// With `LAMP_LIGHT_REQUESTS=on`, how a skill's light is asked of the ring.
     glows: Option<Glows>,
+    /// `LAMP_BODY_REQUESTS=on`: a skill's gestures and moves say who asks.
+    body_requests: bool,
     /// By skill, the run that holds something until its trigger ends.
     ends: RefCell<HashMap<String, mpsc::Sender<()>>>,
     /// The lamp's local time east of UTC, for quiet hours.
@@ -768,11 +775,12 @@ fn start(
     // SAY_TIMEOUT a line) or a light's for (at most 10 min): its own
     // thread, one a skill, so the skills go on listening.
     // ponytail: a skill removed meanwhile still finishes its run.
-    let (sockets, finished, bus, glows) = (
+    let (sockets, finished, bus, glows, asks_body) = (
         runner.sockets.clone(),
         runner.finished.clone(),
         runner.bus.clone(),
         runner.glows.clone(),
+        runner.body_requests,
     );
     let before = light_now(&bus);
     // A run that holds something until its trigger ends waits for the end.
@@ -799,7 +807,7 @@ fn start(
             &sockets,
             &bus,
             before,
-            glows.as_ref(),
+            (glows.as_ref(), asks_body),
             (made, end),
         );
         let _ = finished.send(SkillEvent {
@@ -1013,7 +1021,7 @@ fn tool_call(
         // Each look comes with the head down over the page again: only the
         // run's poses are made again, never its light (#1051, Ten's P2).
         for call in made.iter().filter(|call| matches!(call, Call::Mood { .. })) {
-            make(call, &runner.sockets, &runner.bus);
+            make(call, &runner.sockets, &runner.bus, None);
         }
     }
     if nothing || under_way {
@@ -1184,13 +1192,16 @@ fn perform(
     sockets: &Sockets,
     bus: &Bus,
     before: Option<Light>,
-    glows: Option<&Glows>,
+    // How the light is asked, and, with `LAMP_BODY_REQUESTS=on`, that its
+    // gestures and moves say they are this skill's (#940).
+    (glows, asks_body): (Option<&Glows>, bool),
     // Told once the body and the light are made, and, for a dim held until
     // its trigger ends, told that end.
     (made, end): (mpsc::Sender<()>, Option<mpsc::Receiver<()>>),
 ) -> String {
     let is_light = |call: &Call| matches!(call, Call::Light { .. } | Call::Dim { .. });
     let mut said = Vec::new();
+    let asker = asks_body.then_some(skill);
     // Asked of the ring, a light is never the person's to give back.
     let mut glow = glows
         .filter(|_| calls.iter().any(is_light))
@@ -1245,6 +1256,7 @@ fn perform(
                     &first,
                     sockets,
                     bus,
+                    asker,
                     &mut changed,
                     &mut played,
                     &mut glow,
@@ -1260,6 +1272,7 @@ fn perform(
                     &after,
                     sockets,
                     bus,
+                    asker,
                     &mut changed,
                     &mut played,
                     &mut glow,
@@ -1272,6 +1285,7 @@ fn perform(
                 &first,
                 sockets,
                 bus,
+                asker,
                 &mut changed,
                 &mut played,
                 &mut glow,
@@ -1292,6 +1306,7 @@ fn perform(
                         &after,
                         sockets,
                         bus,
+                        asker,
                         &mut changed,
                         &mut played,
                         &mut glow,
@@ -1349,10 +1364,12 @@ fn perform(
 /// Makes `calls` in order. A clip after another waits for that one to end,
 /// and is not sent, nor any after it, if meanwhile the body was pushed or
 /// the lamp paused: the body's own stops hold for the whole run.
+#[allow(clippy::too_many_arguments)]
 fn act(
     calls: &[Call],
     sockets: &Sockets,
     bus: &Bus,
+    asker: Option<&str>,
     changed: &mut Changed,
     played: &mut Played,
     glow: &mut Option<Glow>,
@@ -1409,7 +1426,7 @@ fn act(
         }
         said.push(match glow {
             Some(glow) if matches!(call, Call::Light { .. } | Call::Dim { .. }) => glow.ask(call),
-            _ => make(call, sockets, bus),
+            _ => make(call, sockets, bus, asker),
         });
     }
 }
@@ -1620,8 +1637,9 @@ fn say(
     }
 }
 
-/// Makes one call and says how it went.
-fn make(call: &Call, sockets: &Sockets, bus: &Bus) -> String {
+/// Makes one call and says how it went. A gesture or a move says it is
+/// `asker`'s, a skill's name, with `LAMP_BODY_REQUESTS=on` (#940).
+fn make(call: &Call, sockets: &Sockets, bus: &Bus, asker: Option<&str>) -> String {
     let tell = |what: &str, text: String, path: &Path| {
         let sent = UnixDatagram::unbound().and_then(|body| body.send_to(text.as_bytes(), path));
         match sent {
@@ -1648,12 +1666,12 @@ fn make(call: &Call, sockets: &Sockets, bus: &Bus) -> String {
         ),
         Call::Gesture(name) => tell(
             &format!("gesture {name}"),
-            json!({ "gesture": name }).to_string(),
+            body_ask(json!({ "gesture": name }), asker),
             &sockets.mood,
         ),
         Call::Move(clip) => tell(
             &format!("move {}", clip.name),
-            json!({ "move": clip }).to_string(),
+            body_ask(json!({ "move": clip }), asker),
             &sockets.mood,
         ),
         Call::Light { colour, level, .. } => {

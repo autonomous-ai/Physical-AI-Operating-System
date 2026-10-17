@@ -2879,6 +2879,16 @@ fn the_dance_late(
     ending: Line,
     late: Duration,
 ) -> (Instant, Vec<(Instant, String)>, Vec<String>, SkillEvent) {
+    the_dance_asking(push, ending, late, false)
+}
+
+/// The same, with `LAMP_BODY_REQUESTS=on` when `body_requests` (#940).
+fn the_dance_asking(
+    push: bool,
+    ending: Line,
+    late: Duration,
+    body_requests: bool,
+) -> (Instant, Vec<(Instant, String)>, Vec<String>, SkillEvent) {
     // Short: a socket's whole path has to fit in 103 bytes.
     let dir = tempfile::Builder::new()
         .prefix("dn")
@@ -2928,24 +2938,26 @@ fn the_dance_late(
         })
     };
     let tools = root.join("tools");
-    let _running = Running(
-        Command::new(env!("CARGO_BIN_EXE_lamp-skills"))
-            .args([
-                "--dir".as_ref(),
-                root.join("skills").as_os_str(),
-                "--bus-root".as_ref(),
-                root.join("bus").as_os_str(),
-                "--actions-socket".as_ref(),
-                root.join("actions.sock").as_os_str(),
-                "--mood-socket".as_ref(),
-                root.join("mood.sock").as_os_str(),
-                "--tools-dir".as_ref(),
-                tools.as_os_str(),
-            ])
-            .args(clock.args())
-            .spawn()
-            .unwrap(),
-    );
+    let mut command = Command::new(env!("CARGO_BIN_EXE_lamp-skills"));
+    command
+        .args([
+            "--dir".as_ref(),
+            root.join("skills").as_os_str(),
+            "--bus-root".as_ref(),
+            root.join("bus").as_os_str(),
+            "--actions-socket".as_ref(),
+            root.join("actions.sock").as_os_str(),
+            "--mood-socket".as_ref(),
+            root.join("mood.sock").as_os_str(),
+            "--tools-dir".as_ref(),
+            tools.as_os_str(),
+        ])
+        .args(clock.args())
+        .env_remove("LAMP_BODY_REQUESTS");
+    if body_requests {
+        command.env("LAMP_BODY_REQUESTS", "on");
+    }
+    let _running = Running(command.spawn().unwrap());
     let deadline = Instant::now() + Duration::from_secs(20);
     while !tools.join("tools.json").exists() {
         assert!(Instant::now() < deadline, "no tools file");
@@ -3137,6 +3149,21 @@ fn a_clip_the_body_begins_late_is_followed_from_when_it_began() {
         "{between:?}; {}",
         done.why
     );
+}
+
+/// #940's skills half: with `LAMP_BODY_REQUESTS=on`, each gesture a skill
+/// sends says who asks, `skill:<name>` at `skill`, as a body with
+/// `--arbitration on` weighs it. Without it, as before (the test above).
+#[test]
+fn with_body_requests_each_gesture_a_skill_sends_says_who_asks() {
+    let (_, gestures, _, done) = the_dance_asking(false, Line::Said, Duration::ZERO, true);
+    assert_eq!(gestures.len(), 2, "{gestures:?}; {}", done.why);
+    for (_, text) in &gestures {
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(text).unwrap(),
+            serde_json::json!({"gesture": "nod", "source": "skill:nods", "priority": "skill"}),
+        );
+    }
 }
 
 #[test]

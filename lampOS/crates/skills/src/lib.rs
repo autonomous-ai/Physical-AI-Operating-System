@@ -29,6 +29,22 @@ pub fn clip_us(name: &str) -> Option<u64> {
     lamp_body::clips::named(name).map(lamp_body::clips::Clip::duration_us)
 }
 
+/// With `LAMP_BODY_REQUESTS=on`, each gesture and move a skill sends on the
+/// body's mood socket says who asks (#940).
+pub const BODY_REQUESTS_ENVIRONMENT: &str = "LAMP_BODY_REQUESTS";
+
+/// A gesture's or a move's datagram for the body's mood socket. With
+/// `skill`, it says who asks, `skill:<name>` at `skill` priority, as a body
+/// with `--arbitration on` weighs it (#940); with its switch off, a body
+/// with #1239 ignores the two fields, and only an older one refuses them.
+pub fn body_ask(mut ask: Value, skill: Option<&str>) -> String {
+    if let Some(skill) = skill {
+        ask["source"] = json!(format!("skill:{skill}"));
+        ask["priority"] = json!(lamp_msgs::Priority::Skill);
+    }
+    ask.to_string()
+}
+
 /// The body's step: `lamp_body::body::TICK`, which is built for Linux alone.
 pub const BODY_STEP_US: u64 = 20_000;
 
@@ -2555,6 +2571,30 @@ pub fn run_tests(dir: &Path) -> Result<(usize, usize), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #940: with the switch, a gesture or a move says who asks; without
+    /// it, the datagram is as before.
+    #[test]
+    fn a_body_ask_says_who_asks_only_with_the_switch() {
+        let parse = |text: String| serde_json::from_str::<Value>(&text).unwrap();
+        assert_eq!(
+            body_ask(json!({ "gesture": "nod" }), None),
+            r#"{"gesture":"nod"}"#
+        );
+        assert_eq!(
+            parse(body_ask(json!({ "gesture": "nod" }), Some("dance"))),
+            json!({"gesture": "nod", "source": "skill:dance", "priority": "skill"})
+        );
+        let clip = json!({"name": "wave", "step_ms": 40, "frames": []});
+        assert_eq!(
+            body_ask(json!({ "move": clip }), None),
+            json!({ "move": clip }).to_string()
+        );
+        assert_eq!(
+            parse(body_ask(json!({ "move": clip }), Some("dance"))),
+            json!({"move": clip, "source": "skill:dance", "priority": "skill"})
+        );
+    }
 
     /// #939, (c): `say = { from = ... }` is a say of what the voice keeps,
     /// by where, at that kind's priority.

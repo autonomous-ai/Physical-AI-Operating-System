@@ -25,6 +25,9 @@ filter = '''
   | (binary_id(lamp-health::program) & test(=between_two_healths_five_seconds_apart_the_program_is_not_taken_for_gone))
 '''
 test-group = 'realtime'
+# EXPERIMENT (#823): start the group's one-at-a-time chain first, so it runs
+# beside the rest instead of after it.
+priority = 100
 
 # EXPERIMENT (#823, do not merge): pull requests run every test, the
 # realtime group too, still one at a time through its test group, to see

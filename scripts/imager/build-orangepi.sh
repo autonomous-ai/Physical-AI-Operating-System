@@ -1313,6 +1313,25 @@ if [ -n "\$DEVICES_URL" ]; then
   if [ -d "\$DEVICE_PROFILE_DIR/rootfs" ]; then
     cp -a "\$DEVICE_PROFILE_DIR/rootfs/." /
     echo "[overlay] device rootfs overlay applied"
+    # Device-tree overlays the rootfs carries as source (no binary in the
+    # repo): /boot/overlay-user/NAME.dts, compiled here and named in
+    # user_overlays=, which boot.cmd applies after the kernel's overlays.
+    for dts in /boot/overlay-user/*.dts; do
+      [ -e "\$dts" ] || continue
+      name=\$(basename "\$dts" .dts)
+      dtc -@ -q -I dts -O dtb -o "/boot/overlay-user/\$name.dtbo" "\$dts" \
+        || { echo "[overlay] ERROR: \$dts does not compile" >&2; exit 1; }
+      # A last line without a newline would be joined to the one added.
+      sed -i '\$a\\' /boot/orangepiEnv.txt
+      if grep -q "^user_overlays=" /boot/orangepiEnv.txt; then
+        # Whole names only, split on spaces: a "-" is part of a name.
+        grep -Eq "^user_overlays=(.* )?\$name( |\\\$)" /boot/orangepiEnv.txt \
+          || sed -i -e "s/^user_overlays=.*/& \$name/" -e "s/^user_overlays= */user_overlays=/" /boot/orangepiEnv.txt
+      else
+        echo "user_overlays=\$name" >> /boot/orangepiEnv.txt
+      fi
+      echo "[overlay] device-tree overlay \$name compiled and named in user_overlays"
+    done
   else
     echo "[overlay] WARN: device profile has no rootfs/ overlay"
   fi

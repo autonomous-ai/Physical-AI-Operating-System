@@ -695,6 +695,63 @@ fn tap_face_allowed(head_touch: bool, asleep_on: bool, privacy_controls: bool) -
     head_touch && !asleep_on && !privacy_controls
 }
 
+/// The privacy wait (`wait`) of one muted cycle, with what the service does
+/// meanwhile: each state into the trace and the slide's last state kept;
+/// at each look, the reminders, the controls and a tap's face (#711). The
+/// face is stopped, black and closed, before this returns. The wait is a
+/// parameter so a test can run these very closures without a worker (the
+/// reviewer on #1288).
+fn muted_wait<F: FnMut() -> Option<crate::ring_asleep::Asleep>>(
+    trace: &mut SessionState,
+    cues: &mut Option<CueSink>,
+    controls: &RefCell<Option<HandControls>>,
+    reminders: &RefCell<Option<crate::reminders::Reminders>>,
+    tap_face: Option<crate::ring_asleep::TapFace<F>>,
+    wait: impl FnOnce(
+        &mut dyn FnMut(crate::privacy::PrivacyState, BootId, u64) -> Result<()>,
+        &mut dyn FnMut() -> Result<bool>,
+    ) -> Result<crate::service_privacy::WaitOutcome>,
+) -> Result<crate::service_privacy::WaitOutcome> {
+    let trace = RefCell::new(trace);
+    // The slide's last state from the wait: closed is muted too, whatever
+    // the software mute says (the reviewer on #1288).
+    let slide = std::cell::Cell::new(None);
+    let tap_face = RefCell::new(tap_face);
+    let outcome = wait(
+        &mut |state, boot, at_us| {
+            slide.set(Some(state));
+            let mut trace = trace.borrow_mut();
+            record(
+                &mut trace,
+                json!({"kind":"service_privacy_state", "at_us":at_us,"privacy_worker_session":boot,"state":format!("{state:?}"),"audio_workers_open":false}),
+            )?;
+            flush_cues(&mut trace, cues);
+            Ok(())
+        },
+        &mut || {
+            if let Some(reminders) = reminders.borrow_mut().as_mut() {
+                reminders.poll(monotonic_us());
+            }
+            let Some(controls) = &mut *controls.borrow_mut() else {
+                return Ok(true);
+            };
+            let (allowed, observation) = controls.quiescent_observation()?;
+            record_hand_pats(&mut trace.borrow_mut(), observation.pets)?;
+            answer_muted_tap(
+                tap_face.borrow_mut().as_mut(),
+                &observation,
+                may_hear(allowed, slide.get()),
+                &mut trace.borrow_mut(),
+            )?;
+            Ok(allowed)
+        },
+    );
+    if let Some(face) = tap_face.into_inner() {
+        face.stop();
+    }
+    outcome
+}
+
 /// One look of the muted wait at the head (#711): a tap taken while the
 /// lamp still may not hear gets the asleep face for about a second, said in
 /// the trace as `head_tap_muted_face`.
@@ -1508,47 +1565,24 @@ fn run_source(
                     let asleep = asleep_ceiling.and_then(crate::ring_asleep::Asleep::start);
                     #[cfg(not(target_os = "linux"))]
                     let _ = asleep_ceiling;
-                    let trace = RefCell::new(trace);
-                    // The slide's last state from the wait: closed is muted too,
-                    // whatever the software mute says (the reviewer on #1288).
-                    let slide = std::cell::Cell::new(None);
-                    let tap_face = RefCell::new(tap_face_ceiling.map(|ceiling| {
+                    let tap_face = tap_face_ceiling.map(|ceiling| {
                         crate::ring_asleep::TapFace::new(move || tapped_face(ceiling))
-                    }));
-                    let outcome = crate::service_privacy_controls::wait_selected(
-                        &executable,
-                        termination,
-                        |state, boot, at_us| {
-                            slide.set(Some(state));
-                            let mut trace = trace.borrow_mut();
-                            record(
-                                &mut trace,
-                                json!({"kind":"service_privacy_state", "at_us":at_us,"privacy_worker_session":boot,"state":format!("{state:?}"),"audio_workers_open":false}),
-                            )?;
-                            flush_cues(&mut trace, cues);
-                            Ok(())
-                        },
-                        || {
-                            if let Some(reminders) = reminders.borrow_mut().as_mut() {
-                                reminders.poll(monotonic_us());
-                            }
-                            let Some(controls) = &mut *controls.borrow_mut() else {
-                                return Ok(true);
-                            };
-                            let (allowed, observation) = controls.quiescent_observation()?;
-                            record_hand_pats(&mut trace.borrow_mut(), observation.pets)?;
-                            answer_muted_tap(
-                                tap_face.borrow_mut().as_mut(),
-                                &observation,
-                                may_hear(allowed, slide.get()),
-                                &mut trace.borrow_mut(),
-                            )?;
-                            Ok(allowed)
+                    });
+                    let outcome = muted_wait(
+                        trace,
+                        cues,
+                        &controls,
+                        &reminders,
+                        tap_face,
+                        |on_state, gate| {
+                            crate::service_privacy_controls::wait_selected(
+                                &executable,
+                                termination,
+                                on_state,
+                                gate,
+                            )
                         },
                     );
-                    if let Some(face) = tap_face.into_inner() {
-                        face.stop();
-                    }
                     // Black and the device closed before a cycle's ring
                     // worker can open it.
                     #[cfg(target_os = "linux")]

@@ -23,7 +23,6 @@ filter = '''
   | binary_id(lamp-voice::capture_hold_worker)
   | (binary_id(lamp-voice) & test(=coordinator::tests::endpoint_session::endpoint_fixture_reaps_on_panic_before_and_after_handoff))
   | (binary_id(lamp-health::program) & test(=between_two_healths_five_seconds_apart_the_program_is_not_taken_for_gone))
-  | (binary_id(lamp-actions::server) & test(=the_light_is_offered_when_its_owner_appears_and_withdrawn_when_it_goes))
 '''
 test-group = 'realtime'
 
@@ -37,7 +36,6 @@ not (
   | binary_id(lamp-voice::capture_hold_worker)
   | (binary_id(lamp-voice) & test(=coordinator::tests::endpoint_session::endpoint_fixture_reaps_on_panic_before_and_after_handoff))
   | (binary_id(lamp-health::program) & test(=between_two_healths_five_seconds_apart_the_program_is_not_taken_for_gone))
-  | (binary_id(lamp-actions::server) & test(=the_light_is_offered_when_its_owner_appears_and_withdrawn_when_it_goes))
 )
 '''
 
@@ -49,5 +47,4 @@ default-filter = '''
   | binary_id(lamp-voice::capture_hold_worker)
   | (binary_id(lamp-voice) & test(=coordinator::tests::endpoint_session::endpoint_fixture_reaps_on_panic_before_and_after_handoff))
   | (binary_id(lamp-health::program) & test(=between_two_healths_five_seconds_apart_the_program_is_not_taken_for_gone))
-  | (binary_id(lamp-actions::server) & test(=the_light_is_offered_when_its_owner_appears_and_withdrawn_when_it_goes))
 '''

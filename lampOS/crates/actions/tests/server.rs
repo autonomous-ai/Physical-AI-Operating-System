@@ -2,7 +2,7 @@
 use lamp_actions::{
     Executive,
     light::{BusLight, Light, STATE},
-    server::{CALL_SOCKET, CATALOG_FILE, READY_FILE, serve},
+    server::{CALL_SOCKET, CATALOG_FILE, LOOK_AGAIN, READY_FILE, serve, serve_with_clock},
     sound::{Mixer, Volume},
 };
 use serde_json::{Value, json};
@@ -12,7 +12,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         Arc,
-        atomic::{AtomicBool, AtomicU8, Ordering},
+        atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering},
     },
     time::{Duration, Instant},
 };
@@ -156,6 +156,14 @@ fn the_list_is_there_a_call_changes_the_control_and_anything_else_is_refused_in_
     std::fs::remove_dir_all(home).unwrap();
 }
 
+/// Whether what the ring's owner last said still holds by the bus's clock.
+/// Expired here, it is past what the executive allows it as well.
+fn owner_says(bus: &lamp_bus::Bus) -> bool {
+    bus.latest(STATE)
+        .unwrap()
+        .is_some_and(|state| !state.expired)
+}
+
 /// The light's functions are offered only while the ring's owner says what
 /// it shows. Here it starts after the executive, shows what it is asked,
 /// and then goes: the list follows it both ways.
@@ -164,16 +172,27 @@ fn the_light_is_offered_when_its_owner_appears_and_withdrawn_when_it_goes() {
     let home = directory("light");
     let root = directory("light-bus");
     let stop = Arc::new(AtomicBool::new(false));
+    // The executive's periods on a clock the test moves on: the list is
+    // looked at again once the owner's change is on the bus and the test
+    // has moved the clock by `LOOK_AGAIN`, not after two seconds of waiting.
+    let base = Instant::now();
+    let ahead_ms = Arc::new(AtomicU64::new(0));
     let serving = {
         let (home, root, stop) = (home.clone(), root.clone(), stop.clone());
+        let ahead_ms = ahead_ms.clone();
         std::thread::spawn(move || {
             let mut executive = Executive {
                 sound: None::<Volume<Shared>>,
                 light: Some(BusLight::new(lamp_bus::Bus::new(&root).unwrap()).unwrap()),
             };
-            serve(&home, &mut executive, &stop)
+            let now = move || base + Duration::from_millis(ahead_ms.load(Ordering::Acquire));
+            serve_with_clock(&home, &mut executive, &stop, None, None, &now)
         })
     };
+    let look_again = || {
+        ahead_ms.fetch_add(LOOK_AGAIN.as_millis() as u64, Ordering::AcqRel);
+    };
+    let bus = lamp_bus::Bus::new(&root).unwrap();
     until("ready", || home.join(READY_FILE).exists());
     assert!(names(&home).is_empty());
     assert_eq!(
@@ -207,6 +226,8 @@ fn the_light_is_offered_when_its_owner_appears_and_withdrawn_when_it_goes() {
             }
         })
     };
+    until("the owner says what it shows", || owner_says(&bus));
+    look_again();
     until("the light is offered", || names(&home).len() == 5);
     assert_eq!(
         ask(&home, b"{\"op\":\"call\",\"name\":\"light_on\"}\n"),
@@ -246,6 +267,8 @@ fn the_light_is_offered_when_its_owner_appears_and_withdrawn_when_it_goes() {
     // The owner goes. What it last said goes stale, and the list empties.
     owner_stop.store(true, Ordering::Release);
     owner.join().unwrap();
+    until("what the owner said has expired", || !owner_says(&bus));
+    look_again();
     until("the light is withdrawn", || names(&home).is_empty());
     assert_eq!(
         ask(&home, b"{\"op\":\"call\",\"name\":\"light_off\"}\n"),

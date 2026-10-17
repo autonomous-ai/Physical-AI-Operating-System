@@ -39,7 +39,11 @@ leaves the call it was in unanswered, and the voice tells its model so.
 Only what can be done now is offered. With no mixer given there are no
 volume actions; the light's are offered only while the ring's owner is
 saying what it shows, and are withdrawn within about two seconds of it
-stopping.
+stopping. The list is looked at again every two seconds
+(`server::LOOK_AGAIN`). `server::serve_with_clock` reads that period, and
+the once-a-second health report's, on a clock its caller gives. The lamp
+runs on the host's clock; the light's test moves its own on
+(docs/realtime-tests.md).
 
 ## Optional reminders and timers
 

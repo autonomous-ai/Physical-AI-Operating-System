@@ -62,9 +62,12 @@ selection), which must stay identical:
   module's other 28 left on 2026-10-17, `hung_worker…` later that day, and
   `coordinator::tests::early_end` and `coordinator::tests::pilot_faults` on
   2026-10-16, below);
-- single tests that took 4 s or more outside those, named exactly, among
-  them `lamp-memory::health`'s
-  `the_environment_alone_does_not_enable_reporting_or_create_bus_data`;
+- single tests that took 4 s or more outside those, named exactly:
+  `lamp-memory::health`'s
+  `the_environment_alone_does_not_enable_reporting_or_create_bus_data` and
+  `lamp-health::program`'s
+  `between_two_healths_five_seconds_apart_the_program_is_not_taken_for_gone`
+  (`lamp-actions::server`'s light test left on 2026-10-17, below);
 - tests with a real-clock bound that a loaded runner misses: none now. A
   test goes here only until it gets its own time; the bound the lamp runs
   with is never raised for it. `lamp-voice`'s `coordinator::motor::tests::native_head`
@@ -140,8 +143,8 @@ Review points:
 - Who decides that a red full run holds the next merge? The workflow only
   opens the issue; it does not block merging.
 - Does a pull request's run list the expected number of tests? As of
-  2026-10-17 nextest says "including 4 tests and 1 binary via
-  profile.pr.default-filter": the three named single tests, the named
+  2026-10-17 nextest says "including 3 tests and 1 binary via
+  profile.pr.default-filter": the two named single tests, the named
   `endpoint_session` test, and `capture_hold_worker` as one binary.
 
 ## The measured list
@@ -1078,3 +1081,29 @@ assertions are unchanged; `session.elapsed < 8 s` now measures the real time
 including those waits. With the same 400 ms stall after the first request it
 passes; it takes about 1.45 s, and 30 copies at once passed 90 of 90 runs on
 the Intel Mac. It left the group, in all three filtersets, on 2026-10-17.
+
+## lamp-actions' light test on a clock it moves on (#823)
+
+`lamp-actions::server`'s
+`the_light_is_offered_when_its_owner_appears_and_withdrawn_when_it_goes`
+took 4.1 s on ARM64 (4.2 s on the Intel Mac). Most of it was the server's
+`LOOK_AGAIN`, the two seconds after which it looks again at what it can do,
+waited out twice: once for the ring's owner to appear, once for it to go.
+
+The server's two periods (`LOOK_AGAIN` and the health report's
+`REPORT_EVERY`) are now read on a clock its caller gives
+(`server::serve_with_clock`). `serve_reporting_with_schedule`, and so the
+lamp, passes `Instant::now`. The test gives a clock that moves only when it
+says, and it moves it by `LOOK_AGAIN` only after an event on the bus. To
+offer the light, that event is the owner's state being there. To withdraw
+it, the event is that state having expired, by its own real 600 ms. A
+caller's waits, the idle pause and the light's freshness stay on the
+host's clock. Every assertion and the test's 5 s bounds are unchanged.
+
+It takes about 1.4 s (3 of 3), and 30 copies at once passed 90 of 90 runs
+on the Intel Mac. The control is a 400 ms sleep in the owner before its
+first publish. With it the test passes (1.7 s). With it and the wait for the
+owner's state removed, it fails "never: the light is offered", so the move is
+ordered by the event, not by time. The old test passed with the same sleep
+(4.1 s): it was in the group for its length, not for a bound a loaded
+runner misses. It left the group, in all three filtersets, on 2026-10-17.

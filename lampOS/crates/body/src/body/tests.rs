@@ -2227,6 +2227,437 @@ fn expression_is_held_to_its_own_reach_and_the_joints_and_does_not_stir_a_restin
     }
 }
 
+/// A lamp that stands at once, listens, speaks from six seconds to twelve
+/// and listens again, asked by Expression for `offsets` from `from` until
+/// `until`; `strains` as `Lamp::strains`. Each step: when, and the glimpse.
+fn speaking_run(
+    offsets: [f32; 3],
+    from: Duration,
+    until: Duration,
+    strains: Vec<(Duration, Duration, usize, u16)>,
+) -> (BodyReport, Vec<(Duration, Glimpse)>) {
+    speaking_run_with(offsets, from, until, strains, |_, _| {})
+}
+
+/// The same, with the lamp and its limits changed first.
+fn speaking_run_with(
+    offsets: [f32; 3],
+    from: Duration,
+    until: Duration,
+    strains: Vec<(Duration, Duration, usize, u16)>,
+    prepare: impl FnOnce(&mut Lamp, &mut Limits),
+) -> (BodyReport, Vec<(Duration, Glimpse)>) {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(18));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    lamp.strains = strains;
+    let mut limits = Limits::folded_with(Tuning {
+        reach: [150, 15, 1, 250],
+        speed: 120,
+        servo_speed: 1_000,
+        servo_acceleration: 60,
+    })
+    .unwrap();
+    prepare(&mut lamp, &mut limits);
+    let time = clock.time.clone();
+    let mood_at = clock.time.clone();
+    let seen_at = clock.time.clone();
+    let mut seen = Vec::new();
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some(HOME),
+        Some(standing(100, 60)),
+        None,
+        move || {
+            let at = mood_at.get().as_millis();
+            Some(if (6_000..12_000).contains(&at) {
+                (Mood::Speaking, 60)
+            } else {
+                (Mood::Listening, 60)
+            })
+        },
+        move || Asked {
+            seen: None,
+            gesture: None,
+            expression: (time.get() >= from && time.get() < until).then_some(offsets),
+            called: false,
+            still: false,
+            paused: false,
+        },
+        |glimpse| seen.push((seen_at.get(), *glimpse)),
+    );
+    (report, seen)
+}
+
+/// Speaking, a standing lamp leans toward the person by `LEAN`, eased in
+/// as the answer starts and out as it ends, no faster than the pose
+/// follows; and a turn of the base Expression asks while it speaks (a sway
+/// between sentences) is made, within 70 counts, and comes back.
+#[test]
+fn a_speaking_lamp_leans_in_and_back_and_its_base_sways_for_expression() {
+    let ms = Duration::from_millis;
+    let (report, seen) = speaking_run([0.0, 0.0, 52.0], ms(8_000), ms(9_500), vec![]);
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.retreats.is_empty(), "{:?}", report.retreats);
+    let at = |when: Duration| seen.iter().rfind(|step| step.0 < when).unwrap().1;
+    let stood = at(ms(6_000));
+    assert_eq!(stood.arm_goals, [2_650, 2_600], "{stood:?}");
+    let leaning = at(ms(11_900));
+    for (index, lean) in LEAN.iter().enumerate() {
+        let by = f32::from(leaning.arm_goals[index]) - f32::from(stood.arm_goals[index]);
+        assert!((by - lean).abs() <= 1.0, "{leaning:?}");
+    }
+    // Back as it stood once it listens again.
+    assert_eq!(at(ms(15_900)).arm_goals, stood.arm_goals);
+    // The base turned for the sway, by most of what was asked and never
+    // more, and came back.
+    let turned = seen
+        .iter()
+        .filter(|step| step.0 >= ms(8_000) && step.0 < ms(11_000))
+        .map(|step| step.1.goals[2].abs_diff(stood.goals[2]))
+        .max()
+        .unwrap();
+    assert!((35..=52).contains(&turned), "turned {turned}");
+    assert!(at(ms(11_900)).goals[2].abs_diff(stood.goals[2]) <= 6);
+    // Nothing leapt: no faster than 120 counts a second, 2.4 a step.
+    for pair in seen
+        .windows(2)
+        .filter(|pair| pair[0].0 >= ms(6_000) && pair[1].0 < ms(16_000))
+    {
+        let (was, is) = (pair[0].1, pair[1].1);
+        assert!(is.goals[2].abs_diff(was.goals[2]) <= 3, "{pair:?}");
+        for index in 0..2 {
+            assert!(
+                is.arm_goals[index].abs_diff(was.arm_goals[index]) <= 3,
+                "{pair:?}"
+            );
+        }
+    }
+}
+
+/// A base that meets resistance while Expression asks it to sway is left
+/// where it gave way: what Expression asks does not push it on.
+#[test]
+fn a_base_that_meets_a_hand_is_not_swayed_on_by_expression() {
+    let ms = Duration::from_millis;
+    let (report, seen) = speaking_run(
+        [0.0, 0.0, 52.0],
+        ms(8_000),
+        ms(10_500),
+        vec![(ms(8_200), ms(8_400), YAW, 300)],
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.eased[2], 1, "{report:?}");
+    let gave = seen.iter().position(|step| step.1.eased[2] == 1).unwrap();
+    let held = seen[gave].1.goals[2];
+    // Held for two seconds, through the rest of what was asked.
+    assert!(
+        seen[gave..gave + usize::from(EASE_STEPS) - 1]
+            .iter()
+            .all(|step| step.1.goals[2] == held)
+    );
+}
+
+/// An elbow held by a hand as the lamp leans in to speak is held where the
+/// hand has it, and the lean waits: it does not ease out by itself, which
+/// would end the hold with the hand still there, and lean into the hand
+/// again. Only once the answer is over does the arm go back to standing.
+#[test]
+fn an_arm_held_while_it_speaks_is_not_leaned_into_again() {
+    let ms = Duration::from_millis;
+    let (report, seen) = speaking_run_with([0.0; 3], ms(0), ms(0), vec![], |lamp, limits| {
+        // From half a second into the answer, a hand keeps the elbow
+        // where it stands, and pushes back as hard as the arm does.
+        lamp.hand = Some((ms(6_500), ms(11_000), 2, 2_600.0));
+        lamp.strains = vec![(ms(6_500), ms(11_000), 2, 400)];
+        limits.give_way = Some(GiveWay::Return);
+    });
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.stalls[4], 1, "it stopped pushing once: {report:?}");
+    let stalled = seen.iter().position(|step| step.1.stalls[4] == 1).unwrap();
+    let held = seen[stalled].1.arm_goals;
+    // Held there while the hand is on it: no lean, in or out.
+    for step in seen[stalled..].iter().filter(|step| step.0 < ms(11_000)) {
+        assert_eq!(step.1.arm_goals, held, "{step:?}");
+    }
+    // And standing as before once it listens again.
+    let after = seen.iter().rfind(|step| step.0 < ms(15_900)).unwrap().1;
+    assert_eq!(after.arm_goals, [2_650, 2_600], "{after:?}");
+}
+
+/// A lamp that stands at once and speaks in `answers` (milliseconds, from
+/// and until), listening otherwise, until it is asked to stop at `stop`.
+fn held_lean_run(
+    stop: Duration,
+    answers: &'static [(u128, u128)],
+    prepare: impl FnOnce(&mut Lamp),
+) -> (BodyReport, Vec<(Duration, Glimpse)>) {
+    let (mut lamp, mut clock) = folded(stop);
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    prepare(&mut lamp);
+    let mut limits = Limits::folded_with(Tuning {
+        reach: [150, 15, 1, 250],
+        speed: 120,
+        servo_speed: 1_000,
+        servo_acceleration: 60,
+    })
+    .unwrap();
+    limits.give_way = Some(GiveWay::Return);
+    let mood_at = clock.time.clone();
+    let seen_at = clock.time.clone();
+    let mut seen = Vec::new();
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some(HOME),
+        Some(standing(100, 60)),
+        None,
+        move || {
+            let at = mood_at.get().as_millis();
+            Some(
+                if answers
+                    .iter()
+                    .any(|(from, until)| (*from..*until).contains(&at))
+                {
+                    (Mood::Speaking, 60)
+                } else {
+                    (Mood::Listening, 60)
+                },
+            )
+        },
+        Asked::default,
+        |glimpse| seen.push((seen_at.get(), *glimpse)),
+    );
+    (report, seen)
+}
+
+/// The most any arm goal moves in one step from `from` until `until`.
+fn largest_arm_step(seen: &[(Duration, Glimpse)], from: Duration, until: Duration) -> u16 {
+    seen.windows(2)
+        .filter(|pair| pair[0].0 >= from && pair[1].0 < until)
+        .flat_map(|pair| {
+            (0..2).map(|index| pair[1].1.arm_goals[index].abs_diff(pair[0].1.arm_goals[index]))
+        })
+        .max()
+        .unwrap_or(0)
+}
+
+/// A hand holds one arm joint (`servo` 1 the shoulder, 2 the elbow) at `at`
+/// from half a second into the 6–12 s answer until `until`. After the
+/// answer no arm goal moves more than the lean's own step, and while the
+/// hand is there none goes past the held place toward the lean; once it has
+/// gone the arm stands as before.
+fn eased_out_from_a_hand(servo: usize, at: f32, until: Duration) {
+    let ms = Duration::from_millis;
+    let (report, seen) = held_lean_run(ms(18_000), &[(6_000, 12_000)], |lamp| {
+        lamp.hand = Some((ms(6_500), until, servo, at));
+        lamp.strains = vec![(ms(6_500), until, servo, 400)];
+    });
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    let arm = servo - 1;
+    let stalled = seen
+        .iter()
+        .position(|step| step.1.stalls[3 + arm] >= 1)
+        .unwrap();
+    let held = seen[stalled].1.arm_goals[arm];
+    // About 1.2 counts a step at `--speed` 120, rounded.
+    let largest = largest_arm_step(&seen, ms(12_000), ms(18_000));
+    assert!(largest <= 2, "moved {largest} in a step");
+    // `LEAN` is down for both: past the held place is below it.
+    for step in seen[stalled..].iter().filter(|step| step.0 < until) {
+        assert!(step.1.arm_goals[arm] >= held, "{step:?} held {held}");
+    }
+    let last = seen.iter().rfind(|step| step.0 < ms(17_900)).unwrap().1;
+    assert_eq!(last.arm_goals, [2_650, 2_600], "{last:?}");
+}
+
+#[test]
+fn a_lean_eases_out_from_where_a_hand_held_it() {
+    eased_out_from_a_hand(2, 2_600.0, Duration::from_millis(11_000));
+}
+
+#[test]
+fn a_lean_eases_out_from_a_hand_still_there_after_the_answer() {
+    eased_out_from_a_hand(2, 2_600.0, Duration::from_millis(15_000));
+}
+
+/// The reviewer's 16:28 probes: a hand that lets go of the elbow while the
+/// lean eases out, held at three places in the lean's way.
+#[test]
+fn a_hand_letting_go_mid_ease_out_leaves_no_jump() {
+    for at in [2_570.0, 2_580.0, 2_600.0] {
+        eased_out_from_a_hand(2, at, Duration::from_millis(12_700));
+    }
+}
+
+#[test]
+fn a_held_shoulder_eases_out_as_an_elbow_does() {
+    eased_out_from_a_hand(1, 2_650.0, Duration::from_millis(15_000));
+    eased_out_from_a_hand(1, 2_650.0, Duration::from_millis(11_000));
+}
+
+/// Folding while a held lean eases out, asked to stop or retreating from
+/// a hard push: the held joint folds with the rest of the arm, no step of
+/// it larger than the same fold makes with no hand at all.
+#[test]
+fn a_held_lean_folds_with_the_arm_without_a_jump() {
+    let ms = Duration::from_millis;
+    let elbow = |until: Duration, push: bool| {
+        move |lamp: &mut Lamp| {
+            lamp.hand = Some((ms(6_500), until, 2, 2_600.0));
+            lamp.strains = if push {
+                vec![(ms(9_000), ms(9_300), 2, 1_000), (ms(6_500), until, 2, 400)]
+            } else {
+                vec![(ms(6_500), until, 2, 400)]
+            };
+        }
+    };
+    // Asked to stop at 11 s, the hand gone soon after or still there.
+    let (_, bare) = held_lean_run(ms(11_000), &[(6_000, 12_000)], |_| {});
+    let unheld = largest_arm_step(&bare, ms(10_000), Duration::MAX);
+    for until in [ms(11_500), ms(15_000)] {
+        let (report, seen) = held_lean_run(ms(11_000), &[(6_000, 12_000)], elbow(until, false));
+        assert_eq!(report.stalls[4], 1, "{report:?}");
+        let largest = largest_arm_step(&seen, ms(10_000), Duration::MAX);
+        assert!(largest <= unheld, "{largest} against {unheld} with no hand");
+    }
+    // Pushed hard enough to retreat, the hand gone at 9.3 s.
+    let (_, bare) = held_lean_run(ms(18_000), &[(6_000, 12_000)], |lamp| {
+        lamp.strains = vec![(ms(9_000), ms(9_300), 2, 1_000)];
+    });
+    let unheld = largest_arm_step(&bare, ms(8_000), ms(18_000));
+    let (report, seen) = held_lean_run(ms(18_000), &[(6_000, 12_000)], elbow(ms(9_300), true));
+    assert_eq!(report.retreats.len(), 1, "{report:?}");
+    // From the stall on: the stall itself only stops the goal where the elbow is.
+    let stalled = seen.iter().find(|step| step.1.stalls[4] == 1).unwrap().0;
+    let largest = largest_arm_step(&seen, stalled, ms(18_000));
+    assert!(largest <= unheld, "{largest} against {unheld} with no hand");
+}
+
+/// A hold is not kept with no hand on the arm: held at or past standing,
+/// or pressed down past the lean, and let go before the answer ends, the
+/// arm stands as before after it and the next answer leans again.
+#[test]
+fn a_hand_gone_does_not_keep_the_next_answer_from_leaning() {
+    let ms = Duration::from_millis;
+    for at in [2_600.0, 2_603.0, 2_520.0] {
+        let (report, seen) =
+            held_lean_run(ms(25_000), &[(6_000, 12_000), (17_000, 23_000)], |lamp| {
+                lamp.hand = Some((ms(6_500), ms(11_000), 2, at));
+                lamp.strains = vec![(ms(6_500), ms(11_000), 2, 400)];
+            });
+        assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+        let before = seen.iter().rfind(|step| step.0 < ms(17_000)).unwrap().1;
+        assert_eq!(before.arm_goals, [2_650, 2_600], "{at}: {before:?}");
+        let leant = seen.iter().rfind(|step| step.0 < ms(23_000)).unwrap().1;
+        assert_eq!(leant.arm_goals, [2_605, 2_540], "{at}: {leant:?}");
+        let largest = largest_arm_step(&seen, ms(11_000), ms(25_000));
+        assert!(largest <= 2, "{at}: moved {largest} in a step");
+    }
+}
+
+/// The reviewer's 15:49 probe: a hand pushes the standing elbow 30 counts
+/// up while the lamp listens and lets go; the answer after it leans.
+#[test]
+fn a_hold_from_before_the_answer_does_not_keep_it_from_leaning() {
+    let ms = Duration::from_millis;
+    let (report, seen) = held_lean_run(ms(14_000), &[(8_000, 12_000)], |lamp| {
+        lamp.hand = Some((ms(5_000), ms(7_000), 2, 2_630.0));
+        lamp.strains = vec![(ms(5_000), ms(7_000), 2, 400)];
+    });
+    assert_eq!(report.stalls[4], 1, "{report:?}");
+    let leant = seen.iter().rfind(|step| step.0 < ms(12_000)).unwrap().1;
+    assert_eq!(leant.arm_goals, [2_605, 2_540], "{leant:?}");
+    let largest = largest_arm_step(&seen, ms(7_000), ms(14_000));
+    assert!(largest <= 2, "moved {largest} in a step");
+}
+
+/// The reviewer's 23:39 probe: the wire goes silent for four steps while
+/// the lamp leans. The lean is kept as it stands, not dropped and taken
+/// again: no arm goal written moves more than the lean's own step.
+#[test]
+fn a_wire_failing_mid_lean_keeps_the_lean_as_it_stands() {
+    let ms = Duration::from_millis;
+    let (mut lamp, mut clock) = folded(ms(14_000));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    lamp.silent_from = Some(ms(10_000));
+    lamp.silent_until = Some(ms(10_080));
+    let mut limits = Limits::folded_with(Tuning {
+        reach: [150, 15, 1, 250],
+        speed: 120,
+        servo_speed: 1_000,
+        servo_acceleration: 60,
+    })
+    .unwrap();
+    limits.give_way = Some(GiveWay::Return);
+    let mood_at = clock.time.clone();
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some(HOME),
+        Some(standing(100, 60)),
+        None,
+        move || {
+            let at = mood_at.get().as_millis();
+            Some(if (6_000..12_000).contains(&at) {
+                (Mood::Speaking, 60)
+            } else {
+                (Mood::Listening, 60)
+            })
+        },
+        Asked::default,
+        |_| {},
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.missed_reads >= 3, "{report:?}");
+    // Every arm goal written from 9 s until the stop, joint by joint.
+    for id in ARM.map(Joint::id) {
+        let written: Vec<u16> = lamp
+            .goals
+            .iter()
+            .zip(&lamp.goal_times)
+            .filter(|(_, at)| (ms(9_000)..ms(14_000)).contains(*at))
+            .flat_map(|(goals, _)| {
+                goals
+                    .iter()
+                    .filter(|(of, _)| *of == id)
+                    .map(|(_, goal)| *goal)
+            })
+            .collect();
+        let largest = written
+            .windows(2)
+            .map(|pair| pair[1].abs_diff(pair[0]))
+            .max()
+            .unwrap_or(0);
+        assert!(largest <= 2, "servo {id} moved {largest} in a write");
+    }
+}
+
+/// The reviewer's 23:39 probe: asked to stop mid-answer with a hand still
+/// pressing the elbow down past the lean. Leaving, no stall check runs, so
+/// the hand's offset is not kept: the elbow folds to its folded pose.
+#[test]
+fn a_hand_on_the_elbow_does_not_take_the_fold_past_its_pose() {
+    let ms = Duration::from_millis;
+    let (report, seen) = held_lean_run(ms(11_000), &[(6_000, 12_000)], |lamp| {
+        lamp.hand = Some((ms(6_500), ms(15_000), 2, 2_450.0));
+        lamp.strains = vec![(ms(6_500), ms(15_000), 2, 400)];
+    });
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    let last = seen.last().unwrap().1;
+    assert_eq!(last.arm_goals[1], 2_047, "{last:?}");
+    assert!(
+        seen.iter().all(|step| step.1.arm_goals[1] >= 2_047),
+        "went past the fold"
+    );
+}
+
 /// Without `rest_glance`, a lamp at rest writes exactly what it writes
 /// when nothing is asked of it.
 #[test]

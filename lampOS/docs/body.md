@@ -728,6 +728,92 @@ the head) 0.45 s into the line; the name was heard 0.55 to 0.95 s after
 glance 83 to 135 ms later. A call with somebody in view has not been seen
 on a lamp.
 
+## Leaning toward the person while it speaks
+
+For #933. From the front, where the person sits, the head is a disc facing
+them: a few degrees of pitch or roll cannot be seen (lamp-4ace,
+2026-10-16). What reads is the base turning and the arm leaning. So a
+lamp standing at its full height leans toward the person while it speaks:
+the shoulder and the elbow come `LEAN` = 45 and 60 counts (about four and
+five degrees) from the pose it stands in, eased in as the answer starts
+and eased out as it ends. On by default; there is no flag.
+
+- **Which way.** Down on both, the way V1's nod (`nod.csv`) takes them as
+  the head dips toward the person.
+- **How far.** That nod goes to 77 and 120 counts and keeps the lamp's
+  weight inside V1's `motion.max_cog_offset_mm` (22 mm). About half of each
+  moves the centre of gravity a few millimetres, whichever way the shared
+  calibration has the joints (worked out with V1's
+  `hal/drivers/motors/recording_stability.py` on `robots/lamp/urdf`).
+- **How fast.** At least 1.5 s each way with an eased start and end, and
+  longer if the elbow would otherwise go faster than the pose follows at
+  (`--speed`): at 120 that is under 60 counts a second at its fastest.
+- **When not.** Not while the lamp rises or folds, not while a gesture
+  plays (the gesture moves the arm itself; the lean eases out and back in
+  after), and not after it slumped. While the wire fails the lean is kept as
+  it stands, a held place too: nothing new, and nothing dropped and taken
+  again once the wire answers
+  (`a_wire_failing_mid_lean_keeps_the_lean_as_it_stands`). Every arm check stays as it was: its load bound, its tracking, its warmth, and
+  `--limp` and `--overload release`.
+- **A hand on the arm.** Under `--give-way`, a shoulder or an elbow that
+  stops pushing against a hand is held where the hand has it. While the
+  lamp wants to lean and the hand still reads on that joint (a load over
+  its stall bound), the lean stays exactly where it was, neither in nor
+  out, so the lamp does not lean into the hand again. The hold is taken
+  into the lean once the lean eases out (the answer over, a gesture,
+  folding), or once the lean is wanted and nothing reads on the joint any
+  more, including a hold made before the answer. From then on the joint
+  goes from where it was held toward where the lean wants it. That place
+  is kept as an offset from the pose, so it folds with the rest of the
+  arm. It moves no more than the lean's own step, and not at all toward a
+  hand that still reads on it, except once the lamp is leaving: no stall
+  check runs then, so a hand keeps nothing and the arm folds to its folded
+  pose. So no goal jumps back into the lean, none
+  goes past the held place toward a hand that is there, and a hand that
+  has gone does not keep the next answer from leaning
+  (`an_arm_held_while_it_speaks_is_not_leaned_into_again`,
+  `a_lean_eases_out_from_where_a_hand_held_it`,
+  `a_lean_eases_out_from_a_hand_still_there_after_the_answer`,
+  `a_hand_letting_go_mid_ease_out_leaves_no_jump`,
+  `a_held_shoulder_eases_out_as_an_elbow_does`,
+  `a_held_lean_folds_with_the_arm_without_a_jump`,
+  `a_hand_gone_does_not_keep_the_next_answer_from_leaning`,
+  `a_hold_from_before_the_answer_does_not_keep_it_from_leaning`,
+  `a_hand_on_the_elbow_does_not_take_the_fold_past_its_pose`). In
+  #1010's reviews the held place was first kept by the hold alone, which
+  let go 20 counts into the ease-out and jumped 40 counts back into the
+  hand. Then it was kept as a fixed count, which stayed put through a fold
+  and jumped 134–156 counts at the end, and was held again with no hand
+  there, so the next answer did not lean.
+
+With Expression on, a turn of the base that it asks while the lamp speaks,
+a sway between sentences, is taken as any other turn it asks: within 70
+counts, around the turn the pose already wants, at the speed the pose
+follows at, and not for a base that has met resistance (see below). The
+body takes it from `base_yaw` in `expression/body`; no new field.
+
+Against simulated servos (`a_speaking_lamp_leans_in_and_back_and_its_base_sways_for_expression`,
+`a_base_that_meets_a_hand_is_not_swayed_on_by_expression`): standing at
+2,650 and 2,600, speaking for six seconds, the arm reached 2,605 and 2,540
+and was back at 2,650 and 2,600 within four seconds of listening again; a
+turn of 52 counts asked for 1.5 s moved the base's goal 35 to 52 and back,
+no goal moving more than 3 counts in a step; and a base that met
+resistance as the turn was asked stayed where it gave way for the two
+seconds after.
+
+**On lamp-52e6, 2026-10-16, 11:48**, body `92634401` (this and the reading
+pose below, built from `fifth/reading-pose`), with its unit's flags
+unchanged, and the lamp made to answer "Lamp, can you tell me a short
+story?" from a Mac beside it. Its body journal, every half second:
+speaking from 11:48:28.1 to 11:48:35.2, the arm's goals went from 2,657
+and 2,602 to 2,645 and 2,586 at 0.5 s, 2,612 and 2,542 at 1.5 s, and held
+there; the joints read 2,609 and 2,537 by 5.5 s (the shoulder 14 to 18
+counts short of its goal for the first four seconds), at loads of 24 to
+84. No retreat, stall or slump. The base did not sway: Expression on that
+lamp still asks its sway of the head's roll (`sway_roll`), which this
+lamp's reach of one count does not take. A Mac camera beside the lamp saw
+it from the side; nobody has yet judged from the front how the lean reads.
+
 ## What Expression may add
 
 On lamp-4ace since 2026-10-14, 10:05, switched on. What it did there is
@@ -742,7 +828,8 @@ in the body's unit (and the bus on), the body listens to `expression/body`
 - **What is taken.** The head's pitch, the head's roll and the base's
   turn, in radians, turned into counts (652 to a radian). A positive pitch
   dips the head, as in the body's own poses. The shoulder and the elbow
-  are the arm that carries the lamp and are not moved for expression. A
+  are the arm that carries the lamp and are not moved for expression (the
+  body leans them itself while the lamp speaks, above). A
   gaze is not taken: the body already looks at the face its own eyes
   report. A request for stillness adds nothing.
 - **How it is applied.** Added to the pose the mood wants, before

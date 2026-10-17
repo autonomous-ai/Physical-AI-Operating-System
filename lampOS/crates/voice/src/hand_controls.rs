@@ -1123,12 +1123,57 @@ fn enqueue(sender: &SyncSender<Queued>, shared: &Shared, input: Input) -> bool {
     }
 }
 
+/// What one look at one subscriber found.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Pumped {
+    /// A message came (kept, refused or let go).
+    Read,
+    Empty,
+    /// The coordinator's end of the queue has gone.
+    Closed,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum Drained {
+    Done,
+    Closed,
+}
+
+/// One pass of the pump: rounds over every subscriber, up to
+/// `POLL_LIMIT / 2` of them so a burst is taken in one pass, but no more
+/// after a round that found nothing, since the rest would find nothing too.
+/// Idle, that is one look at each subscriber a pass, where it was eight:
+/// on lamp-75c9 on 2026-10-17 this thread took 5.4% of a core with nothing
+/// happening (#705, 08:37). The bound on a message's wait is unchanged: one
+/// that comes just after the round that found nothing is read at the next
+/// pass, at most one `PUMP_TICK` (2 ms) later, as before. A head tap's stop
+/// comes this way.
+fn drain<S, T: Copy>(
+    subscribed: &mut [(S, T)],
+    mut read: impl FnMut(&mut S, T) -> io::Result<Pumped>,
+) -> io::Result<Drained> {
+    for _ in 0..POLL_LIMIT / 2 {
+        let mut found = false;
+        for (subscriber, topic) in subscribed.iter_mut() {
+            match read(subscriber, *topic)? {
+                Pumped::Read => found = true,
+                Pumped::Empty => {}
+                Pumped::Closed => return Ok(Drained::Closed),
+            }
+        }
+        if !found {
+            break;
+        }
+    }
+    Ok(Drained::Done)
+}
+
 fn read_one(
     subscriber: &mut Subscriber,
     topic: Topic,
     sender: &SyncSender<Queued>,
     shared: &Shared,
-) -> io::Result<bool> {
+) -> io::Result<Pumped> {
     let before = (
         subscriber.malformed(),
         subscriber.expired(),
@@ -1143,6 +1188,7 @@ fn read_one(
     if before != after {
         shared.reject();
     }
+    let found = message.is_some();
     if let Some(message) = message {
         if message.gap != 0 || message.publisher_restarted {
             add(&shared.lost, message.gap);
@@ -1153,7 +1199,7 @@ fn read_one(
             Ok(input) => {
                 add(&shared.received, 1);
                 if !enqueue(sender, shared, input) {
-                    return Ok(false);
+                    return Ok(Pumped::Closed);
                 }
             }
             Err(_) => shared.reject(),
@@ -1164,7 +1210,7 @@ fn read_one(
             shared.fence();
         }
     }
-    Ok(true)
+    Ok(if found { Pumped::Read } else { Pumped::Empty })
 }
 
 type Connected = (Vec<(Subscriber, Topic)>, Option<Publisher>);
@@ -1242,14 +1288,12 @@ fn pump(
                 {
                     break 'connected;
                 }
-                for _ in 0..POLL_LIMIT / 2 {
-                    for (subscriber, topic) in &mut subscribed {
-                        match read_one(subscriber, *topic, &sender, shared) {
-                            Ok(true) => {}
-                            Ok(false) => return,
-                            Err(_) => break 'connected,
-                        }
-                    }
+                match drain(&mut subscribed, |subscriber, topic| {
+                    read_one(subscriber, topic, &sender, shared)
+                }) {
+                    Ok(Drained::Done) => {}
+                    Ok(Drained::Closed) => return,
+                    Err(_) => break 'connected,
                 }
                 thread::park_timeout(PUMP_TICK);
             }

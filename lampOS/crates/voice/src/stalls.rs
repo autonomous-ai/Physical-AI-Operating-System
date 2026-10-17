@@ -815,3 +815,237 @@ mod tests {
         );
     }
 }
+
+/// One recorded line, as [`summary`] reads it back.
+#[derive(Clone, Debug, PartialEq)]
+struct Read {
+    role: String,
+    kind: String,
+    end: Option<String>,
+    ms: f64,
+    at_us: u64,
+    thread: [u64; 4],
+    system: Option<serde_json::Value>,
+}
+
+impl Read {
+    fn parse(line: &str) -> Option<Read> {
+        let value: serde_json::Value = serde_json::from_str(line).ok()?;
+        let thread = &value["thread"];
+        let count = |name: &str| thread[name].as_u64().unwrap_or(0);
+        Some(Read {
+            role: value["role"].as_str()?.to_owned(),
+            kind: value["kind"].as_str()?.to_owned(),
+            end: value["end"].as_str().map(str::to_owned),
+            ms: value["ms"].as_f64()?,
+            at_us: value["at_us"].as_u64()?,
+            thread: [
+                count("major_faults"),
+                count("minor_faults"),
+                count("voluntary_switches"),
+                count("involuntary_switches"),
+            ],
+            system: value
+                .get("system")
+                .filter(|system| !system.is_null())
+                .cloned(),
+        })
+    }
+
+    /// What held it, as far as its counters say (`docs/serve-runtime.md`).
+    fn verdict(&self) -> &'static str {
+        let [major, _, voluntary, involuntary] = self.thread;
+        if major > 0 {
+            "memory: its own pages were read back from storage"
+        } else if self.kind == "work" && voluntary > 0 {
+            "it waited in the kernel (a device, a disk or a lock)"
+        } else if involuntary > 0 {
+            "the CPU was taken from it"
+        } else if self.thread == [0; 4] {
+            "no counters (not Linux?)"
+        } else {
+            "it woke late"
+        }
+    }
+}
+
+/// The stall lines of every role in `dir` (`stalls-<role>.log` and its
+/// `.old.log`) begun within `within_us` before `now_us` (the same clock as
+/// `at_us`, so on the lamp the line was written on): per role, how many
+/// and the longest first, each with what held it. For the first builder's
+/// read after a night like 17 Oct's (#1178): `lamp-voice stalls`.
+pub fn summary(dir: &Path, now_us: u64, within_us: u64) -> std::io::Result<String> {
+    use std::fmt::Write as _;
+    let mut lines: Vec<Read> = Vec::new();
+    let mut files = 0;
+    for entry in std::fs::read_dir(dir)? {
+        let path = entry?.path();
+        let name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("");
+        if !(name.starts_with("stalls-") && name.ends_with(".log")) {
+            continue;
+        }
+        files += 1;
+        let Ok(text) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        lines.extend(
+            text.lines().filter_map(Read::parse).filter(|read| {
+                now_us.saturating_sub(read.at_us) <= within_us && read.at_us <= now_us
+            }),
+        );
+    }
+    let minutes = within_us / 60_000_000;
+    let mut out = String::new();
+    if files == 0 {
+        let _ = writeln!(
+            out,
+            "no stall files in {} (is LAMP_STALLS=on in the voice's environment?)",
+            dir.display()
+        );
+        return Ok(out);
+    }
+    if lines.is_empty() {
+        let _ = writeln!(
+            out,
+            "no stall of 50 ms or more in the last {minutes} min ({files} files in {})",
+            dir.display()
+        );
+        return Ok(out);
+    }
+    let mut roles: Vec<String> = lines.iter().map(|read| read.role.clone()).collect();
+    roles.sort();
+    roles.dedup();
+    // The role with the longest stall first.
+    let longest = |role: &str| {
+        lines
+            .iter()
+            .filter(|read| read.role == role)
+            .map(|read| read.ms)
+            .fold(0.0, f64::max)
+    };
+    roles.sort_by(|a, b| longest(b).total_cmp(&longest(a)));
+    let _ = writeln!(
+        out,
+        "stalls of 50 ms or more in the last {minutes} min, longest first ({}):",
+        dir.display()
+    );
+    for role in roles {
+        let mut mine: Vec<&Read> = lines.iter().filter(|read| read.role == role).collect();
+        mine.sort_by(|a, b| b.ms.total_cmp(&a.ms));
+        let ended = mine
+            .iter()
+            .filter(|read| read.end.as_deref() == Some("loop"))
+            .count();
+        let _ = writeln!(
+            out,
+            "{role}: {} lines, longest {:.1} ms{}",
+            mine.len(),
+            mine[0].ms,
+            if ended > 0 {
+                format!(", {ended} ended the loop")
+            } else {
+                String::new()
+            }
+        );
+        for read in mine.iter().take(5) {
+            let [major, minor, voluntary, involuntary] = read.thread;
+            let ago = now_us.saturating_sub(read.at_us) / 1_000_000;
+            let _ = write!(
+                out,
+                "  {:>7.1} ms {}{} {}m{:02}s ago: {major} major, {minor} minor faults, {voluntary} voluntary, {involuntary} involuntary switches",
+                read.ms,
+                read.kind,
+                read.end
+                    .as_deref()
+                    .map_or(String::new(), |end| format!(" ({end})")),
+                ago / 60,
+                ago % 60
+            );
+            if let Some(system) = &read.system {
+                let field =
+                    |name: &str| system[name].as_u64().map_or("?".into(), |n| n.to_string());
+                let _ = write!(
+                    out,
+                    "; lamp: {} major faults during, {} dirty and {} writeback pages, {} running, {} blocked",
+                    field("major_faults_during"),
+                    field("dirty_pages"),
+                    field("writeback_pages"),
+                    field("running"),
+                    field("blocked")
+                );
+            }
+            let _ = writeln!(out, "\n           -> {}", read.verdict());
+        }
+    }
+    Ok(out)
+}
+
+#[cfg(test)]
+mod summary_tests {
+    use super::*;
+
+    fn line(
+        role: &str,
+        kind: &str,
+        end: Option<&str>,
+        ms: f64,
+        at_us: u64,
+        thread: [u64; 4],
+    ) -> String {
+        let end = end.map_or(String::new(), |end| format!(",\"end\":\"{end}\""));
+        format!(
+            "{{\"role\":\"{role}\",\"pid\":7,\"kind\":\"{kind}\",\"ms\":{ms},\"at_us\":{at_us}{end},\"thread\":{{\"major_faults\":{},\"minor_faults\":{},\"voluntary_switches\":{},\"involuntary_switches\":{}}},\"system\":{{\"major_faults_during\":3,\"read_ms_before\":40,\"dirty_pages\":9000,\"writeback_pages\":2000,\"running\":2,\"blocked\":3}}}}\n",
+            thread[0], thread[1], thread[2], thread[3]
+        )
+    }
+
+    #[test]
+    fn the_longest_stall_of_each_role_comes_first_with_what_held_it() {
+        let dir = std::env::temp_dir().join(format!("stalls-summary-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let now = 3_600_000_000u64;
+        let minute = 60_000_000u64;
+        std::fs::write(
+            dir.join("stalls-speaker.log"),
+            line("speaker", "work", Some("done"), 60.0, now - 2 * minute, [0, 2, 0, 9])
+                + &line("speaker", "work", Some("loop"), 312.4, now - minute, [0, 3, 1, 0])
+                // Too old for the window: left out.
+                + &line("speaker", "gap", None, 900.0, now - 30 * minute, [0, 0, 1, 0]),
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("stalls-ring.old.log"),
+            line("ring", "gap", None, 80.0, now - 3 * minute, [4, 0, 1, 0]),
+        )
+        .unwrap();
+        std::fs::write(dir.join("unrelated.log"), "not a stall\n").unwrap();
+        let text = summary(&dir, now, 15 * minute).unwrap();
+        let speaker = text
+            .find("speaker: 2 lines, longest 312.4 ms, 1 ended the loop")
+            .unwrap();
+        let ring = text.find("ring: 1 lines, longest 80.0 ms").unwrap();
+        assert!(speaker < ring, "{text}");
+        assert!(!text.contains("900.0"), "{text}");
+        assert!(text.contains("312.4 ms work (loop) 1m00s ago"), "{text}");
+        assert!(text.contains("it waited in the kernel"), "{text}");
+        assert!(text.contains("the CPU was taken from it"), "{text}");
+        assert!(text.contains("memory: its own pages"), "{text}");
+        assert!(text.contains("lamp: 3 major faults during, 9000 dirty and 2000 writeback pages, 2 running, 3 blocked"), "{text}");
+        let empty = dir.join("empty");
+        std::fs::create_dir_all(&empty).unwrap();
+        assert!(
+            summary(&empty, now, minute)
+                .unwrap()
+                .contains("is LAMP_STALLS=on")
+        );
+        assert!(
+            summary(&dir, now + 60 * minute, minute)
+                .unwrap()
+                .contains("no stall of 50 ms or more")
+        );
+    }
+}

@@ -284,6 +284,17 @@ is closed, before `log_relay::finish`, and the same while a panic unwinds
 out of it (`stalls::Finishing`), so a pass that panicked is still written as
 the loop's end.
 
+To read it on the lamp, `lamp-voice stalls` (or `lamp-voice stalls DIR
+--minutes N`; the voice's run folder and the last 15 minutes unless given)
+prints each role's stalls, the role with the longest first and its five
+longest, each with how long ago it began, its counters, the lamp's, and what
+held it by the rules below: "memory" (major faults of its own), "it waited
+in the kernel" (a `work` pass with voluntary switches), "the CPU was taken"
+(involuntary switches) or "it woke late". A role whose loop ended in a stall
+says so ("1 ended the loop"). For the morning after a night like 17 Oct's:
+run it within the minutes the window covers, on the lamp itself, since
+`at_us` is that boot's clock.
+
 How to read it: major faults say memory (the voice's own pages read back
 from the eMMC); involuntary switches with none say the CPU was taken;
 voluntary switches in a `work` line say the loop waited in the kernel, as

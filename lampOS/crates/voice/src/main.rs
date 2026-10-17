@@ -129,6 +129,28 @@ fn run() -> Result<()> {
                 Ok::<_, Box<dyn std::error::Error + Send + Sync>>(())
             })?;
         },
+        // The stalls `LAMP_STALLS=on` recorded (#1178), longest first with
+        // what held each: `lamp-voice stalls [DIR] [--minutes N]`, the
+        // voice's run folder and the last 15 minutes unless given. Reads only.
+        [command, rest @ ..] if command == "stalls" && rest.len() <= 3 => {
+            let mut dir = std::path::PathBuf::from(lamp_voice::stalls::DEFAULT_DIR);
+            let mut minutes = 15u64;
+            let mut words = rest.iter();
+            while let Some(word) = words.next() {
+                if word == "--minutes" {
+                    minutes = words
+                        .next()
+                        .and_then(|n| n.parse().ok())
+                        .ok_or("--minutes takes a whole number")?;
+                } else {
+                    dir = word.into();
+                }
+            }
+            print!(
+                "{}",
+                lamp_voice::stalls::summary(&dir, lamp_ipc::monotonic_us(), minutes * 60_000_000)?
+            );
+        },
         [command] if command == "schedule-consumer" => {
             lamp_voice::reminders::run_consumer()?;
         },

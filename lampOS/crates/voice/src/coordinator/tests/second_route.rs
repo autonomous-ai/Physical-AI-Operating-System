@@ -273,7 +273,10 @@ impl Peer {
         if self.input.take().is_some()
             && let Some(deadline) = deadline
         {
-            crate::scenario_clock::wait_child_exited(self.child_pid, deadline)?;
+            // Bounded by the scope's own watchdog, not the cleanup's real
+            // deadline, which a busy host can use up first (#1235's review).
+            let bound = crate::scenario_clock::host_deadline().unwrap_or(deadline);
+            crate::scenario_clock::wait_child_exited(self.child_pid, bound)?;
         }
         Ok(())
     }

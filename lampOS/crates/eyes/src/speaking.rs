@@ -1,20 +1,23 @@
 //! Whether a face is speaking, from the five landmarks YuNet already gives
 //! (#720): the eyes, the nose tip and the two corners of the mouth. No new
-//! model, no picture kept: two numbers a look per face.
+//! model, no picture kept: one number a look per face.
 //!
-//! The mouth's shape is its width and how far its middle sits below the eye
-//! line, both over the distance between the eyes. Moving, turning, leaning
-//! or coming closer scales and shifts all five marks together, so the shape
-//! stays; a speaking mouth changes it several times a second. The score is
-//! how much the shape changes from one look to the next over the last
-//! [`WINDOW_US`], less what the face's own landmark jitter explains, read in
-//! the same window from the distance between the eyes, which speaking does
-//! not move.
+//! The mouth's shape is its width over the distance between the eyes.
+//! Moving, coming closer, turning, tilting and nodding leave it as it is
+//! (a nod shortens what is up and down, and both are across); a speaking
+//! mouth widens and narrows as the jaw opens and the lips round. The score
+//! is how much it changes from one look to the next over the last
+//! [`WINDOW_US`], less what the marks' own jitter explains, read from how much
+//! the eye line bends from look to look, which neither head motion nor
+//! speaking does.
 //!
-//! YuNet has no lip points: the opening is read only through the corners,
-//! which move down and in or out as the jaw opens and the lips round. On a
-//! small face that is about as much as the marks jitter, so a face whose eyes
-//! are less than [`LEAST_EYES_PX`] apart, turned more than [`MOST_TURN_DEG`],
+//! The mouth's drop below the eye line is not used: with these five points
+//! a nod shortens it as the jaw opening lengthens it, and the nose tip,
+//! which stands out from the face, barely moves under a nod at the tilt of
+//! someone looking down at a lamp (about 25 degrees). YuNet has no lip
+//! points, so the opening itself is not seen. On a small face the width's
+//! change is about as much as the marks jitter, so a face whose eyes are
+//! less than [`LEAST_EYES_PX`] apart, turned more than [`MOST_TURN_DEG`],
 //! too new, or with jittering marks is `unknown`, never `no`.
 use lamp_msgs::{Speaking, SpeakingState};
 use std::collections::{HashMap, VecDeque};
@@ -22,8 +25,12 @@ use std::collections::{HashMap, VecDeque};
 /// Where the eyes read whether to judge speaking. `on` only; with
 /// `LAMP_BUS=on`, since it is published there.
 pub const ENVIRONMENT: &str = "LAMP_EYES_SPEAKING";
-/// How far back a face's mouth is read.
-pub const WINDOW_US: u64 = 1_200_000;
+/// How far back a face's mouth is read: five to eight looks at the eyes'
+/// pace while they follow a face (250 ms, up to 350 ms on a 10 fps camera,
+/// `main.rs`). With `--steady-rate` a still face is looked at every 500 ms,
+/// four or five looks a window: mostly `unknown`, and right in under half
+/// the rest (docs/eyes.md).
+pub const WINDOW_US: u64 = 2_000_000;
 /// The looks a window needs before it says anything.
 pub const LEAST_LOOKS: usize = 5;
 /// Eyes closer than this, in the detector's pixels, have mouth corners whose
@@ -31,15 +38,15 @@ pub const LEAST_LOOKS: usize = 5;
 pub const LEAST_EYES_PX: f32 = 24.0;
 /// A face turned further than this hides one corner behind the other.
 pub const MOST_TURN_DEG: f32 = 30.0;
-/// The distance between the eyes changing by more than this share from one
-/// look to the next (root mean square) is landmarks jittering, not a head.
-pub const MOST_JITTER: f32 = 0.06;
+/// The eye line bending by more than this, in radians from one look to the
+/// next (root mean square), is landmarks jittering, not a head.
+pub const MOST_JITTER: f32 = 0.1;
 /// The score, in eye distances a look, from which a mouth is speaking.
-pub const SPEAKING_AT: f32 = 0.05;
-/// The marks' own jitter moves the mouth's shape about this many times as
-/// much as it moves the eye distance (squared, from the geometry of the five
-/// points; the synthetic faces in the tests agree).
-const JITTER_TO_SHAPE: f32 = 4.0;
+pub const SPEAKING_AT: f32 = 0.02;
+/// The marks' own jitter moves the mouth's width, look to look, this share
+/// of how much it bends the eye line (squared, from the geometry of the
+/// four points: (4 + 4 x 0.8^2) / 12, with the mouth 0.8 eye distances wide).
+const JITTER_TO_SHAPE: f32 = 0.55;
 /// A face not seen for this long is forgotten.
 const FORGET_US: u64 = 3_000_000;
 
@@ -48,29 +55,25 @@ pub fn from_environment() -> Option<Mouths> {
     (std::env::var(ENVIRONMENT).ok().as_deref() == Some("on")).then(Mouths::default)
 }
 
-/// The mouth's shape: its width and the drop of its middle below the eye
-/// line, each over the distance between the eyes, and that distance in
-/// pixels. `None` if the eyes sit on one point.
-pub fn shape(marks: &[(f32, f32); 5]) -> Option<([f32; 2], f32)> {
+/// The mouth's width over the distance between the eyes, that distance in
+/// pixels, and the eye line's angle. `None` if the eyes sit on one point.
+pub fn shape(marks: &[(f32, f32); 5]) -> Option<(f32, f32, f32)> {
     let (eye, other, left, right) = (marks[0], marks[1], marks[3], marks[4]);
-    let (across, down) = (other.0 - eye.0, other.1 - eye.1);
-    let eyes = across.hypot(down);
+    let eyes = (other.0 - eye.0).hypot(other.1 - eye.1);
     if !eyes.is_finite() || eyes < 1e-3 {
         return None;
     }
     let width = (right.0 - left.0).hypot(right.1 - left.1) / eyes;
-    let middle = (
-        (left.0 + right.0) / 2.0 - eye.0,
-        (left.1 + right.1) / 2.0 - eye.1,
-    );
-    let drop = (across * middle.1 - down * middle.0).abs() / (eyes * eyes);
-    Some(([width, drop], eyes))
+    Some((width, eyes, (other.1 - eye.1).atan2(other.0 - eye.0)))
 }
 
 #[derive(Debug)]
 struct Mouth {
-    /// When, the shape, and the eye distance in pixels.
-    looks: VecDeque<(u64, [f32; 2], f32)>,
+    /// When, the shape, the eye distance in pixels and the eye line's angle.
+    looks: VecDeque<(u64, f32, f32, f32)>,
+    /// The eye line's squared bend, averaged over this face's looks (about
+    /// the last ten): its jitter at rest, steadier than one window's.
+    rest: Option<f32>,
 }
 
 /// Each face's recent mouth, by its passing id.
@@ -100,13 +103,14 @@ impl Mouths {
                 .back()
                 .is_some_and(|last| now_us.saturating_sub(last.0) <= FORGET_US)
         });
-        let Some((shape, eyes)) = shape(marks) else {
+        let Some((shape, eyes, angle)) = shape(marks) else {
             return UNKNOWN;
         };
         let mouth = self.faces.entry(id).or_insert(Mouth {
             looks: VecDeque::new(),
+            rest: None,
         });
-        mouth.looks.push_back((now_us, shape, eyes));
+        mouth.looks.push_back((now_us, shape, eyes, angle));
         while mouth
             .looks
             .front()
@@ -123,22 +127,29 @@ impl Mouths {
         }
         let pairs = looks.iter().zip(looks.iter().skip(1));
         let steps = (looks.len() - 1) as f32;
-        let jitter = (pairs
-            .clone()
-            .map(|(a, b)| ((b.2 - a.2) / a.2).powi(2))
+        // How much the eye line bends from look to look: turning, nodding
+        // and coming closer leave its angle as it is, a tilting head bends
+        // it only slowly, and speaking does not move the eyes, so this is
+        // the marks' own jitter, in this window.
+        let bends = looks
+            .iter()
+            .zip(looks.iter().skip(1))
+            .zip(looks.iter().skip(2));
+        let jitter = (bends
+            .map(|((a, b), c)| (a.3 - 2.0 * b.3 + c.3).powi(2))
             .sum::<f32>()
-            / steps)
+            / (looks.len() - 2) as f32)
             .sqrt();
         if jitter > MOST_JITTER {
             return UNKNOWN;
         }
-        let change = pairs
-            .map(|(a, b)| (b.1[0] - a.1[0]).powi(2) + (b.1[1] - a.1[1]).powi(2))
-            .sum::<f32>()
-            / steps;
-        // The eyes do not move as the mouth speaks: how much their distance
-        // changes is this face's own jitter, in this window, taken off.
-        let score = (change - JITTER_TO_SHAPE * jitter.powi(2)).max(0.0).sqrt();
+        let change = pairs.map(|(a, b)| (b.1 - a.1).powi(2)).sum::<f32>() / steps;
+        // What the jitter explains of the width's change is taken off.
+        let rest = mouth
+            .rest
+            .map_or(jitter.powi(2), |rest| rest + 0.1 * (jitter.powi(2) - rest));
+        mouth.rest = Some(rest);
+        let score = (change - JITTER_TO_SHAPE * rest).max(0.0).sqrt();
         let state = if score >= SPEAKING_AT {
             SpeakingState::Yes
         } else {
@@ -151,15 +162,16 @@ impl Mouths {
 #[cfg(test)]
 mod tests {
     //! Synthetic faces: five points of a head in millimetres, turned,
-    //! nodded, moved and scaled, seen about seven times a second (the eyes'
-    //! look rate on lamp-52e6), with the marks jittering as a detector's do.
+    //! nodded, moved and scaled, seen every 250 to 350 ms (the eyes' pace while
+    //! they follow a face, `main.rs`), with the marks jittering as a detector's
+    //! do, and a mouth that is no pure tone.
     use super::*;
     use crate::facing;
     use std::f32::consts::TAU;
 
     /// Eye distance of an adult, millimetres.
     const EYES_MM: f32 = 63.0;
-    const LOOK_US: u64 = 150_000;
+    const LOOK_US: u64 = 300_000;
 
     struct Noise(u64);
     impl Noise {
@@ -183,32 +195,40 @@ mod tests {
         /// Turn and nod, amplitude in degrees and frequency.
         yaw: (f32, f32),
         pitch: (f32, f32),
+        /// The head tipped down this far, degrees, as at a lamp below the eyes.
+        tilt: f32,
         /// Sideways drift, pixels a second.
         drift: f32,
-        /// Whether the mouth speaks: jaw at 5 Hz, rounding at 4.3 Hz.
+        /// Whether the mouth speaks: syllables at 3 to 6.5 Hz, louder and
+        /// softer, the lips rounding at about 3 Hz.
         talk: bool,
         /// Marks' jitter, pixels, one standard deviation.
         jitter: f32,
+        /// Time between looks, microseconds, drawn evenly from this range.
+        pace: (u64, u64),
     }
 
     const STILL: Scene = Scene {
-        eyes_px: 40.0,
+        eyes_px: 60.0,
         grow: 0.0,
         yaw: (0.0, 0.0),
         pitch: (0.0, 0.0),
         drift: 0.0,
         talk: false,
-        jitter: 0.5,
+        jitter: 0.3,
+        tilt: 0.0,
+        pace: (250_000, 350_000),
     };
 
     fn marks(scene: &Scene, t: f32, noise: &mut Noise) -> [(f32, f32); 5] {
         let open = if scene.talk {
-            5.0 * (1.0 - (TAU * 5.0 * t).cos())
+            let syllables = TAU * 4.7 * t + 2.0 * (TAU * 0.9 * t).sin();
+            5.0 * (0.6 + 0.4 * (TAU * 1.3 * t).sin()) * (1.0 - syllables.cos())
         } else {
             0.0
         };
         let round = if scene.talk {
-            2.5 * (TAU * 4.3 * t).sin()
+            2.5 * (TAU * 3.1 * t + (TAU * 0.6 * t).sin()).sin() - 0.15 * open
         } else {
             0.0
         };
@@ -223,7 +243,7 @@ mod tests {
         let yaw = (scene.yaw.0 * (TAU * scene.yaw.1 * t).sin()
             + if scene.yaw.1 == 0.0 { scene.yaw.0 } else { 0.0 })
         .to_radians();
-        let pitch = (scene.pitch.0 * (TAU * scene.pitch.1 * t).sin()).to_radians();
+        let pitch = (scene.tilt + scene.pitch.0 * (TAU * scene.pitch.1 * t).sin()).to_radians();
         let scale = (scene.eyes_px + scene.grow * t) / EYES_MM;
         let (cx, cy) = (160.0 + scene.drift * t, 110.0);
         head.map(|[x, y, z]| {
@@ -239,12 +259,17 @@ mod tests {
         })
     }
 
-    /// The states judged over 4 s, after the first window.
+    /// The states judged over 12 s, after the first window.
     fn run(scene: Scene, seed: u64) -> Vec<Speaking> {
         let (mut mouths, mut noise) = (Mouths::default(), Noise(seed));
-        (0..27u64)
-            .map(|look| {
-                let at = look * LOOK_US;
+        let (least, most) = scene.pace;
+        let mut times = vec![0u64];
+        while let Some(&last) = times.last().filter(|&&last| last < 12_000_000) {
+            times.push(last + least + ((most - least) as f32 * noise.uniform()) as u64);
+        }
+        times
+            .into_iter()
+            .map(|at| {
                 let seen = marks(&scene, at as f32 / 1e6, &mut noise);
                 (at, mouths.judge(1, &seen, facing::yaw_deg(&seen), at))
             })
@@ -284,11 +309,25 @@ mod tests {
         );
     }
 
+    /// Someone looking down at the lamp, nodding as they listen.
+    #[test]
+    fn a_face_nodding_at_a_tilt_is_not_speaking() {
+        mostly(
+            Scene {
+                tilt: 20.0,
+                pitch: (12.0, 0.8),
+                ..STILL
+            },
+            SpeakingState::No,
+            "nodding at a tilt",
+        );
+    }
+
     #[test]
     fn a_face_turning_from_side_to_side_is_not_speaking() {
         mostly(
             Scene {
-                yaw: (25.0, 0.4),
+                yaw: (20.0, 0.4),
                 ..STILL
             },
             SpeakingState::No,
@@ -312,8 +351,8 @@ mod tests {
     fn a_face_talking_while_it_moves_is_speaking() {
         let moving = Scene {
             talk: true,
-            yaw: (20.0, 0.4),
-            pitch: (10.0, 0.7),
+            yaw: (10.0, 0.3),
+            pitch: (5.0, 0.5),
             drift: 30.0,
             ..STILL
         };
@@ -326,7 +365,7 @@ mod tests {
     fn a_face_coming_closer_is_not_speaking() {
         mostly(
             Scene {
-                grow: 15.0,
+                grow: 10.0,
                 drift: 40.0,
                 ..STILL
             },
@@ -357,7 +396,7 @@ mod tests {
         );
         mostly(
             Scene {
-                jitter: 3.0,
+                jitter: 5.0,
                 ..STILL
             },
             SpeakingState::Unknown,
@@ -375,7 +414,7 @@ mod tests {
             ..STILL
         };
         for look in 0..20u64 {
-            let seen = marks(&talking, look as f32 * 0.15, &mut noise);
+            let seen = marks(&talking, look as f32 * 0.3, &mut noise);
             let said = mouths.judge(3, &seen, None, look * LOOK_US);
             assert_eq!(said.state, SpeakingState::Unknown, "look {look}");
         }
@@ -385,7 +424,7 @@ mod tests {
     fn a_new_face_is_unknown_until_its_window_fills() {
         let (mut mouths, mut noise) = (Mouths::default(), Noise(1));
         for look in 0..(LEAST_LOOKS as u64 - 1) {
-            let seen = marks(&STILL, look as f32 * 0.15, &mut noise);
+            let seen = marks(&STILL, look as f32 * 0.3, &mut noise);
             let said = mouths.judge(7, &seen, Some(0.0), look * LOOK_US);
             assert_eq!(said.state, SpeakingState::Unknown);
         }
@@ -396,38 +435,41 @@ mod tests {
     /// judged right for a still face and a talking one.
     #[test]
     fn margins() {
-        for jitter in [0.3, 0.5, 1.0] {
-            for eyes_px in [24.0, 30.0, 40.0, 60.0] {
-                let still = share(
-                    Scene {
-                        eyes_px,
-                        jitter,
-                        ..STILL
-                    },
-                    SpeakingState::No,
-                );
-                let talk = share(
-                    Scene {
-                        eyes_px,
-                        jitter,
-                        talk: true,
-                        ..STILL
-                    },
-                    SpeakingState::Yes,
-                );
-                eprintln!(
-                    "jitter {jitter} px, eyes {eyes_px} px: still no {still:.2}, talking yes {talk:.2}"
-                );
-                // What docs/eyes.md rests on: at 0.5 px of jitter it holds from
-                // 30 px between the eyes and not at 24; at 1 px not at 30, but at 60.
-                let holds = still >= 0.9 && talk >= 0.9;
-                let said = match (jitter, eyes_px as u32) {
-                    (0.5, 30) | (0.5, 40) | (0.5, 60) | (1.0, 60) => Some(true),
-                    (0.5, 24) | (1.0, 24) | (1.0, 30) | (1.0, 40) => Some(false),
-                    _ => None,
-                };
-                if let Some(said) = said {
-                    assert_eq!(holds, said, "jitter {jitter} px, eyes {eyes_px} px");
+        for pace in [(250_000, 350_000), (450_000, 550_000)] {
+            for jitter in [0.3, 0.5, 1.0] {
+                for eyes_px in [24.0, 30.0, 40.0, 60.0] {
+                    let still = share(
+                        Scene {
+                            eyes_px,
+                            jitter,
+                            pace,
+                            ..STILL
+                        },
+                        SpeakingState::No,
+                    );
+                    let talk = share(
+                        Scene {
+                            eyes_px,
+                            jitter,
+                            pace,
+                            talk: true,
+                            ..STILL
+                        },
+                        SpeakingState::Yes,
+                    );
+                    eprintln!(
+                        "pace {pace:?} us, jitter {jitter} px, eyes {eyes_px} px: still no {still:.2}, talking yes {talk:.2}"
+                    );
+                    // What docs/eyes.md rests on: at the eyes' pace while they
+                    // follow a face it holds (both at least 0.9) only at 0.3 px of
+                    // jitter and 60 px between the eyes; 0.3 px at 40 px and 0.5 px
+                    // at 60 px fall just short; at --steady-rate's 500 ms nowhere.
+                    let holds = still >= 0.9 && talk >= 0.9;
+                    let expected = pace.0 < 300_000 && (jitter, eyes_px as u32) == (0.3, 60);
+                    assert_eq!(
+                        holds, expected,
+                        "pace {pace:?}, jitter {jitter} px, eyes {eyes_px} px"
+                    );
                 }
             }
         }

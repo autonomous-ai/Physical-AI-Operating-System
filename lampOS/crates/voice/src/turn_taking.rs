@@ -252,6 +252,19 @@ impl PlaybackMask {
             .as_ref()
             .is_some_and(|gaps| gaps.covers(owner, started_us))
     }
+    /// How far a listening gap's zeros ran past its hold, last accepted at
+    /// `last_zero_us`, if far enough to be a delivery gap too
+    /// ([`crate::listen_gaps::ListenGaps::overran_us`]).
+    pub fn listen_gap_overran_us(
+        &self,
+        owner: TurnOwner,
+        started_us: u64,
+        last_zero_us: u64,
+    ) -> Option<u64> {
+        self.listen_gaps
+            .as_ref()
+            .and_then(|gaps| gaps.overran_us(owner, started_us, last_zero_us))
+    }
     /// Remember enough hearing for a yield's first words (#828): every
     /// block of a candidate that reaches back is checked against it before
     /// the candidate is let through.

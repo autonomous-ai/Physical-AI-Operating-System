@@ -1037,6 +1037,12 @@ proposal on #828).
   - The speaker's `playback_gap` for those zeros is recorded with
     `listen_gap: true` and not counted as a delivery gap. Each gap is
     recorded as `listen_gap`.
+  - Zeros begun in a hold that run on more than 100 ms past its end
+    (`OVERRUN_US`) waited for late words: a delivery stall begun in the
+    hold. They are counted as a delivery gap when they resume, and recorded
+    with `listen_gap_overran_us`. The hold's end counts, not the next
+    words' going: those go only once there are words, so late ones are let
+    go late (Nine's P3 on #1264).
 - **Hearing in the lamp's own silence** (`Hearing::silence_heard`). A gap of
   zeros alone gave the yield nothing to hear:
   - Once the 120 ms render window at the echo's alignment is silent, the
@@ -1066,7 +1072,13 @@ a gap of 250 ms, silence heard).
 - `listen_gaps::tests`: one gap at a sentence end after 2 s, held to 250 ms
   from its first quiet chunk; none in the first 2 s, for a pause under
   80 ms, or where the reply's own pause was long enough; each sentence end
-  its own; a new reply counts again.
+  its own; a new reply counts again; zeros begun before the hold or after
+  the next words aren't its, and zeros that ran on 300 ms past it are a
+  delivery gap too.
+- `coordinator::tests::a_listening_gaps_zeros_are_no_delivery_gap_unless_they_ran_past_its_hold`:
+  started and resumed in a hold, the reply keeps no playback gap and a
+  clean outcome; one that ran on is counted once it resumes. It fails
+  with the resumed count taken out.
 - `endpoint_session::a_long_answers_sentence_end_is_held_quiet_once_only_with_the_switch`:
   through the coordinator's loop, one hold of at least 200 ms with the
   switch and none without, the speaker handed the same samples either way.

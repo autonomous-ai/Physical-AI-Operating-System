@@ -1854,9 +1854,21 @@ fn service_speaker_control(
             }
             event @ WorkerEvent::PlaybackGap { gap, .. } => {
                 // Zeros the lamp holds on purpose at a sentence end (#828)
-                // are no delivery gap.
+                // are no delivery gap, unless they ran on past the hold.
                 let listening = playback_mask.listen_gap_covers(gap.owner, gap.started_at_us);
-                handle_playback_gap(reply, speaker_pending.as_ref(), trace, event, listening)?;
+                let overran_us = playback_mask.listen_gap_overran_us(
+                    gap.owner,
+                    gap.started_at_us,
+                    gap.last_zero_accepted_at_us,
+                );
+                handle_playback_gap(
+                    reply,
+                    speaker_pending.as_ref(),
+                    trace,
+                    event,
+                    listening,
+                    overran_us,
+                )?;
             }
             WorkerEvent::PlaybackRejected {
                 turn,
@@ -8836,12 +8848,17 @@ fn cut_after_speaker_lapse<T>(
     Ok(true)
 }
 
+/// The speaker's accepted zeros while a reply was unfinished: a delivery
+/// gap, unless they are a listening gap's (`listening`, #828). One whose
+/// zeros ran on past its hold (`overran_us`) is counted once it resumes,
+/// for its words came late.
 fn handle_playback_gap(
     reply: &mut Option<Reply>,
     pending: Option<&PendingSpeaker>,
     trace: &mut SessionState,
     event: WorkerEvent,
     listening: bool,
+    overran_us: Option<u64>,
 ) -> Result<()> {
     let WorkerEvent::PlaybackGap {
         phase,
@@ -8867,7 +8884,12 @@ fn handle_playback_gap(
     let (queued, held, last_provider_audio) = if let Some(current) = current {
         if phase == PlaybackGapPhase::Started && origin.is_some_and(SpeechOrigin::local) {
             current.notice.gap()?;
-        } else if phase == PlaybackGapPhase::Started && !listening {
+        } else if match phase {
+            PlaybackGapPhase::Started => !listening,
+            PlaybackGapPhase::Resumed => listening && overran_us.is_some(),
+            PlaybackGapPhase::Cancelled => false,
+        } && !origin.is_some_and(SpeechOrigin::local)
+        {
             current.playback_gaps = current
                 .playback_gaps
                 .checked_add(1)
@@ -8884,7 +8906,7 @@ fn handle_playback_gap(
     record(
         trace,
         json!({"kind":"playback_gap","origin":origin,"phase":phase,"gap":gap,
-        "listen_gap":listening,
+        "listen_gap":listening,"listen_gap_overran_us":overran_us,
         "at_us":observed_at_us,"coordinator_observed_at_us":monotonic_us(),
         "reply_queued_frames_at_observation":queued,"held_final_frames_at_observation":held,
         "speaker_pending_sequence_at_observation":pending.map(|pending| pending.sequence),
@@ -10217,6 +10239,7 @@ mod tests {
             &mut trace,
             crate::wire::decode(&bytes).unwrap(),
             false,
+            None,
         )
         .unwrap();
         let current = reply.as_ref().unwrap();
@@ -10244,6 +10267,7 @@ mod tests {
                 observed_at_us: 12,
             },
             false,
+            None,
         )
         .unwrap();
         assert_eq!(reply.as_ref().unwrap().playback_gaps, 0);
@@ -10252,6 +10276,83 @@ mod tests {
             "audio_written_unscored"
         );
         assert!(trace[1]["reply_queued_frames_at_observation"].is_null());
+    }
+
+    /// Nine's P3s on #1264: a listening gap's zeros (#828) are no delivery
+    /// gap. Started and resumed inside its hold, the reply keeps no playback
+    /// gap and its outcome stays clean, and the record says `listen_gap`.
+    /// One whose zeros ran on past the hold is counted once it resumes, and
+    /// the record says by how much.
+    #[test]
+    fn a_listening_gaps_zeros_are_no_delivery_gap_unless_they_ran_past_its_hold() {
+        for overran_us in [None, Some(300_000)] {
+            let (_, mut current, _) = active_reply();
+            current.pcm = vec![7; 240].into();
+            let gap = crate::wire::PlaybackGap {
+                owner: current.owner,
+                first_sample: lamp_audio::ownership::PlaybackCursor {
+                    epoch: 1,
+                    frame: 2640,
+                },
+                end_sample: lamp_audio::ownership::PlaybackCursor {
+                    epoch: 1,
+                    frame: 2880,
+                },
+                started_at_us: 11,
+                last_zero_accepted_at_us: 11,
+                zero_frames: 240,
+            };
+            let mut reply = Some(current);
+            let mut trace = SessionState::default();
+            handle_playback_gap(
+                &mut reply,
+                None,
+                &mut trace,
+                WorkerEvent::PlaybackGap {
+                    phase: PlaybackGapPhase::Started,
+                    gap,
+                    observed_at_us: 11,
+                },
+                true,
+                None,
+            )
+            .unwrap();
+            assert_eq!(reply.as_ref().unwrap().playback_gaps, 0);
+            assert_eq!(trace[0]["listen_gap"], true);
+            let resumed = crate::wire::PlaybackGap {
+                end_sample: lamp_audio::ownership::PlaybackCursor {
+                    epoch: 1,
+                    frame: 2640 + 6_000,
+                },
+                last_zero_accepted_at_us: 250_011,
+                zero_frames: 6_000,
+                ..gap
+            };
+            handle_playback_gap(
+                &mut reply,
+                None,
+                &mut trace,
+                WorkerEvent::PlaybackGap {
+                    phase: PlaybackGapPhase::Resumed,
+                    gap: resumed,
+                    observed_at_us: 250_011,
+                },
+                true,
+                overran_us,
+            )
+            .unwrap();
+            let current = reply.as_ref().unwrap();
+            assert_eq!(current.playback_gaps, u64::from(overran_us.is_some()));
+            assert_eq!(
+                current.delivery_outcome(),
+                if overran_us.is_some() {
+                    "audio_written_with_playback_gaps_unscored"
+                } else {
+                    "audio_written_unscored"
+                }
+            );
+            assert_eq!(trace[1]["listen_gap_overran_us"], json!(overran_us));
+        }
     }
 
     #[test]

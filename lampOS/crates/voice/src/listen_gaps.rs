@@ -69,6 +69,13 @@ pub const LOW_RUN_CHUNKS: u32 = 8;
 /// its own pause, then real zeros until the next words.
 pub const GAP_US: u64 = 250_000;
 
+/// How far past its hold's end the speaker's zeros may run and still be
+/// the hold's own: the next words go on the coordinator's next pass once it
+/// ends, and the speaker writes them next, well inside this. Zeros that run
+/// on past it waited for words that were late, a delivery gap begun in the
+/// hold (Nine's P3 on #1264).
+pub const OVERRUN_US: u64 = 100_000;
+
 /// A sentence end being held: from the first quiet chunk handed over, until
 /// the next words may go.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -76,6 +83,16 @@ struct Held {
     began_us: u64,
     until_us: u64,
     released: bool,
+}
+
+/// The last gap held: whose, from when, until when it was to hold, and when
+/// the next words went, once they did.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct LastGap {
+    owner: TurnOwner,
+    began_us: u64,
+    until_us: u64,
+    released_us: Option<u64>,
 }
 
 /// One reply's listening gaps, kept by the playback mask.
@@ -86,9 +103,8 @@ pub struct ListenGaps {
     low_chunks: u32,
     low_since_us: Option<u64>,
     held: Option<Held>,
-    /// The last gap held, for the speaker's zeros in it: `(owner, began,
-    /// released)`, released once the next words went.
-    last: Option<(TurnOwner, u64, Option<u64>)>,
+    /// The last gap held, for the speaker's zeros in it.
+    last: Option<LastGap>,
     /// A gap begun since the coordinator last looked, to be recorded.
     news: Option<Value>,
 }
@@ -131,7 +147,7 @@ impl ListenGaps {
             }
             held.released = true;
             if let Some(last) = self.last.as_mut() {
-                last.2 = Some(now_us);
+                last.released_us = Some(now_us);
             }
             return false;
         }
@@ -159,7 +175,12 @@ impl ListenGaps {
             until_us,
             released: false,
         });
-        self.last = Some((owner, began_us, None));
+        self.last = Some(LastGap {
+            owner,
+            began_us,
+            until_us,
+            released_us: None,
+        });
         self.news = Some(
             json!({"kind":"listen_gap","owner":owner,"turn":owner.turn(),
             "began_us":began_us,"until_us":until_us,"at_us":now_us,
@@ -187,11 +208,24 @@ impl ListenGaps {
     /// Whether the speaker's zeros for `owner` that began at `started_us`
     /// are a listening gap's, not a delivery gap.
     pub fn covers(&self, owner: TurnOwner, started_us: u64) -> bool {
-        self.last.is_some_and(|(held_owner, began_us, released)| {
-            held_owner == owner
-                && started_us >= began_us
-                && released.is_none_or(|released| started_us <= released)
+        self.last.is_some_and(|last| {
+            last.owner == owner
+                && started_us >= last.began_us
+                && last
+                    .released_us
+                    .is_none_or(|released| started_us <= released)
         })
+    }
+
+    /// How far past its hold's end the zeros [`Self::covers`] calls a gap's,
+    /// last accepted at `last_zero_us`, ran, when that is more than
+    /// [`OVERRUN_US`]: they were then a delivery gap too. The hold's end, not
+    /// the next words' going: those go only once there are words, so late
+    /// ones are let go late.
+    pub fn overran_us(&self, owner: TurnOwner, started_us: u64, last_zero_us: u64) -> Option<u64> {
+        let last = self.last.filter(|_| self.covers(owner, started_us))?;
+        let past = last_zero_us.saturating_sub(last.until_us);
+        (past > OVERRUN_US).then_some(past)
     }
 
     /// A gap begun since the last look, to be recorded.
@@ -261,6 +295,38 @@ mod tests {
         // On, with no second gap at the same sentence end.
         speak(&mut gaps, owner, &[LOUD; 20], quiet_from + GAP_US + 10_000);
         assert!(gaps.take_news().is_none());
+    }
+
+    /// Nine's P3s on #1264: zeros the speaker began before the hold, or
+    /// after the next words went, are no listening gap's. Zeros begun in it
+    /// that ran on past its end by more than 100 ms waited for late words:
+    /// a delivery gap too. Late words are let go late, so the hold's end,
+    /// not their going, is what counts.
+    #[test]
+    fn zeros_outside_a_hold_or_running_past_it_are_a_delivery_gap() {
+        let mut gaps = ListenGaps::default();
+        let owner = owner();
+        let now = speak(&mut gaps, owner, &[LOUD; 250], 0);
+        let quiet_from = now;
+        let now = speak(&mut gaps, owner, &[QUIET; 10], now);
+        assert!(gaps.holds(owner, &LOUD, now));
+        let until = quiet_from + GAP_US;
+        assert!(!gaps.covers(owner, quiet_from - 1));
+        assert_eq!(
+            gaps.overran_us(owner, quiet_from - 1, until + 500_000),
+            None
+        );
+        let started = quiet_from + 120_000;
+        assert!(gaps.covers(owner, started));
+        assert_eq!(gaps.overran_us(owner, started, until), None);
+        assert_eq!(gaps.overran_us(owner, started, until + OVERRUN_US), None);
+        // The next words come 300 ms late: let go when they come.
+        let late = until + 300_000;
+        assert!(!gaps.holds(owner, &LOUD, late));
+        gaps.sent(owner, &LOUD, late);
+        assert!(gaps.covers(owner, started));
+        assert_eq!(gaps.overran_us(owner, started, late), Some(300_000));
+        assert!(!gaps.covers(owner, late + 10_000));
     }
 
     /// None in a reply's first two seconds, none for a pause under 80 ms,

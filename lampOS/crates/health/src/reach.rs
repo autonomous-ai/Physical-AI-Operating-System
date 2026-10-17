@@ -5,8 +5,8 @@
 //! product lamp that link goes through the company's relay, so a relay
 //! outage (17 Oct, 02:29) would read as no internet, and the lamp would say
 //! so with the internet fine. While the link is down, and only then, this
-//! asks the internet itself: a TCP connection to either of two public name
-//! servers on port 53, at most every [`PROBE_EVERY`], each attempt bounded
+//! asks the internet itself: a TCP connection to any of [`TARGETS`], at
+//! most every [`PROBE_EVERY`], each attempt bounded
 //! by [`PROBE_WITHIN`]. Nothing is sent on a connection made; it is closed
 //! at once. The probe runs on its own thread, so the loop never waits.
 use std::{
@@ -16,9 +16,11 @@ use std::{
     time::{Duration, Instant},
 };
 
-/// What the probe connects to: two public name servers, either answering
-/// is enough (the first builder on #830, 17 Oct).
-pub const TARGETS: [&str; 2] = ["1.1.1.1:53", "8.8.8.8:53"];
+/// What the probe connects to: two public name servers, and one of them on
+/// 443 for a network that blocks port 53 to outside resolvers (hotels,
+/// offices, routers forcing their own; El on #1247). Any answering is
+/// enough (the first builder on #830, 17 Oct). IPv4 only.
+pub const TARGETS: [&str; 3] = ["1.1.1.1:53", "8.8.8.8:53", "1.1.1.1:443"];
 /// How often the internet is asked while the link is down.
 pub const PROBE_EVERY: Duration = Duration::from_secs(30);
 /// How long one probe may take, for all targets at once.
@@ -95,9 +97,15 @@ impl Reach {
         }
     }
 
+    /// What the last probe in this outage found: the internet answering or
+    /// not; none while no probe has ended in it.
+    pub fn verdict(&self) -> Option<bool> {
+        self.last.map(|(_, answered)| answered)
+    }
+
     /// Whether the last probe, in this outage, found the internet answering.
     pub fn answers(&self) -> bool {
-        self.last.is_some_and(|(_, answered)| answered)
+        self.verdict() == Some(true)
     }
 }
 
@@ -164,7 +172,7 @@ mod tests {
         let mut reach = Reach::new(vec![closed(), open.local_addr().unwrap()]);
         // The link up: nothing is asked.
         reach.tend(false, Instant::now());
-        assert!(reach.running.is_none() && !reach.answers());
+        assert!(reach.running.is_none() && reach.verdict().is_none());
         // Down: one probe, and either target answering is enough.
         reach.tend(true, Instant::now());
         assert!(reach.running.is_some());
@@ -186,6 +194,7 @@ mod tests {
         reach.tend(true, start);
         settle(&mut reach, true);
         assert!(!reach.answers());
+        assert_eq!(reach.verdict(), Some(false), "a verdict: no internet");
         let ended = reach.last.unwrap().0;
         reach.tend(true, ended + every / 2);
         assert!(reach.running.is_none(), "not before its time");

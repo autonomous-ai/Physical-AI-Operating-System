@@ -996,12 +996,55 @@ fn offline_with_no_recording_is_silent_and_a_local_turn_sends_nothing() {
 fn offline_only_with_the_switch_and_after_the_links_grace() {
     let grace = crate::bus_out::LINK_GRACE_US;
     // Without the switch: never, however long the link is down.
-    assert!(!offline_now(false, Some(0), 3_600_000_000, false));
+    assert!(!offline_now(false, Some(0), 3_600_000_000, None));
     // With it: not while the link is up, nor within its grace.
-    assert!(!offline_now(true, None, 3_600_000_000, false));
-    assert!(!offline_now(true, Some(1_000), 1_000 + grace - 1, false));
-    assert!(offline_now(true, Some(1_000), 1_000 + grace, false));
-    // The link down while the internet answers (a relay down, #830): not
-    // the home's outage, however long.
-    assert!(!offline_now(true, Some(1_000), 3_600_000_000, true));
+    assert!(!offline_now(true, None, 3_600_000_000, None));
+    assert!(!offline_now(true, Some(1_000), 1_000 + grace - 1, None));
+    assert!(offline_now(true, Some(1_000), 1_000 + grace, None));
+}
+
+/// El on #1247: with the probe on, the first seconds of a relay outage never
+/// say no internet. The voice waits for the probe's verdict: the internet
+/// answering is never offline, its not answering is, at once past the grace;
+/// with no verdict, only after `REACH_WAIT_US`.
+#[test]
+fn with_the_probe_the_first_seconds_of_an_outage_wait_for_its_verdict() {
+    let grace = crate::bus_out::LINK_GRACE_US;
+    let since = 1_000;
+    // The internet answering (a relay down): never offline, at any moment.
+    for at in (0..=60_000_000).step_by(250_000) {
+        assert!(
+            !offline_now(true, Some(since), since + at, Some(Some(true))),
+            "{at}"
+        );
+    }
+    // No verdict yet: not offline until the wait, however the grace stands.
+    assert!(!offline_now(true, Some(since), since + grace, Some(None)));
+    assert!(!offline_now(
+        true,
+        Some(since),
+        since + REACH_WAIT_US - 1,
+        Some(None)
+    ));
+    assert!(offline_now(
+        true,
+        Some(since),
+        since + REACH_WAIT_US,
+        Some(None)
+    ));
+    // The internet not answering: offline once past the grace, as before.
+    assert!(!offline_now(
+        true,
+        Some(since),
+        since + grace - 1,
+        Some(Some(false))
+    ));
+    assert!(offline_now(
+        true,
+        Some(since),
+        since + grace,
+        Some(Some(false))
+    ));
+    // The wait leaves room for the probe: grace, its 2 s bound, two reports.
+    assert!(REACH_WAIT_US >= grace + 2_000_000 + 2 * 1_000_000);
 }

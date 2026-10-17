@@ -178,27 +178,39 @@ internet, not the relay, and nothing in #830 depends on the relay.
 
 - **`lamp-health serve --online on --reach-probe on`** (`crates/health/src/reach.rs`):
   while the voice's link is down, and only then, a TCP connection to
-  1.1.1.1:53 and 8.8.8.8:53 at once, either answering is enough, at most
+  1.1.1.1:53, 8.8.8.8:53 and 1.1.1.1:443 at once (443 for a network that
+  blocks port 53 to outside resolvers), any answering is enough, at most
   every 30 s (`PROBE_EVERY`), the try bounded at 2 s (`PROBE_WITHIN`), on its
   own thread so the loop never waits; nothing is sent on a connection made.
-  If the internet answers, `lamp/online` is `online: true`, `from: "reach"`
-  (`parts::with_reach`), so Expression's offline face stays off. With the
-  link up again what was found is forgotten, so the next outage asks at
-  once. Refused without `--online on`. Off unless set.
+  Its verdict goes in `lamp/online` (`parts::with_reach`): the internet
+  answering is `online: true`, `from: "reach"`; not answering is `online:
+  false`, `from: "reach"`; **while no probe has ended in this outage, nobody
+  knows** (`online` absent), which Expression takes for online, so its
+  offline face never shows before the probe has spoken. With the link up
+  again what was found is forgotten, so the next outage asks at once.
+  Refused without `--online on`. Off unless set.
 - **The voice, `LAMP_REACH_PROBE=on`** (with `LAMP_OFFLINE_VOICE=on`): while its
-  link is down it reads the kept `lamp/online` at most once a second, and
-  while that says online from `reach` it is not offline: no offline line,
-  no offline breath (`offline_now`). The backup voice, or the sixth's down
-  line, answers instead. A stale value, or none, leaves the link to decide,
-  as before. Off unless set.
+  link is down it reads the probe's verdict from the kept `lamp/online` at
+  most once a second (`reach_verdict`) and says the lamp offline only on it
+  (`offline_now`): the internet answering is never offline (no offline line,
+  no offline breath; the backup voice, or the sixth's down line, answers
+  instead), not answering is offline once past the link's grace, and with
+  no verdict it waits `REACH_WAIT_US` (the 5 s grace, the probe's 2 s bound
+  and two of health's reports: 10 s) before taking the link alone, so a
+  lamp without `lamp-health` is still said offline. So the first seconds of
+  a relay outage never say no internet (El on #1247). Off unless set.
 - Tests: `reach::tests` (a target answering, none answering and asked again
   only after its time, a target that never answers given up within the
   bound), `parts::tests::a_link_down_with_the_internet_answering_is_online_from_reach`,
-  the voice's `the_internet_answers_only_when_lamp_online_says_so_from_the_probe`
-  and `offline_only_with_the_switch_and_after_the_links_grace`.
+  the voice's `the_probe_verdict_is_read_from_lamp_online_only_when_it_is_from_reach`,
+  `with_the_probe_the_first_seconds_of_an_outage_wait_for_its_verdict` (the
+  first minute of a relay outage, every 250 ms: never offline) and
+  `offline_only_with_the_switch_and_after_the_links_grace`.
 - Not yet shown on a lamp: the first builder's minute with the Wi-Fi off
   (offline, the line once), and a minute with only the relay unreachable
-  (online from `reach`, no line).
+  (online from `reach`, no line). The probe is IPv4 only: on an IPv6-only
+  network every target fails, and a relay outage there is said as no
+  internet, as without the probe.
 
 ## Step 3: the words and the light (`LAMP_OFFLINE_VOICE=on`)
 

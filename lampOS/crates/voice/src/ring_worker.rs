@@ -481,6 +481,9 @@ fn service(
     // From zero, so a late startup black write in GuardedRing::new is said too.
     let mut late_said = 0;
     let mut lapse = Lapse::default();
+    // With LAMP_STALLS=on: a pass of this loop, or a gap between two, of
+    // 50 ms or more is recorded, against its lease (#1178).
+    let mut stalls = crate::stalls::Stalls::from_environment("ring");
     loop {
         // A late SPI write (the SD/MMC host re-tuning holds the bus) is a
         // late frame, said once each; only a run of them ends the ring (#911).
@@ -492,6 +495,7 @@ fn service(
             );
         }
         let tick = monotonic_us();
+        let stall_pass = stalls.begin();
         let mut budget = CONTROL_BUDGET;
         if controls(link, ring, &mut guard, &mut budget, &mut lapse)? {
             return Ok(());
@@ -635,6 +639,7 @@ fn service(
             let own_light = face.rests_on_its_light(at);
             rest(ring, &pixels, ceiling, own_light, light.as_mut())?;
         }
+        stall_pass.done();
         if let Some(wait) = TICK_US.checked_sub(monotonic_us().saturating_sub(tick)) {
             std::thread::sleep(Duration::from_micros(wait));
         }

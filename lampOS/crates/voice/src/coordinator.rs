@@ -3484,6 +3484,9 @@ fn conversation_with_gate(
     // Whether a sound not taken for the pause has been recorded during it:
     // once a pause, not once a block.
     let mut refused_while_paused = false;
+    // With LAMP_STALLS=on, a pass or a gap between passes of 50 ms or more
+    // is recorded with what the lamp was doing (#1178).
+    let mut stalls = crate::stalls::Stalls::from_environment("coordinator");
     loop {
         #[cfg(test)]
         if host_deadline.is_some_and(|deadline| Instant::now() >= deadline) {
@@ -3496,6 +3499,7 @@ fn conversation_with_gate(
         #[cfg(test)]
         crate::scenario_clock::step(crate::scenario_clock::Phase::Run)?;
         let loop_start = Instant::now();
+        let stall_pass = stalls.begin();
         // A second route whose worker exited is dropped before anything
         // else of this tick touches it, and a turn it held ends (#960).
         if second::dropped_if_gone(rig, &mut cloud, &mut output_flow, trace)? {
@@ -6709,6 +6713,7 @@ fn conversation_with_gate(
         if crate::scenario_clock::is_active() {
             continue;
         }
+        stall_pass.done();
         if let Some(wait) = Duration::from_millis(2).checked_sub(loop_start.elapsed()) {
             std::thread::sleep(wait);
         }

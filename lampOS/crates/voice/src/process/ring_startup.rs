@@ -147,6 +147,7 @@ impl Worker {
                 .arg(boot_text(boot))
                 .args(extra)
                 .env_clear()
+                .envs(crate::stalls::passed_on())
                 .stdin(Stdio::null())
                 .stdout(Stdio::null())
                 .stderr(Stdio::inherit())

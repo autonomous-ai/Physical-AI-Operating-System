@@ -1718,30 +1718,52 @@ other owner of the port first.
 ### Reading its exit report
 
 `lamp-body exit-report` reads a line or a whole journal on stdin, finds the
-last exit report the body printed (`{"port":…,"body":{…}}`), and prints it
-as plain lines for the morning report; it never opens the port, and exits 1
-when there is none:
+newest exit report the body printed (`{"port":…,"body":{…}}`), and prints it
+as plain lines for the morning report. It never opens the port. Call the
+binary the unit itself runs, by its full path: lamp-4ace's unit names a hash
+folder (`/opt/lampOS/body/<sha256>/lamp-body`) and has no `current`, the
+product unit names `/opt/lampOS/body/current/lamp-body`. It needs a body
+built with `exit-report` (#1364): an older one takes `exit-report` as a bad
+option and exits 2 with its usage. Read the journal with `sudo` and
+`-o short-iso`, so the `at:` line says when the run stopped (with `-o cat`
+it is unknown):
 
 ```
-journalctl -u lamp-body --since yesterday -o cat | lamp-body exit-report
+BODY=$(systemctl show -p ExecStart --value lamp-body | sed -n 's/^{ path=\([^ ;]*\).*/\1/p')
+sudo journalctl -u lamp-body --since yesterday -o short-iso | "$BODY" exit-report
 ```
 
+Exit codes: 0 the newest report was read; 1 there is none on stdin; 3 the
+newest could not be read (cut short by journald or a kill mid-write): it says
+so with its `at:`, and the previous readable report follows labelled
+"previous readable report, not the newest", never in its place; 4 stdin
+cannot be read.
+
+lamp-4ace's 15:25:38 exit of 2026-10-17 reads as below (the test fixture,
+`lamp_4ace_1525_reads_as_plain_lines`; its `peak_temperature` and
+`goal_writes` were not quoted from the lamp and are made up):
+
 ```
-stop: bad_temperature joint 2 (base_pitch) from 60 temperature 55
+at: 2026-10-17T15:25:38+0700 lamp-4ace lamp-body[811]:
+stop: base_pitch (joint 2): temperature unreadable; last read 55, last good 60
 stood: yes, steps 618587
 bad_temperatures: base_yaw 817, base_pitch 9354, elbow_pitch 2356, wrist_roll 448, wrist_pitch 323
 temperature_flaps: not in this report
-temperature_settles: 10 2:59->55 2:61->55 …
+temperature_settles: 10: base_pitch 59->55, base_pitch 61->55, …
 peak_temperature: wrist_pitch 50, wrist_roll 48, base_yaw 47
 arm_peak_temperature: base_pitch 62, elbow_pitch 58
 bad_reads: base_yaw 0, base_pitch 0, elbow_pitch 0, wrist_roll 0, wrist_pitch 0
 goal_writes: 618001
 ```
 
-It reads the report by `BodyReport`'s own field names (`src/exit_report.rs`;
-a renamed field fails `a_joint_flapping_between_60_and_64_stops_on_heat`).
-`temperature_flaps` is absent from reports older than it. The test fixture is
-lamp-4ace's 15:25:38 exit of 2026-10-17 (`lamp_4ace_1525_reads_as_plain_lines`).
+It reads the report by `BodyReport`'s own field names (`src/exit_report.rs`).
+Every field but `stop` may be missing and then says "not in this report": a
+body built before `bad_reads`/`bad_temperatures` (2026-10-17 08:25),
+`temperature_settles` (10:34) or `temperature_flaps` (#1364) still reads
+(`a_body_older_than_the_temperature_fields_still_reads`, a real lamp-52e6
+exit of 2026-10-14). A field renamed in `BodyReport` fails
+`a_joint_flapping_between_60_and_64_stops_on_heat`, which reads a real report
+back and requires every line by name.
 
 ## On the bus
 

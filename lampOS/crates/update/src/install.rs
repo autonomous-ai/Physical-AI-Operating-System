@@ -245,6 +245,12 @@ pub const CREDENTIAL_PATH: &str = "/etc/lampOS/voice/credential";
 /// (`deploy/product/lamp-policy.service`; the first builder on #811, 13:09:
 /// provision it like the voice's).
 pub const JEV_KEY_PATH: &str = "/etc/lampOS/policy/jev.key";
+/// What a key missing when the records were set aside is recorded as: once
+/// written, with no hash any file can match. So the rule for a key removed
+/// since it was written holds on every later run, not only on the run that
+/// found the damage, which saves records with no key in them (Third on
+/// #1263). A key setup writes later is kept as the lamp's own.
+pub const SET_ASIDE: &str = "unknown: the records were set aside";
 pub const V1_CONFIG: &str = "/root/config/config.json";
 /// Where lamp-update keeps its records on a lamp.
 pub const RECORDS: &str = "/var/lib/lampos-update/";
@@ -571,9 +577,14 @@ pub fn install(
     // config, which may still hold the previous owner's, never puts it back.
     let key = device_key(config);
     let mut private: Vec<(&str, &str)> = vec![(PROVIDER_PATH, PROVIDER)];
+    let mut marked = false;
     for (path, part) in [(CREDENTIAL_PATH, "the voice"), (JEV_KEY_PATH, "the Policy")] {
         let there = config.on(path).exists();
         let had = state.settings.contains_key(path);
+        if records_lost && !there {
+            state.settings.insert(path.to_owned(), SET_ASIDE.to_owned());
+            marked = true;
+        }
         match &key {
             Some(key) if there || (!had && !records_lost) => private.push((path, key)),
             _ if there => {}
@@ -587,6 +598,9 @@ pub fn install(
                 "no key: {part} cannot reach its service until setup takes the user's into {path} (none in {V1_CONFIG})"
             )),
         }
+    }
+    if marked {
+        save(&records, &state)?;
     }
     let wrote = changed.len();
     settings_with_mode(
@@ -1198,6 +1212,7 @@ pub fn provision_device_key(
             say(&format!(
                 "{path} is missing and the records were set aside: V1's key is not copied; setup takes the user's"
             ));
+            state.settings.insert(path.to_owned(), SET_ASIDE.to_owned());
         } else if state.settings.contains_key(path) {
             say(&format!(
                 "{path} was removed since it was written (a reset?): V1's key is not put back; setup takes the user's"
@@ -1205,6 +1220,9 @@ pub fn provision_device_key(
         } else {
             wanted.push(path);
         }
+    }
+    if records_lost {
+        save(&records, &state)?;
     }
     if wanted.is_empty() {
         return Ok(wanted);

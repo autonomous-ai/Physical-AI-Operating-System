@@ -1,0 +1,7 @@
+NRestarts=0 ActiveState=active  lamp-controls
+NRestarts=0 ActiveState=active  lamp-expression
+NRestarts=0 ActiveState=active  lamp-name
+NRestarts=1 ActiveState=active  lamp-voice
+NRestarts=3 ActiveState=failed  lamp-body
+NRestarts=5 ActiveState=failed  lamp-tasks
+2026-10-17T06:25:07Z

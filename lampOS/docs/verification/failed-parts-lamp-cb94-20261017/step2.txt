@@ -1,0 +1,42 @@
+== 2 min later 2026-10-17T06:23:37Z
+NRestarts=0 ExecMainStartTimestamp=Sat 2026-10-17 06:21:27 UTC ActiveState=active  lamp-controls
+NRestarts=0 ExecMainStartTimestamp=Sat 2026-10-17 06:21:27 UTC ActiveState=active  lamp-expression
+NRestarts=1 ExecMainStartTimestamp=Sat 2026-10-17 04:53:58 UTC ActiveState=active  lamp-voice
+2026-10-17T06:21:27+0000 lamp-cb94 systemd[1]: Started lamp-controls.service - lampOS controls (lamp-controls).
+2026-10-17T06:21:27+0000 lamp-cb94 systemd[1]: Started lamp-expression.service - lampOS expression (lamp-expression).
+2026-10-17T06:21:27+0000 lamp-cb94 lamp-controls[52205]: lamp-controls: hand: button primary released, head not touched
+2026-10-17T06:21:27+0000 lamp-cb94 lamp-expression[52206]: lamp-expression: started mode=enabled clock_id=38f7c51d-1edd-4cde-989c-dde4d551bdf2 root=/run/lampos-bus
+== voice mute/privacy topics
+air
+attention
+board
+body
+controls
+controls.lock
+diagnostics
+ears
+expression
+expression.lock
+humans
+lamp
+light
+mic2
+name
+policy
+room
+schedule
+skills
+tasks
+voice
+== kernel mmc since start
+== name models
+70d164290c1d095d1d4ee149bc5e00543250a7316b59f31d056cff7bd3075c1f  /opt/lampOS/name/models/embedding_model.onnx
+ba2b0e0f8b7b875369a2c89cb13360ff53bac436f2895cced9f479fa65eb176f  /opt/lampOS/name/models/melspectrogram.onnx
+1d238ca7c468bc3b22d6de94155abaec422f7433693e0696302f20157e9af50f  /opt/lampOS/name/models/name.onnx
+755 root:root 4096 /opt/lampOS/name/models
+644 root:root 1326578 /opt/lampOS/name/models/embedding_model.onnx
+644 root:root 1087958 /opt/lampOS/name/models/melspectrogram.onnx
+644 root:root 609394 /opt/lampOS/name/models/name.onnx
+NRestarts=0 ExecMainStartTimestamp=Sat 2026-10-17 06:23:37 UTC ActiveState=active SubState=running 
+2026-10-17T06:23:37+0000 lamp-cb94 systemd[1]: Started lamp-name.service - lampOS name (lamp-name).
+2026-10-17T06:23:38+0000 lamp-cb94 lamp-name[52720]: lamp-name: started models=/opt/lampOS/name/models loaded_ms=308 listening_to=mic2/audio least=0.9 bus_root=/run/lampos-bus

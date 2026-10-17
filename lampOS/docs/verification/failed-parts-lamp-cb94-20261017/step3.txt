@@ -1,0 +1,50 @@
+controls/gesture subscribers=2 latest=no type=lamp_msgs/ControlGesture
+controls/state subscribers=1 latest=yes type=lamp_msgs/ControlsState
+name/heard subscribers=4 latest=no type=lamp_msgs/NameHeard
+name/rising subscribers=0 latest=no type=lamp_msgs/NameHeard
+voice/activity subscribers=1 latest=yes type=lamp_msgs/PersonActivity
+voice/heard subscribers=2 latest=no type=lamp_msgs/Speech
+voice/playout subscribers=0 latest=no type=lamp_msgs/VoicePlayout
+voice/progress subscribers=1 latest=yes type=lamp_msgs/VoiceProgress
+voice/said subscribers=2 latest=no type=lamp_msgs/Speech
+voice/sound subscribers=1 latest=no type=lamp_msgs/VoiceSound
+voice/state subscribers=3 latest=yes type=lamp_msgs/VoiceState
+voice/timing subscribers=0 latest=yes type=lamp_msgs/VoiceTiming
+== voice/state
+{"topic":"voice/state","kind":"latest","enc":"json","type":"lamp_msgs/VoiceState","source":"voice","boot":"1fbcdd085888b3f6","seq":5691,"at_us":72961398637,"at_unix_ms":1792218253229} {"state":"resting"}
+== controls/hand
+lamp-bus: controls/hand: no publisher is alive and nothing has come for a lease
+== controls/privacy
+lamp-bus: controls/privacy: no publisher is alive and nothing has come for a lease
+== voice/privacy
+lamp-bus: voice/privacy: no publisher is alive and nothing has come for a lease
+== units
+NRestarts=0 ActiveState=active  lamp-controls
+NRestarts=0 ActiveState=active  lamp-expression
+NRestarts=0 ActiveState=active  lamp-name
+NRestarts=1 ActiveState=active  lamp-voice
+2026-10-17T06:23:37+0000 lamp-cb94 systemd[1]: Started lamp-name.service - lampOS name (lamp-name).
+2026-10-17T06:23:38+0000 lamp-cb94 lamp-name[52720]: lamp-name: started models=/opt/lampOS/name/models loaded_ms=308 listening_to=mic2/audio least=0.9 bus_root=/run/lampos-bus
+== cpu
+/tmp/threads.sh: line 4: /tmp/a: Permission denied
+/tmp/threads.sh: line 4: /tmp/b: Permission denied
+36717/36717    lamp-voice          17.1%
+36697/36697    lamp-voice           7.2%
+36720/36720    lamp-voice           4.0%
+36711/36711    lamp-voice           3.7%
+36722/36722    lamp-voice           1.9%
+36697/36699    voice-hand-cont      1.9%
+36724/36724    lamp-voice           1.1%
+36700/36700    lamp-voice           0.4%
+36697/36709    endpoint-superv      0.3%
+TOTAL 38.0% of a core
+48922 /opt/lampOS/voice/current/lamp-voice serve /etc/lampOS/voice/provider.json /var/
+48925 /opt/lampOS/voice/fdd50825c5b56754d29d790cb4e112d6eebf5477b0ffae1a65e1e99c5af8fb
+48934 /opt/lampOS/voice/fdd50825c5b56754d29d790cb4e112d6eebf5477b0ffae1a65e1e99c5af8fb
+48935 /opt/lampOS/voice/fdd50825c5b56754d29d790cb4e112d6eebf5477b0ffae1a65e1e99c5af8fb
+48941 /opt/lampOS/voice/fdd50825c5b56754d29d790cb4e112d6eebf5477b0ffae1a65e1e99c5af8fb
+48944 /opt/lampOS/voice/fdd50825c5b56754d29d790cb4e112d6eebf5477b0ffae1a65e1e99c5af8fb
+48946 /opt/lampOS/voice/fdd50825c5b56754d29d790cb4e112d6eebf5477b0ffae1a65e1e99c5af8fb
+48948 /opt/lampOS/voice/fdd50825c5b56754d29d790cb4e112d6eebf5477b0ffae1a65e1e99c5af8fb
+2026-10-17T06:24:33Z
+67614

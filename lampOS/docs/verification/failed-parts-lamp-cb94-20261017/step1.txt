@@ -1,0 +1,30 @@
+== before 2026-10-17T06:21:27Z
+600 root:root /etc/lampOS/controls/controls.json
+600 root:root /etc/lampOS/controls/controls-pins.json
+600 root:root /etc/lampOS/expression/expression.json
+600 root:root /etc/lampOS/zone.env
+600 root:root /etc/lampOS/voice/credential
+600 root:root /etc/lampOS/policy/jev.key
+NRestarts=1
+ExecMainStartTimestamp=Sat 2026-10-17 04:53:58 UTC
+ActiveState=active
+Result=exit-code ActiveState=failed  lamp-controls
+Result=exit-code ActiveState=failed  lamp-expression
+Result=exit-code ActiveState=failed  lamp-name
+== after chmod
+644 root:root /etc/lampOS/controls/controls.json
+644 root:root /etc/lampOS/controls/controls-pins.json
+644 root:root /etc/lampOS/expression/expression.json
+644 root:root /etc/lampOS/zone.env
+600 root:root /etc/lampOS/voice/credential
+600 root:root /etc/lampOS/policy/jev.key
+lampos reads /etc/lampOS/controls/controls.json
+lampos reads /etc/lampOS/controls/controls-pins.json
+lampos reads /etc/lampOS/expression/expression.json
+T0=2026-10-17 06:21:27
+NRestarts=0 ExecMainStartTimestamp=Sat 2026-10-17 06:21:27 UTC ActiveState=active SubState=running  lamp-controls
+NRestarts=0 ExecMainStartTimestamp=Sat 2026-10-17 06:21:27 UTC ActiveState=active SubState=running  lamp-expression
+2026-10-17T06:21:27+0000 lamp-cb94 systemd[1]: Started lamp-controls.service - lampOS controls (lamp-controls).
+2026-10-17T06:21:27+0000 lamp-cb94 systemd[1]: Started lamp-expression.service - lampOS expression (lamp-expression).
+2026-10-17T06:21:27+0000 lamp-cb94 lamp-controls[52205]: lamp-controls: hand: button primary released, head not touched
+2026-10-17T06:21:27+0000 lamp-cb94 lamp-expression[52206]: lamp-expression: started mode=enabled clock_id=38f7c51d-1edd-4cde-989c-dde4d551bdf2 root=/run/lampos-bus

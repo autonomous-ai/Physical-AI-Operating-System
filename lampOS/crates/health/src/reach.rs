@@ -16,11 +16,12 @@ use std::{
     time::{Duration, Instant},
 };
 
-/// What the probe connects to: two public name servers, and one of them on
-/// 443 for a network that blocks port 53 to outside resolvers (hotels,
-/// offices, routers forcing their own; El on #1247). Any answering is
-/// enough (the first builder on #830, 17 Oct). IPv4 only.
-pub const TARGETS: [&str; 3] = ["1.1.1.1:53", "8.8.8.8:53", "1.1.1.1:443"];
+/// What the probe connects to: two public name servers, on 443 only. Never
+/// port 53: a router that forces its own resolver redirects 53 to itself,
+/// and that resolver answers with the WAN down, so a dead network would
+/// read as online (the reviewer on #1247). Any answering is enough (the
+/// first builder on #830, 17 Oct). IPv4 only.
+pub const TARGETS: [&str; 2] = ["1.1.1.1:443", "8.8.8.8:443"];
 /// How often the internet is asked while the link is down.
 pub const PROBE_EVERY: Duration = Duration::from_secs(30);
 /// How long one probe may take, for all targets at once.
@@ -200,6 +201,14 @@ mod tests {
         assert!(reach.running.is_none(), "not before its time");
         reach.tend(true, ended + every);
         assert!(reach.running.is_some(), "again after it");
+    }
+
+    #[test]
+    fn the_default_targets_are_never_on_port_53() {
+        // A router forcing its own resolver answers on 53 with the WAN down.
+        let targets = targets();
+        assert!(targets.len() >= 2);
+        assert!(targets.iter().all(|target| target.port() == 443));
     }
 
     #[test]

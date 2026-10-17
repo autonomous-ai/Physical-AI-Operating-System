@@ -1221,4 +1221,94 @@ fn a_part_the_selftest_failed_is_in_the_lamps_health_until_a_run_passes() {
         Some("passed; 1 not checked")
     );
     assert_eq!((health.level, health.message.as_str()), (Level::Ok, ""));
+    rig.stop();
+}
+
+/// Says the voice's `link`, then waits for `lamp/online` to say `wanted`,
+/// from `from`.
+fn link_then_online(
+    voice: &mut Publisher,
+    online: &mut Subscriber,
+    link: &str,
+    wanted: Option<bool>,
+    from: &str,
+) {
+    let sent = voice
+        .publish_json(
+            0,
+            &Diagnostic::new(Level::Warn, "voice", "it cannot reach the speech service")
+                .with("link", link)
+                .with("down_for_s", 7),
+        )
+        .unwrap();
+    assert!(sent.delivered >= 1);
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        assert!(
+            Instant::now() < deadline,
+            "{link}: never said {wanted:?} from {from}"
+        );
+        let Some(message) = online.recv(ms(50)).unwrap() else {
+            continue;
+        };
+        let said = message.parse::<lamp_msgs::Online>().unwrap();
+        if said.online == wanted && said.from == from {
+            assert!(said.check().is_ok());
+            return;
+        }
+    }
+}
+
+#[test]
+fn lamp_online_asks_the_internet_only_while_the_voice_link_is_down() {
+    // A local listener stands for the internet (#1247, the reviewer).
+    let internet = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    internet.set_nonblocking(true).unwrap();
+    let target = internet.local_addr().unwrap();
+    let mut rig = Rig::with(
+        "reach-up",
+        |options| {
+            options.online = true;
+            options.reach = Some(vec![target]);
+        },
+        None,
+        |_| {},
+    );
+    let mut voice = rig.part("voice");
+    let mut online = rig
+        .bus
+        .subscribe_typed(lamp_msgs::Online::TOPIC, "test", lamp_msgs::Online::TYPE)
+        .unwrap();
+    // The link up: online from the voice, and the internet is never asked.
+    link_then_online(&mut voice, &mut online, "ready", Some(true), "voice");
+    thread::sleep(ms(300));
+    assert_eq!(
+        internet.accept().map(|_| ()).unwrap_err().kind(),
+        io::ErrorKind::WouldBlock,
+        "asked with the link up"
+    );
+    // The link down with the internet answering: online, from the probe.
+    link_then_online(&mut voice, &mut online, "down", Some(true), "reach");
+    assert!(internet.accept().is_ok(), "the probe connected");
+    rig.stop();
+
+    // The internet not answering: port 1, which nothing listens on and the
+    // kernel refuses at once (El on #1247: a port just freed could be taken).
+    let closed: std::net::SocketAddr = "127.0.0.1:1".parse().unwrap();
+    let mut rig = Rig::with(
+        "reach-down",
+        |options| {
+            options.online = true;
+            options.reach = Some(vec![closed]);
+        },
+        None,
+        |_| {},
+    );
+    let mut voice = rig.part("voice");
+    let mut online = rig
+        .bus
+        .subscribe_typed(lamp_msgs::Online::TOPIC, "test", lamp_msgs::Online::TYPE)
+        .unwrap();
+    link_then_online(&mut voice, &mut online, "down", Some(false), "reach");
+    rig.stop();
 }

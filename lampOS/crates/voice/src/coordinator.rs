@@ -8047,8 +8047,10 @@ fn offline_now(
 /// #830). With it, a link down because the relay is, while
 /// `lamp-health --reach-probe on` finds the internet answering, gives no
 /// offline line and no offline breath: it is the service's trouble, not
-/// the home's internet, and the backup voice or its down line answers
-/// instead. Off unless set.
+/// the home's internet. Only the second route answers then
+/// (`LAMP_VOICE_SECOND_CONFIG`, its down line with `LAMP_SECOND_DOWN_LINE`);
+/// without it, speech is dropped without a word (`accepted_without_cloud`),
+/// so set this where the second route is. Off unless set.
 pub const REACH_PROBE_ENVIRONMENT: &str = "LAMP_REACH_PROBE";
 
 /// The probe's verdict in the kept `lamp/online`: fresh, well formed and

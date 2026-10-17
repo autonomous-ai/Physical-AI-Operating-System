@@ -1,7 +1,9 @@
 //! Whether the lamp can reach the internet now (`lamp/online`, #830,
-//! `docs/offline.md`). Worked out from the links' own state, not a probe:
-//! today the voice's link to its speech service, as it reports it on
-//! `diagnostics`.
+//! `docs/offline.md`). Worked out from the voice's link to its speech
+//! service, as it reports it on `diagnostics`; with `lamp-health
+//! --reach-probe on`, while that link is down, from a probe of the internet
+//! itself (`from: "reach"`), so it can be online with the link down, and
+//! absent while the probe has not yet answered.
 use crate::Invalid;
 use lamp_bus::{Declaration, Kind};
 use serde::{Deserialize, Serialize};
@@ -10,10 +12,13 @@ use std::time::Duration;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Online {
     /// True while a link that needs the internet works, false while it has
-    /// been down past its grace, absent when no such link is reporting.
+    /// been down past its grace, absent when no such link is reporting. With
+    /// the probe, while the link is down: whether the internet answered, and
+    /// absent until the first probe of the outage ends.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub online: Option<bool>,
-    /// The part whose link said so, e.g. `voice`. Empty when none did.
+    /// Who said so: the part whose link it is, e.g. `voice`, or `reach` for
+    /// the probe. Empty when none did.
     pub from: String,
     /// How long it has been down, in whole seconds, when it is.
     #[serde(default, skip_serializing_if = "Option::is_none")]

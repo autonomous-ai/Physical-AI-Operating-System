@@ -3,7 +3,9 @@
 //! prints one line a part (docs/selftest.md).
 use lamp_bus::Bus;
 use lamp_msgs::{Occasion, SelfTest, Verdict};
-use lamp_selftest::{AGAIN_AFTER, BUDGET, hand, kernel, listen, mic, quiet, report, ring, speaker};
+use lamp_selftest::{
+    AGAIN_AFTER, BUDGET, hand, head, kernel, listen, mic, quiet, report, ring, speaker,
+};
 use std::{path::PathBuf, process::ExitCode, time::Instant};
 
 const USAGE: &str = "usage: lamp-selftest [--occasion factory|first-boot|on-demand] [--dir ABSOLUTE] [--bus-root ABSOLUTE]";
@@ -108,6 +110,12 @@ fn main() -> ExitCode {
         bus: &bus,
         occasion: arguments.occasion,
         answer_within: speaker::ANSWER_WITHIN,
+    }));
+    // The head moves a few counts only from rest, standing, and never at
+    // first boot; otherwise the part says why it did not.
+    checks.push(Box::new(head::HeadMove {
+        bus: &bus,
+        occasion: arguments.occasion,
     }));
     checks.push(Box::new(kernel::Kernel {
         path: kernel::KMSG.into(),

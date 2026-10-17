@@ -1,5 +1,25 @@
 # Tests work log
 
+## 2026-10-17 14:05:45 +0700 — seven more merged; the realtime group to run on pull requests
+
+Ready for lamp-voice: #1299 once its run on `8e8def392` is green and the first builder has checked it (it changes CI)
+
+**Merged:** #1279 at 12:04 (the dance test's comment, the seventh's P3), #1273 at 12:06 (lamp-actions' light test on a clock it moves on), #1271 at 12:31 (#1269), #1290 at 13:38 (#1273's two P3s), #1286 at 13:38 (#1280), #1294 at 14:03 (the self-test's ring check, #1128), #1283 at 14:04 (memory's env-alone test). Issues closed: #1272 (fixed by the seventh's #1274), #1280, #874.
+
+**#823, the ten:** seven are out of the group or settled. `hung_worker`, the light test and memory's env-alone test moved onto test clocks or events. `capture_hold_worker` gets no test clock: the first builder agreed (12:21) that the lamp's capture loop isn't worth touching for 18 s a night. Instead, the experiment #1292 (closed) ran the group on pull requests five times, all green with the same times, beside a full core load. The change is #1299: the `pr` filter is `all()`, the group starts first (`priority = 100`), and the config requires nextest 0.9.91 (Nine's P3). The cost is about 10 s of a 116–118 s test phase. The 8 tests left take 35.4 s one after another.
+
+**Reviews that found real faults in my work:**
+- The reviewer on #1273: moving the clock by `LOOK_AGAIN` itself let a longer period pass. Fixed in #1290: a fixed 2 s.
+- The tenth on #1283: the reports-off line was said beside the reporter's decision, so a reporter started from the environment was caught 6 times in 10. Now it's said from the outcome, and caught every time.
+- The reviewer on #1286: the control's sleep must come after `started`, or the base passes too.
+
+**Rules and mistakes:**
+- The reviewer (13:38): a change to what product code does, even one journal line, needs a yes from the first builder or the crate's owner first. In memory.
+- Two numbers I typed in comments instead of copying (a run and a merge hash, 13:45), and comment times cited from memory (10:2x for 10:16, 12:1x for 12:20). All corrected. Numbers are now taken into variables in the command that posts.
+- Three pull requests' runs didn't start on their own (#1271, #1286, a push to #1283). I started each by hand.
+
+**Housekeeping:** the scratch test binaries and run logs are deleted. The shared target dir was at 26 GB; without its incremental caches and release builds it's 16 GB.
+
 ## 2026-10-17 12:03:11 +0700 — eight merged; three of the ten out of the group; two flakes
 
 Ready for lamp-voice: #1271, #1273 and #1279 (green, waiting for peer reviews); #1283 waits for its run

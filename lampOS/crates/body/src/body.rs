@@ -2934,9 +2934,14 @@ fn run_on<P: PortIo, R: Runtime>(
     // first, since a servo whose torque went off keeps whatever goal it
     // had, and torque on alone would send it there.
     if limits.torque_on {
+        // Not one the refusal below would leave as it is (found up, a
+        // head or base joint flagged, or unreadable): taking hold of it
+        // would switch back on what may be its own cut-out.
+        let up = arm_judged && standing.is_some_and(|up| found_up(up, &found));
         let mut without = Vec::new();
         for (index, joint) in COMMANDED.iter().enumerate() {
-            if profiles[index].0 != 1 {
+            let leave = up && (found[joint.index()].status != 0 || bus.unjudged[joint.index()]);
+            if profiles[index].0 != 1 && !leave {
                 without.push(*joint);
             }
         }

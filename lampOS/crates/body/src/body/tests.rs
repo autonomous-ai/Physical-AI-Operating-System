@@ -7324,43 +7324,59 @@ fn a_flag_while_a_standing_lamp_folds_writes_that_joint_nothing_more() {
 /// The reviewer's 13:14 P3 on #1296: found standing, a head joint with
 /// torque off and over 100 on every read may be the servo's own heat
 /// cut-out. It is not taken hold of nor written a goal: the arm folds
-/// without it, then all five are let go.
+/// without it, then all five are let go. The 13:31 P3: the same with
+/// `--torque on`, whose start takes hold of a joint found without torque.
 #[test]
 fn a_head_found_without_torque_and_unreadable_is_left_while_the_arm_folds() {
-    let (mut lamp, mut clock) = folded(Duration::from_secs(20));
-    lamp.arm_moves = true;
-    for (index, at) in [(1usize, 2_650.0f32), (2, 2_600.0), (PITCH, 1_900.0)] {
-        lamp.servos[index].position = at;
-        lamp.servos[index].goal = at as u16;
-        lamp.servos[index].status = 0;
+    for torque_on in [false, true] {
+        let (mut lamp, mut clock) = folded(Duration::from_secs(20));
+        lamp.arm_moves = true;
+        for (index, at) in [(1usize, 2_650.0f32), (2, 2_600.0), (PITCH, 1_900.0)] {
+            lamp.servos[index].position = at;
+            lamp.servos[index].goal = at as u16;
+            lamp.servos[index].status = 0;
+        }
+        lamp.servos[PITCH].torque = 0;
+        // A take-hold would be let through, as on lamp-52e6.
+        lamp.may_take_hold = torque_on;
+        lamp.flicker = Some((Duration::ZERO, PITCH, vec![Some(150); 100_000], 0));
+        let report = run_standing(
+            &mut lamp,
+            &mut clock,
+            Limits {
+                torque_on,
+                ..Limits::FOLDED
+            },
+            Some(HOME),
+            Some(standing(100, 60)),
+            || Some((Mood::Resting, 0)),
+            |_| {},
+        );
+        assert!(
+            matches!(&report.stop, Stop::Refused { why }
+                if why == "temperature unreadable at start: wrist_pitch reads 150"),
+            "{report:?}"
+        );
+        assert!(report.torque_given.is_empty(), "{report:?}");
+        assert!(
+            !lamp
+                .registers
+                .iter()
+                .any(|(id, address, data)| *id == 5 && *address == 40 && data.first() == Some(&1)),
+            "{:?}",
+            lamp.registers
+        );
+        assert_eq!(goals_to_after(&lamp, 5, Duration::ZERO), 0);
+        assert!(
+            !lamp
+                .registers
+                .iter()
+                .any(|(id, address, _)| *id == 5 && *address != 40),
+            "{:?}",
+            lamp.registers
+        );
+        assert_folded_then_let_go(&lamp);
     }
-    lamp.servos[PITCH].torque = 0;
-    lamp.flicker = Some((Duration::ZERO, PITCH, vec![Some(150); 100_000], 0));
-    let report = run_standing(
-        &mut lamp,
-        &mut clock,
-        Limits::FOLDED,
-        Some(HOME),
-        Some(standing(100, 60)),
-        || Some((Mood::Resting, 0)),
-        |_| {},
-    );
-    assert!(
-        matches!(&report.stop, Stop::Refused { why }
-            if why == "temperature unreadable at start: wrist_pitch reads 150"),
-        "{report:?}"
-    );
-    assert!(report.torque_given.is_empty(), "{report:?}");
-    assert_eq!(goals_to_after(&lamp, 5, Duration::ZERO), 0);
-    assert!(
-        !lamp
-            .registers
-            .iter()
-            .any(|(id, address, _)| *id == 5 && *address != 40),
-        "{:?}",
-        lamp.registers
-    );
-    assert_folded_then_let_go(&lamp);
 }
 
 /// The reviewer's 12:36 P3 on #1281: a lamp found standing whose start is

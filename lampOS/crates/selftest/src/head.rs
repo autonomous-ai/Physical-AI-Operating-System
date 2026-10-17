@@ -375,6 +375,14 @@ fn read(bus: &Bus, joint: Joint) -> Option<(u64, f64, f64)> {
     ))
 }
 
+/// How old the body's newest `body/joint_states` is, by its wall clock.
+fn newest_age(bus: &Bus) -> Option<Duration> {
+    let message = bus.latest(JointState::TOPIC).ok()??;
+    Some(Duration::from_millis(
+        unix_ms().saturating_sub(message.header.at_unix_ms),
+    ))
+}
+
 fn unix_ms() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -548,6 +556,17 @@ fn one_move(
     joint: Joint,
     sign: f64,
 ) -> Result<Moved, String> {
+    // Where it begins, from a reading the body made just now: a kept one
+    // from a body that has stopped would make a false start (the eighth
+    // on #983).
+    let age = newest_age(bus);
+    if age.is_some_and(|age| age > listen::FAST_FRESH) {
+        return Err(format!(
+            "lamp-body is not publishing {} (newest {:.1} s old)",
+            JointState::TOPIC,
+            age.unwrap_or_default().as_secs_f64()
+        ));
+    }
     let Some((_, start, goal_was)) = read(bus, joint) else {
         return Err(format!(
             "{} is not read on {}",
@@ -954,6 +973,8 @@ mod tests {
         /// Starts to fold as the last move, the roll the other way, is
         /// being eased back.
         FoldsLettingGoLast,
+        /// Says its joints once and then never again, as a body stopped.
+        Silent,
     }
 
     /// A body on `bus` as lamp-52e6's: it takes requests on
@@ -1047,7 +1068,9 @@ mod tests {
                         .map(radians)
                         .to_vec(),
                 };
-                joints.publish_json(now, &state).unwrap();
+                if step == 0 || !matches!(fake, Fake::Silent) {
+                    joints.publish_json(now, &state).unwrap();
+                }
                 if step.is_multiple_of(10) {
                     diagnostics
                         .publish_json(now, &report("resting", standing, 40))
@@ -1065,7 +1088,13 @@ mod tests {
         std::fs::create_dir_all(&root).unwrap();
         let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
         let fake_body = body(root.clone(), fake, stop.clone());
-        std::thread::sleep(Duration::from_millis(300));
+        // A silent body's one reading is let grow old first.
+        let settle = if matches!(fake, Fake::Silent) {
+            1_500
+        } else {
+            300
+        };
+        std::thread::sleep(Duration::from_millis(settle));
         let bus = Bus::new(&root).unwrap();
         let mut check = HeadMove {
             bus: &bus,
@@ -1119,5 +1148,21 @@ mod tests {
         let late = run_against(Fake::FoldsLettingGoLast, "late");
         assert_eq!(late.verdict, Verdict::NotChecked, "{late:?}");
         assert!(late.reason.contains("began to fold"), "{}", late.reason);
+    }
+
+    /// A body that said its joints once and stopped is named, not taken for
+    /// a head that never moved.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_body_that_stopped_saying_its_joints_is_named_not_checked() {
+        let silent = run_against(Fake::Silent, "silent");
+        assert_eq!(silent.verdict, Verdict::NotChecked, "{silent:?}");
+        assert!(
+            silent
+                .reason
+                .starts_with("stopped: lamp-body is not publishing body/joint_states (newest"),
+            "{}",
+            silent.reason
+        );
     }
 }

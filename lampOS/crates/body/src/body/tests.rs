@@ -7953,7 +7953,7 @@ fn a_gesture_asked_higher_ends_the_one_playing_and_one_asked_no_higher_is_droppe
                     fates,
                     [
                         ("stretching", "taken: it plays"),
-                        ("stretching", asker.ended()),
+                        ("stretching", crate::moves::ended(asker)),
                         ("nod", "taken: it plays"),
                     ],
                     "{holder:?} {asker:?}"
@@ -7962,7 +7962,10 @@ fn a_gesture_asked_higher_ends_the_one_playing_and_one_asked_no_higher_is_droppe
             } else {
                 assert_eq!(
                     fates,
-                    [("stretching", "taken: it plays"), ("nod", holder.busy())],
+                    [
+                        ("stretching", "taken: it plays"),
+                        ("nod", crate::moves::busy(holder))
+                    ],
                     "{holder:?} {asker:?}"
                 );
                 assert_eq!(report.gestures, 1);

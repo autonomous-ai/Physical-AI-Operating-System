@@ -287,7 +287,9 @@ leaves the key to setup. It reads the records as install does
 `state.json.corrupt-<ms>` and said, and since what was written before is
 then not known, V1's key is not copied; each key file missing then is
 recorded as once written (`install::SET_ASIDE`), so the next prepare or
-install does not copy it either (Third on #1263). One that cannot be read
+install does not copy it either (Third on #1263). If that mark cannot be
+saved (records damaged, then unwritable), prepare exits 1 and that update is
+refused, on purpose: the next run, finding no records, would copy V1's key. One that cannot be read
 is said and left alone, with nothing written and exit 0. A file missing and no usable key in V1's config:
 nothing written, it says so and exits 0, as install does, and setup takes
 the user's key. Main's updater runs `bin/service prepare` before every

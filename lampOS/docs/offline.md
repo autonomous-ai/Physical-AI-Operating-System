@@ -212,9 +212,16 @@ internet, not the relay, and nothing in #830 depends on the relay.
   (`LAMP_SECOND_DOWN_LINE=on`) when that fails too. **Without the second
   route, speech while the link is down and the probe says online is dropped
   without a word or a breath** (`accepted_without_cloud`, trace
-  `input_not_submitted`). So a unit
+  `input_not_submitted`), unless `LAMP_SERVICE_DOWN_LINE=on` (below). So a unit
   takes `LAMP_REACH_PROBE=on` where the second route is set, or knowingly
   without it (the reviewer on #1247).
+- **The service's own line (`LAMP_SERVICE_DOWN_LINE=on`, the first
+  builder's (C), 17 Oct):** with the probe on and no second route answering,
+  a relay outage is no longer silent. Speech is a local-only turn with the
+  offline breath and the service's recording once an outage, "I can't reach
+  my voice service right now", never the internet's words and never "back
+  online" after ([failure-notices.md](failure-notices.md), "Service down").
+  Off unless set; silent until its recording is given.
 - **What the product sets** (#830, 17 Oct): `LAMP_START_OFFLINE=on` and
   `LAMP_OFFLINE_VOICE=on` in the voice, `--online on` in health, and no
   probe, since it has no second route. Any link loss, the internet's or the

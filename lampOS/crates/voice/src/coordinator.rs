@@ -91,6 +91,13 @@ const INPUT_READINESS_TIMEOUT: Duration = Duration::from_secs(25);
 /// reached (#830, `docs/offline.md`). Silent until the offline recordings
 /// are provisioned with `--failure-notice-dir`.
 pub const OFFLINE_VOICE_ENVIRONMENT: &str = "LAMP_OFFLINE_VOICE";
+/// `on`, with `LAMP_OFFLINE_VOICE` and `LAMP_REACH_PROBE`, for a link down
+/// while the internet answers (a relay outage) and nothing else can answer:
+/// speech is then a local-only turn that says the service's line once, with
+/// the offline breath, instead of being dropped without a word (#830, the
+/// first builder's (C)). Silent until its recording is provisioned. Off
+/// unless set.
+pub const SERVICE_DOWN_LINE_ENVIRONMENT: &str = "LAMP_SERVICE_DOWN_LINE";
 const DIAGNOSTIC_SHUTDOWN_GRACE: Duration = Duration::from_millis(750);
 const INPUT_LEASE_US: u64 = 100_000;
 
@@ -3383,10 +3390,13 @@ fn conversation_with_gate(
     // With `LAMP_REACH_PROBE=on`: a link down while the internet answers is
     // not the home's outage, and the voice waits for the probe's verdict
     // before it says one (#830).
-    let mut reach = reach_verdict(
-        offline_voice && std::env::var(REACH_PROBE_ENVIRONMENT).ok().as_deref() == Some("on"),
-        lamp_bus::Bus::from_environment(),
-    );
+    let reach_on =
+        offline_voice && std::env::var(REACH_PROBE_ENVIRONMENT).ok().as_deref() == Some("on");
+    let mut reach = reach_verdict(reach_on, lamp_bus::Bus::from_environment());
+    // With `LAMP_SERVICE_DOWN_LINE=on` too: a link down while the internet
+    // answers says the service's line once instead of nothing (#830).
+    let service_down_line =
+        reach_on && std::env::var(SERVICE_DOWN_LINE_ENVIRONMENT).ok().as_deref() == Some("on");
     // Since when the link has been down, for the grace the bus also gives it.
     let mut link_down_since: Option<u64> = None;
     // Since when "I'm back online." is owed, if it is.
@@ -3942,7 +3952,8 @@ fn conversation_with_gate(
         let clock = monotonic_us();
         if cloud.available() {
             if link_down_since.take().is_some() {
-                if offline_voice && outage.said {
+                // Not after the service's line: the internet never left.
+                if offline_voice && outage.said && !outage.service {
                     back_owed_since = Some(clock);
                 }
                 outage = Outage::default();
@@ -3951,16 +3962,13 @@ fn conversation_with_gate(
             link_down_since.get_or_insert(clock);
             back_owed_since = None;
         }
-        let offline = offline_now(
-            offline_voice,
-            link_down_since,
-            clock,
-            if link_down_since.is_some() {
-                reach(clock)
-            } else {
-                None
-            },
-        );
+        let verdict = if link_down_since.is_some() {
+            reach(clock)
+        } else {
+            None
+        };
+        let offline = offline_now(offline_voice, link_down_since, clock, verdict);
+        let service_down = service_down_now(service_down_line, link_down_since, clock, verdict);
         let paused = (rig.paused)();
         if paused != was_paused {
             was_paused = paused;
@@ -5570,8 +5578,9 @@ fn conversation_with_gate(
                         .ready_session()
                         .filter(|_| provider_control_empty && !submission_draining)
                     else {
-                        if offline && !cloud.available() {
-                            // Heard while offline: a turn of its own, never sent.
+                        if (offline || service_down) && !cloud.available() {
+                            // Heard while offline, or while only the voice
+                            // service is down: a turn of its own, never sent.
                             snapshot = commit_offline_input(
                                 owner,
                                 reply,
@@ -5579,6 +5588,7 @@ fn conversation_with_gate(
                                 &mut provider_queue,
                                 accepted,
                                 rig.playout_start,
+                                service_down && !offline,
                                 trace,
                                 |state| rig.publish(state),
                             )?;
@@ -6300,7 +6310,7 @@ fn conversation_with_gate(
                 choreography,
                 reply.as_ref().map(|current| current.notice.origin()),
             );
-            choreography.set_offline(offline);
+            choreography.set_offline(offline || service_down);
         }
         if let Some(current) = reply
             .as_ref()
@@ -8455,6 +8465,7 @@ fn commit_offline_input(
     provider_queue: &mut VecDeque<ProviderInput>,
     accepted: Accepted,
     playout_start: PlayoutStart,
+    service: bool,
     trace: &mut SessionState,
     mut publish: impl FnMut(Snapshot) -> io::Result<()>,
 ) -> Result<Snapshot> {
@@ -8481,7 +8492,8 @@ fn commit_offline_input(
             "prefix_first_host_read_us":accepted.audio.first().map(|p|p.captured_at_us),
             "candidate":accepted.candidate.id,"admission_basis":accepted.basis,
             "provider_session":null,"local_only":true,
-            "boundary":"the internet cannot be reached: listened to, never sent"}),
+            "boundary":if service {"the voice service cannot be reached: listened to, never sent"}
+                else {"the internet cannot be reached: listened to, never sent"}}),
     )?;
     let mut current = Reply {
         owner: turn,
@@ -8502,6 +8514,7 @@ fn commit_offline_input(
         local_only: Some(notices::LocalOnly {
             speech: false,
             back: false,
+            service,
         }),
         reminder: None,
         say: None,
@@ -8552,6 +8565,22 @@ fn offline_now(
             Some(Some(true)) => false,
             Some(None) => down_for >= REACH_WAIT_US,
         }
+}
+
+/// Whether the voice service alone is down for the lamp's words and its
+/// light (#830, `LAMP_SERVICE_DOWN_LINE`): with the switch, the link down
+/// past its grace while the probe finds the internet answering. No verdict,
+/// or the internet not answering, is not this ([`offline_now`] has those).
+fn service_down_now(
+    switch: bool,
+    link_down_since: Option<u64>,
+    clock: u64,
+    reach: Option<Option<bool>>,
+) -> bool {
+    switch
+        && link_down_since
+            .is_some_and(|since| clock.saturating_sub(since) >= crate::bus_out::LINK_GRACE_US)
+        && reach == Some(Some(true))
 }
 
 /// `on` for the voice to take its link down for no internet only while
@@ -8646,6 +8675,7 @@ fn commit_back_online(
         local_only: Some(notices::LocalOnly {
             speech: true,
             back: true,
+            service: false,
         }),
         reminder: None,
         say: None,

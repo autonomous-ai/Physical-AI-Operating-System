@@ -21,6 +21,39 @@ pub(crate) use ring_startup::RingStartup;
 
 pub const WORKER_STARTUP_TIMEOUT: Duration = Duration::from_secs(3);
 
+/// The clock a worker's startup wait reads its deadline on: the host's. A
+/// test build adds what a test has moved it on by (`startup_clock`), so a
+/// test of the deadline need not wait it out.
+fn startup_now() -> Instant {
+    #[cfg(test)]
+    {
+        Instant::now() + startup_clock::moved()
+    }
+    #[cfg(not(test))]
+    {
+        Instant::now()
+    }
+}
+
+/// How far this test's thread has moved the startup wait's clock on.
+#[cfg(test)]
+pub(crate) mod startup_clock {
+    use std::{cell::Cell, time::Duration};
+
+    thread_local! {
+        static MOVED: Cell<Duration> = const { Cell::new(Duration::ZERO) };
+    }
+
+    pub(crate) fn moved() -> Duration {
+        MOVED.with(Cell::get)
+    }
+
+    /// Move it on by `by`: the wait runs on the thread that started it.
+    pub(crate) fn move_on(by: Duration) {
+        MOVED.with(|moved| moved.set(moved.get() + by));
+    }
+}
+
 pub fn new_boot() -> io::Result<BootId> {
     let mut bytes = [0u8; 16];
     fs::File::open("/dev/urandom")?.read_exact(&mut bytes)?;
@@ -293,7 +326,7 @@ impl Worker {
         directory: &Path,
         mut on_wait: impl FnMut() -> io::Result<()>,
     ) -> io::Result<()> {
-        let deadline = Instant::now() + WORKER_STARTUP_TIMEOUT;
+        let deadline = startup_now() + WORKER_STARTUP_TIMEOUT;
         let role = self.role.clone();
         let peer_c = directory.join(format!("{role}.c.w"));
         let peer_d = directory.join(format!("{role}.d.w"));
@@ -308,7 +341,7 @@ impl Worker {
             }
             on_wait()?;
             self.check_running()?;
-            if Instant::now() >= deadline {
+            if startup_now() >= deadline {
                 return Err(io::Error::new(
                     io::ErrorKind::TimedOut,
                     "worker socket startup timed out",
@@ -331,7 +364,7 @@ impl Worker {
                 Some(_) => return Err(io::Error::other("unexpected worker startup message")),
                 None => {}
             }
-            if Instant::now() >= deadline {
+            if startup_now() >= deadline {
                 return Err(io::Error::new(
                     io::ErrorKind::TimedOut,
                     "worker readiness timed out",

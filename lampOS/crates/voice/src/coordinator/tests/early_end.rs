@@ -434,6 +434,10 @@ struct SpeakerPeer {
     seen: Arc<Mutex<Seen>>,
     generation: u64,
     frame: u64,
+    /// Each block is said played out as it is taken, and the last of an
+    /// answer retired, so that an answer that plays settles
+    /// ([`Setup::retires`]).
+    retires: bool,
 }
 
 impl SpeakerPeer {
@@ -473,6 +477,32 @@ impl SpeakerPeer {
                 })
                 .unwrap();
             self.frame += frames as u64;
+            if self.retires {
+                let end = PlaybackCursor {
+                    epoch: 1,
+                    frame: self.frame,
+                };
+                self.channels
+                    .control
+                    .send(WorkerEvent::SpeechDrained {
+                        owner,
+                        sequence: chunk.chunk_sequence,
+                        last_sample: end,
+                        observed_at_us: at,
+                    })
+                    .unwrap();
+                if chunk.end_of_speech {
+                    self.channels
+                        .control
+                        .send(WorkerEvent::SpeechRetired {
+                            owner,
+                            sequence: chunk.chunk_sequence,
+                            final_sample: end,
+                            observed_at_us: at,
+                        })
+                        .unwrap();
+                }
+            }
         }
         true
     }
@@ -487,7 +517,12 @@ struct PeripheralPeers {
 }
 
 impl PeripheralPeers {
-    fn new(channels: [WorkerChannels; 3], script: Script, seen: Arc<Mutex<Seen>>) -> Self {
+    fn new(
+        channels: [WorkerChannels; 3],
+        script: Script,
+        seen: Arc<Mutex<Seen>>,
+        retires: bool,
+    ) -> Self {
         let [capture, privacy, speaker] = channels;
         Self {
             capture: Some(CapturePeer {
@@ -507,6 +542,7 @@ impl PeripheralPeers {
                 seen,
                 generation: 0,
                 frame: 1_000,
+                retires,
             }),
         }
     }
@@ -610,6 +646,11 @@ struct Setup {
     service: Service,
     /// `LAMP_CUT_KEEPS_NAME=on` (#782).
     cut_keeps_name: bool,
+    /// `LAMP_FOLLOWS_ON=on` (#829).
+    follows_on: bool,
+    /// The speaker says what it played out and retires each answer's last
+    /// block, so that an answer that plays settles ([`SpeakerPeer`]).
+    retires: bool,
 }
 
 /// The fixture enters a scenario clock of its own, so none may be active
@@ -648,6 +689,8 @@ impl Setup {
             script,
             service,
             cut_keeps_name: false,
+            follows_on: false,
+            retires: false,
         }
     }
 
@@ -742,6 +785,7 @@ impl Setup {
             call_wait_blocks: None,
             cut_keeps_name: self.cut_keeps_name,
             asker_first: crate::asker_first::Mode::Off,
+            follows_on: self.follows_on,
             paused: Box::new(|| false),
         };
         // The worker says it is ready before anything else. Until then only
@@ -767,7 +811,8 @@ impl Setup {
         // Start sample producers only after the real provider's Ready barrier.
         // Startup cannot queue old privacy reads while the runtime is still
         // initializing; source observations keep their acquisition timestamps.
-        let mut peers = PeripheralPeers::new(peripheral_channels, script, seen.clone());
+        let mut peers =
+            PeripheralPeers::new(peripheral_channels, script, seen.clone(), self.retires);
         // Each step the provider's runtime first catches up with the step's
         // logical instant, its timers firing in order on the way, then each
         // peer runs; the clock moves only after. Cleanup holds the logical
@@ -1110,6 +1155,8 @@ fn speech_resumed_at_three_tenths_under_the_lamps_duplex_policy() {
             script: name_then_question,
             service: Service::answering_after(900),
             cut_keeps_name: false,
+            follows_on: false,
+            retires: false,
         },
     );
 }
@@ -1805,4 +1852,84 @@ fn a_question_after_the_window_ended_its_name_goes_on_and_cutting_in_does_not() 
             .iter()
             .all(|row| row.get("continues").is_none())
     );
+}
+
+/// A question from block 100 to 200, then another from 1550 to 1650: about
+/// 12 s after the answer to the first finishes playing.
+fn question_then_one_twelve_seconds_on(block: u64) -> f32 {
+    if (100..=200).contains(&block) || (1550..=1650).contains(&block) {
+        SPEECH
+    } else {
+        QUIET
+    }
+}
+
+/// The same, the second from 2550 to 2650: about 22 s after.
+fn question_then_one_twenty_two_seconds_on(block: u64) -> f32 {
+    if (100..=200).contains(&block) || (2550..=2650).contains(&block) {
+        SPEECH
+    } else {
+        QUIET
+    }
+}
+
+/// #829, the first builder at 09:01, and El on #1278: with
+/// `LAMP_FOLLOWS_ON=on` an answer that plays to its end starts the clock in
+/// the coordinator. A question begun about 12 s after its last sound is
+/// marked in its record and sent with the note beside it; one about 22 s
+/// after is not. Without the switch neither is.
+#[test]
+fn with_the_switch_a_question_soon_after_the_answer_is_told_it_may_follow_on() {
+    let _one = one_session();
+    let run = |script: Script, seconds: u64, follows_on: bool| {
+        let session = Setup {
+            follows_on,
+            retires: true,
+            ..Setup::lamp(Some(200), seconds, script, Service::answering_after(150))
+        }
+        .run_with_privacy_tolerance();
+        session.ok();
+        session
+    };
+    let noted = |session: &Session| {
+        session
+            .seen
+            .count(&Wire::Note(crate::follows_on::NOTE.to_owned()))
+    };
+    let marked = |session: &Session| {
+        session
+            .events("input_admitted")
+            .iter()
+            .filter(|row| row["follows_on"] == true)
+            .count()
+    };
+    // From the first answer's last sound to the second question's first.
+    let gap = |session: &Session, second: u64| {
+        let last = session
+            .seen
+            .chunks
+            .iter()
+            .filter(|(_, _, sample, _)| *sample == FIRST_ANSWER)
+            .map(|(_, at, _, _)| *at)
+            .max()
+            .expect("the first answer played");
+        session.seen.block(second) - last
+    };
+    let near = run(question_then_one_twelve_seconds_on, 18, true);
+    let near_gap = gap(&near, 1550);
+    assert!(
+        (Duration::from_secs(11)..Duration::from_secs(13)).contains(&near_gap),
+        "{near_gap:?}"
+    );
+    assert_eq!(near.seen.played(FIRST_ANSWER), 12 * 4);
+    assert_eq!((marked(&near), noted(&near)), (1, 1));
+    let far = run(question_then_one_twenty_two_seconds_on, 28, true);
+    let far_gap = gap(&far, 2550);
+    assert!(
+        (Duration::from_secs(21)..Duration::from_secs(23)).contains(&far_gap),
+        "{far_gap:?}"
+    );
+    assert_eq!((marked(&far), noted(&far)), (0, 0));
+    let off = run(question_then_one_twelve_seconds_on, 18, false);
+    assert_eq!((marked(&off), noted(&off)), (0, 0));
 }

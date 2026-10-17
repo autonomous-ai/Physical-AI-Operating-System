@@ -210,34 +210,52 @@ follow-up about 3 s after an answer had been answered.
 
 With the switch, the coordinator marks the Start of a line whose speech
 began within 20 s (`follows_on::WITHIN_US`) of the lamp's own words
-finishing playing, and not over them (`follows_on: true`, and
-`"follows_on": true` in the session trace's `input_admitted`).
+finishing playing (`follows_on: true`, and `"follows_on": true` in the
+session trace's `input_admitted`).
+- **Not over the lamp:** a line that takes over from the lamp's sound, or
+  from a line someone said that is still in hand, is never marked
+  (`not_speech::takes_over`). One begun over a sound sent on for the model
+  to judge, with the lamp silent, is.
+- **A line whose first sound came a moment before the words finished,**
+  admitted once the reply was over, counts as begun at once.
 - **The time** is the reply's own end in the coordinator, as its last
   sound plays. It isn't when the worker handed the sound on, which runs
-  ahead by the queued audio.
+  ahead by the queued audio. Only a reply that played to its end starts the
+  clock; one cut off never does.
+- **The first line after a Stop** isn't marked: it's told the lamp's words
+  are over (`STOPPED_NOTE`).
+- **A continuation after an early end** isn't marked again. Its first part
+  was told beside its own sound, in the same session.
 - **The provider worker** then gives the model `follows_on::NOTE` beside
   the line, unless the room is busy: "(For you to know, not to answer: you
   said something a moment ago, so what you hear now may follow on from it.)"
 - **The note says only what the lamp did,** in the character file's own
   words. Whether the line follows on is still the model's to judge, so talk
   that doesn't follow on stays unanswered.
-- **The second route** takes the Start and adds no note.
+- **The second route** takes the Start and adds no note: this is the Live
+  route's only.
 
 Not yet played. The lamp check is the first builder's scene `s-0857` with
 the switch on and off.
 
 Tests:
 - `follows_on::tests::a_line_begun_within_twenty_seconds_of_the_lamps_words_may_follow_on`:
-  12 s, 19 s and 20 s do; 21 s doesn't; nor does a line over the lamp, one
-  with the lamp never having spoken, or any without the switch.
+  12 s, 19 s and 20 s do; 21 s doesn't. Nor does a line over the lamp's
+  sound or over a line said, one with the lamp never having spoken, or any
+  without the switch. A line over a sound sent on does.
+- `coordinator::tests::early_end::with_the_switch_a_question_soon_after_the_answer_is_told_it_may_follow_on`:
+  through the coordinator's own loop and the real provider worker, against
+  the scripted service. A question about 12 s after the answer's last sound
+  is marked and sent with the note; one about 22 s after isn't; without the
+  switch neither is.
 - `coordinator::tests::turn_taking::a_request_begun_soon_after_the_lamps_words_says_so_in_its_start`:
-  the Start and the trace.
+  the Start and the trace, and no mark after a Stop.
 - `provider_worker::tests::a_request_begun_soon_after_the_lamp_spoke_is_told_it_may_follow_on`:
   through the worker's loop. Told in a room not known to be busy; not in a
   busy room, nor without the Start's mark.
 
-Not exercised: the coordinator's loop taking the reply's end and judging a
-new line by it, the two lines in `conversation_with_gate`.
+Not exercised through the loop: a line begun over a sound sent on (it's
+`takes_over`'s case, pinned in the rule's own test).
 
 ## What it keeps to itself
 

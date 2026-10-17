@@ -1290,6 +1290,10 @@ struct Bus<'a, P, R> {
     /// it until `TEMPERATURE_FLAP_READS` pass with no flap; a lone one is
     /// forgotten then, so glitches that do not repeat are never heat.
     flap: [Option<(u8, bool, u8)>; 5],
+    /// Each joint's temperature reads since its last good one: a flap holds
+    /// only within `TEMPERATURE_FLAP_READS` of it. Reads farther from any
+    /// good one are bad reads, toward `Stop::BadTemperature`, as on #1270.
+    since_good: [u8; 5],
     /// Joints whose temperature this read was replaced: their heat streak
     /// holds for the step, neither adding nor resetting.
     pub(crate) temperature_held: [bool; 5],
@@ -1323,6 +1327,7 @@ impl<'a, P: PortIo, R: Runtime> Bus<'a, P, R> {
             settle_steps: Limits::FOLDED.temperature_steps,
             bad_warm_in_row: [0; 5],
             flap: [None; 5],
+            since_good: [0; 5],
             temperature_held: [false; 5],
             unjudged: [false; 5],
             left: [false; 5],
@@ -1523,8 +1528,10 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
             let in_range = read <= TEMPERATURE_MAX || good > TEMPERATURE_MAX;
             if in_range && read.abs_diff(good) <= TEMPERATURE_JUMP {
                 self.warm[index] = Some(read);
+                self.since_good[index] = 0;
                 // A good read is one of the settle's skipped outliers, not
-                // its end: a value read by turns with the good one settles.
+                // its end: a value read on 25 of 30 reads, the good one on
+                // the rest, still settles. Half and half never does.
                 self.settling[index] = match self.settling[index] {
                     Some((last, agreed, skips)) if skips < TEMPERATURE_SETTLE_SKIPS => {
                         Some((last, agreed, skips + 1))
@@ -1548,9 +1555,14 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
                 };
                 continue;
             }
+            self.since_good[index] = self.since_good[index].saturating_add(1);
+            // A flap only next to its good value: with no good read in the
+            // last `TEMPERATURE_FLAP_READS`, the good one is stale and the
+            // read is bad, so an unreadable sensor still ends the run.
             let flap = read <= TEMPERATURE_MAX
                 && good <= TEMPERATURE_MAX
-                && read.abs_diff(good) <= TEMPERATURE_FLAP;
+                && read.abs_diff(good) <= TEMPERATURE_FLAP
+                && self.since_good[index] <= TEMPERATURE_FLAP_READS;
             let settling = match self.settling[index] {
                 Some((last, agreed, skips)) if read.abs_diff(last) <= TEMPERATURE_SETTLE => {
                     (read, agreed.saturating_add(1), skips)
@@ -1566,6 +1578,7 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
                 self.bad_warm_in_row[index] = 0;
                 // The settled value is the reading now, not a flap.
                 self.flap[index] = None;
+                self.since_good[index] = 0;
                 if self.settles.len() < SETTLES_KEPT {
                     self.settles.push((Joint::ALL[index].id(), good, read));
                 }
@@ -1610,6 +1623,7 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
         self.settling = [None; 5];
         self.bad_warm_in_row = [0; 5];
         self.flap = [None; 5];
+        self.since_good = [0; 5];
     }
 
     /// Torque, acceleration and goal speed of the commanded joints.

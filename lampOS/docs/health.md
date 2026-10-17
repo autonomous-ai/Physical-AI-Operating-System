@@ -173,9 +173,11 @@ warning, never dropped, since the old fault may have been real; a run that
 checks the part settles it. A passive run (`first-boot`, the 6-hourly
 timer), which never checks the speaker, the ring's colours or the head move,
 never demotes a fail an active run (`on-demand`, `factory`) gave, whatever
-its build: every update changes the build (the eighth on #1426). Two runs
-that name no build count as the same (runs from before the field), and no
-build against one does not. Each time
+its build: any update that changes the self-test changes the build (the
+eighth on #1426). A run that names no build (the program run by hand,
+outside an install) demotes nothing. Two runs
+that name no build count as the same (runs from before the field), and an
+older run with no build against a newer one with a build does not. Each time
 the health is worked out it gets one more item, `selftest`
 (`SelfTests::item`, `parts::mark_selftest`):
 

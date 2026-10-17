@@ -1044,6 +1044,14 @@ still has the peer close the input on Stop, as before. The 300 ms bounds and
 every assertion are unchanged, and a Stop that is never sent still fails. With
 the 400 ms sleep in place, all six `service_mute` tests pass.
 
+`service_privacy_controls`' own cleanup sends its Stops without `shutdown`,
+so its three tests on the same mock kept the race (the ninth on #1233,
+#1249). It now runs the worker's stop hook (`Worker::run_on_stop`) right after
+each Stop. Its `stopping_child` fixture's hook takes the Stop, sends the ring's
+Blanked receipts and closes the child's input there, instead of a peer
+thread. With the 400 ms sleep, all 53 `service_*` tests pass; on #1233 alone
+the three failed.
+
 ## hung_worker on the stepped clock, waiting on its worker (#823)
 
 `coordinator::tests::endpoint_session::hung_worker_never_delays_capture_endpoint_or_session_end`

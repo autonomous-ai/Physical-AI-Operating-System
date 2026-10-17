@@ -162,12 +162,23 @@ on 17 October, 4 h 34 min into Thirteen's soak). The journal had a bare
 "Connection refused (os error 111)", then `reference ReferenceLate`, then
 the voice's own "Connection refused (os error 111); verified cleanup failed:
 capture worker exited abnormally: exit status: 1". Nothing there connects.
-Read from the code, the chain was:
-1. Every unit runs `--reference-clock capture --reference-recovery off`.
-   With those, the capture worker ends on `ReferenceLate` once the
-   speaker's newest reference is more than 40 ms old
-   (`MAX_REFERENCE_AGE_US`), or its ring runs dry: a speaker held up that
-   long while the microphone goes on.
+Read from the code and the session's own record, the chain was:
+1. cb94 ran `--reference-clock capture --reference-recovery off`. With
+   those, the capture worker ends on `ReferenceLate` when, at a capture
+   block:
+   - the speaker's newest reference is more than 40 ms old
+     (`MAX_REFERENCE_AGE_US`);
+   - or the queue the speaker last reported has run out at the nominal
+     rate (`before_capture`, "nominal starvation");
+   - or its ring runs dry.
+
+   cb94's fault (Thirteen, from the session's `events-1.jsonl`): the last
+   reference was accepted 20.0 ms before it, with 456 frames (19 ms)
+   queued, and nothing received since. So it was the queue running out,
+   not the 40 ms. The speaker had sent nothing for as long as its queue
+   held. In that same second the kernel logged the SD controller retuning
+   with "wait dma hold bit clear timeout", and the USB capture's callbacks
+   suppressed: the processes held up together for a moment.
 2. Its datagram sockets close. On Linux the next send to a closed peer is
    refused. The first bare refusal is most likely the speaker's next
    reference to it: a worker's last line, since each worker prints its
@@ -188,26 +199,29 @@ What keeps the voice up is `--reference-recovery bounded`
 queue, or a dry ring, makes the reference **untrusted** instead of a fault:
 the canceller isn't run and no echo evidence is given, for at most 1 s,
 then it reseeds from fresh reference. It allows three reseeds a minute and
-warms for 3 s. That costs the canceller for a moment, not the voice. It has
-never run on a lamp, so every unit has it off (`switches.md`). Turning it on
-is the first builder's call, after a lamp check: a soak on lamp-4ace with
-it on, counting `NRestarts`, the reference statuses (untrusted, reseeded)
-and any yields or misses near them.
+warms for 3 s. That costs the canceller for a moment, not the voice. The
+repo's units have it off (`switches.md`), but lamp-4ace has run it from a
+drop-in since the morning of 17 October and didn't end on `ReferenceLate`
+that day (the first builder on #1178). lamp-cb94 took it at 07:21 UTC,
+with Twelve watching an hour of `NRestarts`, the reference statuses, run
+ends, mute and the kernel's mmc and usb lines.
 
 Tests: `tests/capture_hold_worker.rs`'s
 `a_speaker_held_up_ends_the_capture_worker_unless_recovery_is_bounded`
 (Linux only, so the ARM64 run), the worker's own loop and sockets:
 - **Off:** after 1 s of stream the speaker accepts nothing while the
-  microphone goes on. The worker ends on `ReferenceLate` 40 ms or more
-  after the speaker's last packet, and the speaker's next reference and the
-  controller's next authority are refused, each naming its socket.
+  microphone goes on. The worker ends on `ReferenceLate` once the queue its
+  packets report (40 ms in this rig) has run out, and the speaker's next
+  reference and the controller's next authority are refused, each naming
+  its socket.
 - **Bounded:** the same 100 ms pause; every block is handed on through it
   and after it, and the worker stops cleanly.
 
 `transport::tests::a_send_to_a_peer_that_has_gone_is_refused_with_the_sockets_name`
-checks the name. Why the speaker was held up 40 ms or more at that moment
-isn't known. The ring's slow SPI write in the same second (its third in
-4.5 h) points at a moment the lamp's processes were held up.
+checks the name. The hold itself is the kernel's: the SD/MMC host's
+retune, which #784 found holding the voice's processes for about 0.3 s
+some eleven times a day on lamp-4ace. On cb94 the ring's slow SPI write
+(its third in 4.5 h) came in the same second.
 
 ## Not done
 

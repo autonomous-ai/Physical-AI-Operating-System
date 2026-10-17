@@ -885,8 +885,9 @@ fn a_speaker_held_up_ends_the_capture_worker_unless_recovery_is_bounded() {
         "{:?}",
         rig.fault
     );
-    // Not before the speaker's last packet is 40 ms old; the worker ends a
-    // block or two after the block it found that on.
+    // Not before the 40 ms queued that the speaker's last packet reported
+    // have run out (on cb94 it was 19 ms); the worker ends a block or two
+    // after the block it found that on.
     let quiet_for = rig.pushed_at.len() - 100;
     eprintln!("off: ended after {quiet_for} quiet blocks");
     assert!(quiet_for >= 4, "ended after {quiet_for} quiet blocks");

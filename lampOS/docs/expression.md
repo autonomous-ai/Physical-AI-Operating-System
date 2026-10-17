@@ -597,8 +597,9 @@ Cancellation is sticky within a turn; stale voice input also retires its
 audio, and refreshing the same turn cannot revive it. Session retirement is bounded:
 Expression remembers the newest 32 retired Voice sessions and forgets the
 oldest when another retires. A forgotten session's late message is still
-refused: the voice stream's order mark, which a new session does not reset,
-refuses a message stamped before one already taken, and one older than
+refused: the voice stream's order mark refuses a message stamped before one
+already taken (a new session starts the mark's count again, never its time),
+and one older than
 `voice_stale_us` (500 ms) is stale. Only a voice process that many sessions old
 and still running could come back, and the voice's one unit does not allow
 that. Until

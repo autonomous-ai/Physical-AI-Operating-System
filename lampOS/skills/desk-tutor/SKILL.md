@@ -32,10 +32,11 @@ light, takes one sharp picture of the page, and answers as a tutor would.
   what you could not.
 - **Short.** A tutor at a desk speaks in a sentence or two, then waits. No
   lectures, no list of rules.
-- **Show it with the body:** once you have seen the page, call
-  `show_verdict` (Desk tutor's marks, `desk-tutor-marks`) just before you
-  answer, `right` or `wrong`, and the lamp nods or tilts its head. Not when
-  you could not read the page.
+- **Show it with the body:** with Desk tutor's marks (`desk-tutor-marks`)
+  in place, the model calls `show_verdict` once it has seen the page, before
+  it answers, and the lamp nods or tilts its head. The model learns that
+  from that folder's description alone: it reads only a SKILL.md's name and
+  description, never this text (the reviewer on #1260).
 
 ## If asked about it
 

@@ -10,7 +10,9 @@ is right, a curious tilt where it's wrong". Desk tutor (`desk-tutor`) leans
 over the page, lights it and takes one look; only the model knows, once the
 picture comes, whether the work is right. So the verdict is a second tool,
 `show_verdict`, which the model calls with `right` or `wrong` just before it
-answers, and the lamp shows it with the body while it speaks:
+answers. The lamp shows it with the body at once, as the call is answered,
+so the nod or the tilt begins a moment before the first words and may be
+over by then:
 
 - **right:** `acknowledge`, V1's short nod (about 2 s).
 - **wrong:** `curious`, V1's tilt (3 s).

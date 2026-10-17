@@ -12,7 +12,9 @@ name = "verdict"
 about = "right: you read the whole page and every line is right. wrong: you are about to point to the first line that goes wrong. Always give one."
 one_of = ["right", "wrong"]
 
-# The gesture at once, as the model begins its answer: V1's short nod
+# The gesture at once, as the call is answered, a moment before the
+# model's first words (a tool's say is never made, so nothing waits for
+# the voice; the reviewer on #1260): V1's short nod
 # (acknowledge, about 2 s) or its tilt (curious, 3 s), each over the
 # reading pose Desk tutor holds. The note sends the model on to answer;
 # a skill has one note, so it fits both verdicts and never asks for a

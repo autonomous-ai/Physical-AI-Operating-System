@@ -59,10 +59,9 @@ fn inert_child() {
         Timing::new(40_000, 5_000, 200_000, 500_000, 10_000).unwrap(),
     )
     .unwrap();
-    let worker = Worker::new(core, SystemClock, parent, own, own, 1_000_000).unwrap();
-    // Built before the endpoints are bound: the parent issues Authority as
-    // soon as it can connect, and a datagram that waits in the queue past
-    // MAX_AGE_US while this child starts is refused as stale.
+    // The core is built before the endpoints are bound: the parent issues
+    // Authority as soon as it can connect, and a datagram that waits in the
+    // queue past MAX_AGE_US while this child starts is refused as stale.
     let mut channels = Channels::bind(&directory, parent, own, true).unwrap();
     let deadline = Instant::now() + Duration::from_secs(2);
     while !channels.connect_step().unwrap() {
@@ -77,6 +76,9 @@ fn inert_child() {
             std::thread::park_timeout(Duration::from_secs(1));
         }
     }
+    // The worker only once connected: Worker::new starts its
+    // INITIAL_AUTHORITY_US clock, which must not run during the connect.
+    let worker = Worker::new(core, SystemClock, parent, own, own, 1_000_000).unwrap();
     let result = if mode == "hang_after_ready" {
         struct HangAfterReady(Channels);
         impl worker::Link for HangAfterReady {

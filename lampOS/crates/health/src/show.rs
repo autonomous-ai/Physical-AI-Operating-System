@@ -5,7 +5,9 @@
 //! and `board/state`, and shows what is in them. A value that has outlived
 //! its time (fifteen seconds) is the same as none: whoever wrote it has
 //! stopped. So what is shown is a picture of a moment, a few seconds old
-//! at most, and the last line says how old.
+//! at most; a last line says how old only past [`OLD`]. It is written for
+//! the lamp's owner (#1327): parts by the names a person knows, the
+//! kernel's zone names said plainly; `--json` keeps the programs' words.
 use lamp_bus::Bus;
 use lamp_msgs::{BoardState, Health, Invalid, Level};
 use serde::{Serialize, de::DeserializeOwned};
@@ -46,12 +48,13 @@ pub fn known_as(name: &str) -> &str {
         "expression" => "light and moods",
         "air" => "air sensor",
         "schedule" => "reminders",
-        "memory" => "memory",
+        "memory" => "what it remembers",
         "actions" => "volume and light commands",
         "policy" => "when to speak",
         "board" => "computer",
         "selftest" => "self-test",
-        "tasks" => "handing work over",
+        "tasks" => "work for your computer",
+        "keeper" => "parts keeper",
         other => other,
     }
 }
@@ -209,13 +212,14 @@ fn board_line(board: &BoardState) -> String {
         .temperature_c
         .iter()
         .reduce(|hottest, zone| if zone.1 > hottest.1 { zone } else { hottest });
-    if let Some((zone, celsius)) = hottest {
-        let _ = write!(line, "  hottest {celsius:.0} °C ({})", plain(zone));
+    // The hottest without its kernel name, and no load: neither means
+    // anything to the owner (El on #1327); `--json` keeps both.
+    if let Some((_, celsius)) = hottest {
+        let _ = write!(line, "  hottest {celsius:.0} °C");
     }
     let _ = write!(
         line,
-        "  load {:.2}  memory {} used  disk {} free  up {}",
-        board.cpu_load,
+        "  memory {} used  disk {} free  up {}",
         percent(board.memory_used),
         percent(board.disk_free),
         span(board.uptime_s)
@@ -244,21 +248,6 @@ pub fn text(look: &Look, root: &Path) -> String {
             let _ = writeln!(out, "Looked in {}.", root.display());
         }
         Some(Kept { value: health, .. }) => {
-            let message = plain(&said(health));
-            let _ = match health.level {
-                Level::Ok => writeln!(out, "The lamp is well."),
-                Level::Warn => writeln!(out, "The lamp has a warning: {message}"),
-                Level::Error => writeln!(out, "The lamp is not well: {message}"),
-                Level::Stale => writeln!(out, "Not all of the lamp is reporting: {message}"),
-            };
-            if !health.items.is_empty() || !health.missing.is_empty() {
-                out.push('\n');
-            }
-            let wide = |texts: &mut dyn Iterator<Item = &str>| {
-                texts.map(|text| text.chars().count()).max().unwrap_or(0)
-            };
-            let names = wide(&mut health.items.iter().map(|item| known_as(&item.name)));
-            let messages = wide(&mut health.items.iter().map(|item| item.message.as_str()));
             // Worst first, as `lamp-health` sent them, and within a level by
             // the name shown, so the owner finds a part where it should be.
             let mut items: Vec<&lamp_msgs::HealthItem> = health.items.iter().collect();
@@ -268,24 +257,33 @@ pub fn text(look: &Look, root: &Path) -> String {
                     .cmp(&a.level.rank())
                     .then_with(|| known_as(&a.name).cmp(known_as(&b.name)))
             });
+            let message = plain(&said(health, items.first().copied()));
+            let _ = match health.level {
+                Level::Ok => writeln!(out, "The lamp is well."),
+                Level::Warn => writeln!(out, "The lamp has a warning: {message}"),
+                Level::Error => writeln!(out, "The lamp is not well: {message}"),
+                Level::Stale => writeln!(out, "Not all of the lamp is reporting: {message}"),
+            };
+            if !health.items.is_empty() || !health.missing.is_empty() {
+                out.push('\n');
+            }
+            let names = items
+                .iter()
+                .map(|item| known_as(&item.name).chars().count())
+                .max()
+                .unwrap_or(0);
             for item in items {
-                // How long ago only where it matters: a part not heard from.
-                let line = if item.level == Level::Stale {
-                    format!(
-                        "  {:<5}  {:<names$}  {:<messages$}  {}",
-                        item.level.as_str(),
-                        plain(known_as(&item.name)),
-                        plain(&item.message),
-                        ago(Duration::from_millis(item.age_ms)),
-                    )
-                } else {
-                    format!(
-                        "  {:<5}  {:<names$}  {}",
-                        item.level.as_str(),
-                        plain(known_as(&item.name)),
-                        plain(&item.message),
-                    )
+                // A part not heard from is "quiet", and its message says for
+                // how long: one time, not two (El on #1327).
+                let level = match item.level {
+                    Level::Stale => "quiet",
+                    level => level.as_str(),
                 };
+                let line = format!(
+                    "  {level:<5}  {:<names$}  {}",
+                    plain(known_as(&item.name)),
+                    plain(&zones_said(&item.message)),
+                );
                 let _ = writeln!(out, "{}", line.trim_end());
             }
             if !health.missing.is_empty() {
@@ -334,24 +332,61 @@ pub fn text(look: &Look, root: &Path) -> String {
     out
 }
 
-/// A picture older than this says how old it is.
-pub const OLD: Duration = Duration::from_secs(5);
+/// A picture older than this says how old it is: twice `serve`'s pace of
+/// five seconds, so only a missed publish shows it (the reviewer on #1327:
+/// at 5 s a healthy lamp printed "written 5.0 s ago").
+pub const OLD: Duration = Duration::from_secs(10);
 
 /// The lamp's message with its part named as a person knows it:
-/// `selftest: …` is said `self-test: …`.
-fn said(health: &Health) -> String {
+/// `selftest: …` is said `self-test: …`. It names the first row shown
+/// when that row is as bad as the lamp, so the two never name different
+/// parts of one level (the reviewer on #1327: `serve` breaks a tie by the
+/// program's name, the screen by the name shown). A part that never
+/// reported is said "not running", as the list says.
+fn said(health: &Health, first: Option<&lamp_msgs::HealthItem>) -> String {
+    if let Some(item) = first.filter(|item| item.level == health.level && !item.message.is_empty())
+    {
+        return format!("{}: {}", known_as(&item.name), zones_said(&item.message));
+    }
+    if let Some(name) = health
+        .missing
+        .iter()
+        .find(|name| health.message.starts_with(&format!("{name}: ")))
+    {
+        return format!("{}: not running", known_as(name));
+    }
     health
         .items
         .iter()
-        .map(|item| item.name.as_str())
-        .chain(health.missing.iter().map(String::as_str))
-        .find_map(|name| {
+        .find_map(|item| {
             health
                 .message
-                .strip_prefix(&format!("{name}: "))
-                .map(|rest| format!("{}: {rest}", known_as(name)))
+                .strip_prefix(&format!("{}: ", item.name))
+                .map(|rest| format!("{}: {}", known_as(&item.name), zones_said(rest)))
         })
-        .unwrap_or_else(|| health.message.clone())
+        .unwrap_or_else(|| zones_said(&health.message))
+}
+
+/// The kernel's thermal zones by what they measure (El on #1327): the
+/// board's messages name them as the kernel does, which `--json` keeps.
+fn zones_said(text: &str) -> String {
+    let mut said = String::new();
+    for word in text.split_inclusive(' ') {
+        let bare = word.trim_end();
+        let plain = match bare {
+            "cpul_thermal_zone" | "cpub_thermal_zone" | "cpu_thermal_zone" => "the processor",
+            "gpu_thermal_zone" => "the graphics chip",
+            "ddr_thermal_zone" => "the memory chips",
+            other if other.ends_with("_thermal_zone") => "the board",
+            _ => {
+                said.push_str(word);
+                continue;
+            }
+        };
+        said.push_str(plain);
+        said.push_str(&word[bare.len()..]);
+    }
+    said
 }
 
 #[cfg(test)]
@@ -440,13 +475,13 @@ mod tests {
             text(&look, Path::new(ROOT)),
             "The lamp is not well: voice: the link to the service is down\n\
              \n\
-             \x20 error  voice         the link to the service is down\n\
-             \x20 warn   arm and head  yaw is hot\n\
-             \x20 stale  camera        not heard from for 7 s           7.3 s ago\n\
-             \x20 ok     memory\n\
+             \x20 error  voice              the link to the service is down\n\
+             \x20 warn   arm and head       yaw is hot\n\
+             \x20 quiet  camera             not heard from for 7 s\n\
+             \x20 ok     what it remembers\n\
              \x20 not running: volume and light commands, ring\n\
              \n\
-             computer  hottest 66 °C (cpub_thermal_zone)  load 0.31  memory 44% used  disk 13% free  up 2 d 10 h"
+             computer  hottest 66 °C  memory 44% used  disk 13% free  up 2 d 10 h"
         );
         assert_eq!(status(&look), STATUS_ERROR);
     }
@@ -505,7 +540,7 @@ mod tests {
         assert_eq!(status(&look), STATUS_STALE);
         assert!(
             text(&look, Path::new(ROOT)).starts_with(
-                "Not all of the lamp is reporting: volume and light commands: has never reported\n\n\
+                "Not all of the lamp is reporting: volume and light commands: not running\n\n\
                  \x20 ok     computer\n\
                  \x20 not running: volume and light commands\n"
             ),
@@ -536,8 +571,8 @@ mod tests {
         assert!(shown.starts_with(NOBODY), "{shown}");
         assert!(
             shown.ends_with(
-                "Looked in /run/lampos-bus.\n\ncomputer  hottest 66 °C (cpub_thermal_zone)  \
-                 load 0.31  memory 44% used  disk 13% free  up 2 d 10 h"
+                "Looked in /run/lampos-bus.\n\ncomputer  hottest 66 °C  \
+                 memory 44% used  disk 13% free  up 2 d 10 h"
             ),
             "{shown}"
         );
@@ -585,7 +620,8 @@ mod tests {
     fn each_part_is_named_as_a_person_knows_it() {
         assert_eq!(known_as("actions"), "volume and light commands");
         assert_eq!(known_as("selftest"), "self-test");
-        assert_eq!(known_as("keeper"), "keeper");
+        assert_eq!(known_as("keeper"), "parts keeper");
+        assert_eq!(known_as("ring"), "ring");
         let look = seen(
             Some(health(
                 Level::Error,
@@ -605,6 +641,53 @@ mod tests {
         ));
     }
 
+    /// The reviewer's P3s on #1327: two parts as bad as each other, the
+    /// first line names the one the list puts first; a picture over `OLD`
+    /// says how old it is, and one under does not; a zone is said plainly.
+    #[test]
+    fn the_first_line_names_the_first_row_and_an_old_picture_says_its_age() {
+        let mut look = seen(
+            Some(health(
+                Level::Error,
+                "actions: gone",
+                vec![
+                    item(Level::Error, "actions", "gone", 100),
+                    item(
+                        Level::Error,
+                        "board",
+                        "cpul_thermal_zone is at 96 °C: past 90, the second point at which the board slows itself down",
+                        100,
+                    ),
+                ],
+                &[],
+            )),
+            Some(board()),
+        );
+        let shown = text(&look, Path::new(ROOT));
+        assert!(
+            shown.starts_with(
+                "The lamp is not well: computer: the processor is at 96 °C: past 90, the second point at which the board slows itself down\n\n\
+                 \x20 error  computer                   the processor is at 96 °C"
+            ),
+            "{shown}"
+        );
+        assert!(!shown.contains("written"), "{shown}");
+        look.health.as_mut().unwrap().age = OLD + Duration::from_millis(500);
+        let shown = text(&look, Path::new(ROOT));
+        assert!(
+            shown.ends_with("written 10.5 s ago; the board's numbers 1.2 s ago"),
+            "{shown}"
+        );
+        assert_eq!(
+            zones_said("gpu_thermal_zone is at 64 °C"),
+            "the graphics chip is at 64 °C"
+        );
+        assert_eq!(
+            zones_said("ddr_thermal_zone and ve_thermal_zone"),
+            "the memory chips and the board"
+        );
+    }
+
     #[test]
     fn the_boards_line_has_what_the_board_could_be_asked() {
         let mut state = board();
@@ -612,7 +695,7 @@ mod tests {
         state.clock_synced = Some(true);
         assert_eq!(
             board_line(&state),
-            "computer  hottest 66 °C (cpub_thermal_zone)  load 0.31  memory 44% used  disk 13% free  \
+            "computer  hottest 66 °C  memory 44% used  disk 13% free  \
              up 2 d 10 h  Wi-Fi -56 dBm  clock set"
         );
         state.clock_synced = Some(false);
@@ -621,7 +704,7 @@ mod tests {
         state.uptime_s = 59;
         assert_eq!(
             board_line(&state),
-            "computer  load 0.31  memory 44% used  disk 13% free  up 59 s  clock not set"
+            "computer  memory 44% used  disk 13% free  up 59 s  clock not set"
         );
     }
 

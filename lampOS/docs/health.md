@@ -297,33 +297,40 @@ person knows it by, `--expect actions`, a stale time of two seconds:
 
     The lamp is not well: voice: the link to the service is down
 
-      error  voice     the link to the service is down
-      warn   computer  cpul_thermal_zone is at 66 °C: the board slows itself down from 70
-      stale  camera    not heard from for 2 s                                              2.7 s ago
-      ok     memory
+      error  voice              the link to the service is down
+      warn   computer           the processor is at 66 °C: the board slows itself down from 70
+      quiet  camera             not heard from for 2 s
+      ok     what it remembers
       not running: volume and light commands
 
-    computer  hottest 66 °C (cpul_thermal_zone)  load 0.31  memory 44% used  disk 14% free  up 2 d 10 h
+    computer  hottest 66 °C  memory 44% used  disk 14% free  up 2 d 10 h
 
 The first line is the lamp's level and message: `The lamp is well.`,
 `The lamp has a warning: ...`, `The lamp is not well: ...` for an error,
 `Not all of the lamp is reporting: ...` for stale, its part named as
-below. Then every part, worst first and, within a level, by its name.
-Then the board's numbers, as `computer`: the hottest zone, the load for
-each processor, memory, disk, uptime, and the Wi-Fi signal and `clock set`
-or `clock not set` where the board could be asked.
+below, the first row's part when it is as bad as the lamp, so the two
+never name different parts. Then every part, worst first and, within a
+level, by its name; a part not heard from is `quiet`, its message saying
+how long. Then the board's numbers, as `computer`: the hottest
+temperature, memory, disk, uptime, and the Wi-Fi signal and `clock set` or
+`clock not set` where the board could be asked. The kernel's zone names
+are said by what they measure (`cpul_thermal_zone` "the processor", `gpu`
+"the graphics chip", `ddr` "the memory chips", any other "the board"), and
+the load is left out; `--json` keeps both.
 
 **Names.** Each part is shown by the name a person knows it by
 (`show::known_as`): body is "arm and head", eyes "camera", ears "room
 microphone", name "hearing its name", controls "button and touch",
 expression "light and moods", air "air sensor", schedule "reminders",
-actions "volume and light commands", policy "when to speak", board
-"computer", selftest "self-test", tasks "handing work over". A part not in
+memory "what it remembers", actions "volume and light commands", policy
+"when to speak", board "computer", selftest "self-test", tasks "work for
+your computer", keeper "parts keeper". A part not in
 that list keeps its own name. `--json` keeps the programs' names.
 
-**Ages.** A part's age is shown only where it matters, beside a part that
-is `stale`. A last line, "written … ago", says how old the picture is only
-once it is over five seconds old (`show::OLD`); a value over fifteen is no
+**Ages.** No part's age is shown: a part not heard from says for how long
+in its own message. A last line, "written … ago", says how old the picture
+is only once it is over ten seconds old (`show::OLD`, twice `serve`'s
+pace, so only a missed publish shows it); a value over fifteen is no
 longer read at all.
 
 **A user who may not read the bus.** `/run/lampos-bus` is `2770 root

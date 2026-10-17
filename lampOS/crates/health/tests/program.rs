@@ -307,9 +307,7 @@ fn show_says_how_the_lamp_is_and_ends_with_its_level() {
     assert_eq!(lines[3], "");
     // The hottest of the eight zones, 64.5 °C, and the other numbers.
     assert!(
-        lines[4].starts_with(
-            "computer  hottest 64 °C (ddr_thermal_zone)  load 0.31  memory 44% used  disk "
-        ),
+        lines[4].starts_with("computer  hottest 64 °C  memory 44% used  disk "),
         "{out}"
     );
     assert!(lines[4].ends_with("% free  up 2 d 10 h"), "{out}");
@@ -581,7 +579,7 @@ fn a_part_that_is_expected_and_silent_or_has_gone_quiet_ends_show_with_3() {
     let (out, ended) = shown(&places.show(&[]));
     assert_eq!(ended, status(Level::Stale, board), "{out}");
     assert!(
-        out.contains("\n  stale  voice     not heard from for "),
+        out.contains("\n  quiet  voice     not heard from for "),
         "{out}"
     );
     assert!(out.contains("\n  not running: camera\n"), "{out}");

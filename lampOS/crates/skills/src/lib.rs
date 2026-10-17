@@ -1706,8 +1706,20 @@ impl Engine {
     /// conditions hold. `None`: the trigger is gone (nobody there any more).
     /// With the run's trigger known, only that one, and with `each` only its
     /// item, still in the list and holding; its steps and those for all.
+    /// A skill that holds until its trigger ends also needs that trigger's
+    /// end still to come: once a reload or the trigger's own end has closed
+    /// its watch, nothing would ever give back what it held.
     pub fn still(&self, run: &Run, now_us: u64) -> Option<Vec<Call>> {
         let skill = self.skills.iter().find(|skill| skill.name == run.skill)?;
+        if skill.holds_until_ends()
+            && !run.from.as_ref().is_some_and(|(index, _)| {
+                self.watches
+                    .get(&(skill.name.clone(), *index))
+                    .is_some_and(|watch| watch.open)
+            })
+        {
+            return None;
+        }
         let holds = |trigger: &Trigger, item: Option<&String>| {
             Self::fresh(&self.latest, &trigger.topic, now_us).is_some_and(|value| {
                 match (&trigger.each, item) {

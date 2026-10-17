@@ -2412,6 +2412,91 @@ fn asking_the_policy_with_nobody_to_answer_is_no_at_once() {
     assert_eq!(said.try_iter().count(), 0);
 }
 
+/// A dim held until its trigger ends, its ask out to the Policy, and the
+/// skill reloaded with its trigger moved to another topic that also holds
+/// (#1309's post-merge P3): the reload ends the hold before the run began,
+/// so the Policy's `say_now` then does nothing, rather than dim a light
+/// whose end would never come.
+#[test]
+fn a_say_now_after_a_reload_moved_a_held_trigger_does_nothing() {
+    // Short: a socket's whole path has to fit in 103 bytes.
+    let dir = tempfile::Builder::new()
+        .prefix("sr")
+        .tempdir_in("/tmp")
+        .unwrap();
+    let root = dir.path();
+    let bus = Bus::new(root.join("bus")).unwrap();
+    let mut events = bus.subscribe(SkillEvent::TOPIC, "test").unwrap();
+    let mut asks = bus.subscribe("skills/ask", "policy").unwrap();
+    // The Policy stood in for: the ask is told, and answered `say_now`
+    // once the test says so.
+    let (asked, put) = mpsc::channel::<u64>();
+    let (answer, go) = mpsc::channel::<()>();
+    let policy = bus.clone();
+    std::thread::spawn(move || {
+        let mut decisions = policy
+            .publisher_declared(
+                "policy/decisions",
+                &lamp_msgs::Decision::declaration(),
+                "policy",
+            )
+            .unwrap();
+        let message = loop {
+            if let Ok(Some(message)) = asks.recv(Duration::from_millis(100)) {
+                break message;
+            }
+        };
+        let ask: serde_json::Value = serde_json::from_slice(&message.payload).unwrap();
+        asked.send(ask["ask"].as_u64().unwrap()).unwrap();
+        go.recv().unwrap();
+        decisions
+            .publish_json(
+                1,
+                &serde_json::json!({"about": "unprompted", "choice": "say_now",
+                    "shadow": false, "probability": 0.9, "answers": {}, "by": "rule",
+                    "took_ms": 3, "ask": ask["ask"]}),
+            )
+            .unwrap();
+    });
+    let clock = Clock::at(root);
+    let (_running, bus, _said) = asking_the_policy_in(root, &clock);
+    let air = lamp_bus::Declaration::new("test/Air", 1, lamp_bus::Kind::Latest);
+    let mut state = bus.publisher_declared("air/state", &air, "air").unwrap();
+    let mut indoor = bus.publisher_declared("air/indoor", &air, "air").unwrap();
+    let stuffy = "[trigger]\ntopic = \"air/state\"\nfield = \"co2_ppm\"\nabove = 1200\ncooldown = \"10m\"\n\
+        [ask]\npolicy = \"nudge\"\n[[do]]\nlight = { dim = 1, until = \"ends\" }\n";
+    let skills = root.join("skills");
+    skill_with(&skills, "stuffy", stuffy);
+    clock.skip(RELOAD);
+    let loaded = |topic: &str| {
+        let deadline = Instant::now() + Duration::from_secs(20);
+        while bus.subscribers(topic).unwrap().is_empty() {
+            assert!(Instant::now() < deadline, "{topic} was never subscribed");
+            std::thread::sleep(Duration::from_millis(50));
+        }
+    };
+    loaded("air/state");
+    let high = serde_json::json!({"co2_ppm": 1300});
+    state.publish_json(1, &high).unwrap();
+    put.recv_timeout(Duration::from_secs(10)).unwrap();
+    // Its trigger moved to air/indoor, which holds too.
+    skill_with(
+        &skills,
+        "stuffy",
+        &stuffy.replace("air/state", "air/indoor"),
+    );
+    clock.skip(RELOAD);
+    loaded("air/indoor");
+    indoor.publish_json(1, &high).unwrap();
+    // The reload and air/indoor taken in, within the ask's 2.5 s.
+    clock.skip(Duration::ZERO);
+    answer.send(()).unwrap();
+    let answered = next_answer(&mut events, Instant::now() + Duration::from_secs(10));
+    assert_eq!(answered.skill, "stuffy", "{answered:?}");
+    assert_eq!(answered.allowed, Some(false), "{answered:?}");
+    assert!(answered.why.contains("no longer holds"), "{answered:?}");
+}
+
 /// A skill that is not a hello asks the act its `[ask] policy` names, news,
 /// a reminder or anything else as unprompted, without a hello's minutes and
 /// seconds.

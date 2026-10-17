@@ -3167,6 +3167,10 @@ fn conversation_with_gate(
     };
     let mut last_hum_us: Option<u64> = None;
     let mut took_over_turn: Option<u64> = None;
+    // What was heard of the line that took the turn over the lamp's reply,
+    // for whether it was only a stop (`LAMP_STOP_IS_STOP=on`, #828 part 2).
+    let stop_is_stop = crate::stop_words::stop_is_stop_on();
+    let mut over_heard: Option<(u64, String)> = None;
     // The turn whose speech last ended as something said, not a sound, and
     // when: someone was there then.
     let mut said_turn: Option<u64> = None;
@@ -4024,6 +4028,19 @@ fn conversation_with_gate(
                     {
                         return Err(io::Error::other("invalid provider audio frame").into());
                     }
+                    // A line said over the lamp whose words were only a stop
+                    // is a stop: its answer is not played, and nothing is
+                    // said (the first builder on #828, 17 Oct 08:01).
+                    if stop_is_stop
+                        && only_a_stop_over(&over_heard, took_over_turn, reply.as_ref(), request)
+                    {
+                        stop_after_a_stop(owner, reply, trace, request)?;
+                        speaker_pending = None;
+                        provider_queue.clear();
+                        snapshot = owner.snapshot(now())?;
+                        rig.publish(snapshot)?;
+                        last_publish = monotonic_us();
+                    }
                     if let Some(current) = reply.as_mut().filter(|r| r.owner.turn() == request) {
                         if current.pcm.len() + samples.len() > MAX_REPLY_SAMPLES {
                             return Err(io::Error::other(
@@ -4113,6 +4130,32 @@ fn conversation_with_gate(
                         match request {
                             Some(turn) => bus.said(turn, &text, finished, monotonic_us()),
                             None => bus.heard(&text, finished, monotonic_us()),
+                        }
+                    }
+                    if stop_is_stop
+                        && request.is_none()
+                        && let Some(turn) = reply
+                            .as_ref()
+                            .map(|current| current.owner.turn())
+                            .filter(|turn| took_over_turn == Some(*turn))
+                    {
+                        if over_heard.as_ref().map(|(of, _)| *of) != Some(turn) {
+                            over_heard = Some((turn, String::new()));
+                        }
+                        if let Some((_, words)) = over_heard.as_mut()
+                            && words.len() < 512
+                        {
+                            words.push_str(&text);
+                        }
+                        if finished
+                            && only_a_stop_over(&over_heard, took_over_turn, reply.as_ref(), turn)
+                        {
+                            stop_after_a_stop(owner, reply, trace, turn)?;
+                            speaker_pending = None;
+                            provider_queue.clear();
+                            snapshot = owner.snapshot(now())?;
+                            rig.publish(snapshot)?;
+                            last_publish = monotonic_us();
                         }
                     }
                     // The model keeping quiet aloud: an answer that opens
@@ -8538,6 +8581,40 @@ fn record_input_rejection(trace: &mut SessionState, rejection: Rejection) -> Res
         json!({"kind":"input_candidate_rejected", "candidate":rejection.candidate,
         "reason":rejection.reason, "at_us":monotonic_us()}),
     )
+}
+
+/// Whether `turn`'s reply is for a line that took the turn over the lamp's
+/// reply, nothing of its answer is played yet, and what was heard of it was
+/// only a stop ([`crate::stop_words::only_a_stop`]).
+fn only_a_stop_over(
+    over_heard: &Option<(u64, String)>,
+    took_over_turn: Option<u64>,
+    reply: Option<&Reply>,
+    turn: u64,
+) -> bool {
+    took_over_turn == Some(turn)
+        && reply.is_some_and(|current| current.owner.turn() == turn && current.playback.is_none())
+        && over_heard
+            .as_ref()
+            .is_some_and(|(of, words)| *of == turn && crate::stop_words::only_a_stop(words))
+}
+
+/// The lamp stops for a stop said over it: `turn`'s answer is cancelled
+/// unheard, and nothing is said.
+fn stop_after_a_stop(
+    owner: &mut Controller,
+    reply: &mut Option<Reply>,
+    trace: &mut SessionState,
+    turn: u64,
+) -> Result<()> {
+    eprintln!(
+        "lamp-voice: request {turn}: its words over the lamp were only a stop, so the lamp stops and says nothing"
+    );
+    record(
+        trace,
+        json!({"kind":"stop_word_stop","turn":turn,"at_us":monotonic_us()}),
+    )?;
+    cancel_reply(owner, reply, trace, "stop_word")
 }
 
 fn cancel_reply(

@@ -77,6 +77,44 @@ pub fn stop_phrase(heard: &str) -> bool {
         })
 }
 
+/// Where the coordinator reads whether a line said over the lamp whose words
+/// are only a stop is a stop (#828, part 2). `on` only.
+pub const STOP_IS_STOP_ENVIRONMENT: &str = "LAMP_STOP_IS_STOP";
+
+/// Whether the voice's environment says `LAMP_STOP_IS_STOP=on`.
+pub fn stop_is_stop_on() -> bool {
+    std::env::var(STOP_IS_STOP_ENVIRONMENT).ok().as_deref() == Some("on")
+}
+
+/// Words that may go with a stop word and still leave nothing to answer:
+/// "Lamp, stop.", "Okay, okay, that is enough.", "No, stop it please."
+const WITH_A_STOP: &[&str] = &[
+    "lamp", "hey", "okay", "ok", "oh", "no", "please", "now", "just", "that", "that's", "thats",
+    "is", "it", "it's", "its", "so", "right", "alright", "all", "there", "a", "sec", "second",
+    "moment", "minute", "talking", "there's",
+];
+
+/// Whether what was heard is only a stop: a [`stop_phrase`] with nothing
+/// else to answer, as "Lamp, stop." or "Wait, wait, wait." are, and "Lamp,
+/// stop. What is two plus two?" is not. On lamp-52e6 on 17 October at
+/// 07:21, a "Lamp, stop." said loud over a story made Gemini yield and then
+/// answer it as a request (the sixth builder, #1047).
+pub fn only_a_stop(heard: &str) -> bool {
+    if !stop_phrase(heard) {
+        return false;
+    }
+    heard
+        .replace('\u{2019}', "'")
+        .split(|c: char| !(c.is_alphanumeric() || c == '\''))
+        .map(|word| word.trim_matches('\'').to_lowercase())
+        .filter(|word| !word.is_empty())
+        .all(|word| {
+            STOP_WORDS.contains(&word.as_str())
+                || STOP_PAIRS.iter().any(|(a, b)| word == *a || word == *b)
+                || WITH_A_STOP.contains(&word.as_str())
+        })
+}
+
 /// Where a yield's words come from.
 pub trait Ears: Send {
     /// A reply has begun: have a stream ready for a yield in it.
@@ -607,6 +645,31 @@ async fn serve<C, F>(
 mod tests {
     use super::*;
     use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn only_a_stop_is_a_stop_with_nothing_else_to_answer() {
+        for stop in [
+            "Stop.",
+            "Lamp, stop.",
+            "Wait, wait, wait.",
+            "Okay, okay, that is enough.",
+            "Hold on.",
+            "No, stop it please.",
+            "Hey Lamp, wait a sec.",
+        ] {
+            assert!(only_a_stop(stop), "{stop}");
+        }
+        for not in [
+            "Lamp, stop. What is two plus two?",
+            "Hold on, I have a question. What day comes after Monday?",
+            "No no no, tell me a joke instead.",
+            "Don't stop.",
+            "Okay.",
+            "",
+        ] {
+            assert!(!only_a_stop(not), "{not}");
+        }
+    }
 
     #[test]
     fn stop_phrases_are_heard_alone_and_among_other_words() {

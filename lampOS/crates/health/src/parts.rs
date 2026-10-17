@@ -267,9 +267,13 @@ impl SelfTests {
         // lamp at 23:53 on 17 Oct said "not well" for a storage fail the new
         // rule no longer gives. It is kept as a warning, never dropped: the
         // old fault may have been real.
-        // Two runs that name no build are the same, as before; no build
-        // against one is not (a run from before the field, then one after).
-        let same = |build: &Option<String>| *build == test.build;
+        // Two runs that name no build are the same, as before; an older run
+        // with no build against a newer one with a build is not (a run from
+        // before the field, then one after).
+        // A run that names no build (the program run by hand, outside an
+        // install) demotes nothing: it is not an update (the reviewer on
+        // #1426).
+        let same = |build: &Option<String>| test.build.is_none() || *build == test.build;
         let checked = |name: &str| {
             test.parts
                 .iter()
@@ -277,7 +281,8 @@ impl SelfTests {
         };
         // A passive run never checks the speaker, the ring's colours or the
         // head move, so it never demotes a fail an active run gave, whatever
-        // its build (the eighth on #1426: every update changes the build).
+        // its build (the eighth on #1426: any update that changes the
+        // self-test changes the build).
         let passive_over_active = |occasion: &Occasion| {
             test.occasion == Occasion::FirstBoot && *occasion != Occasion::FirstBoot
         };
@@ -968,6 +973,23 @@ mod tests {
             "{}",
             item.message
         );
+        // The reviewer on #1426: the same binary run by hand (no build, no
+        // CAP_SYSLOG) after an installed build's fail is not an update, and
+        // keeps the fail.
+        let mut by_hand = SelfTests::default();
+        by_hand.take(&active(
+            &[("storage", Verdict::Fail, "1 I/O error")],
+            0.0,
+            "a429b26e69d4",
+        ));
+        let mut hand = built(
+            &[("storage", Verdict::NotChecked, "no CAP_SYSLOG")],
+            50.0,
+            None,
+        );
+        hand.occasion = lamp_msgs::Occasion::OnDemand;
+        by_hand.take(&hand);
+        assert_eq!(by_hand.item(50.0).unwrap().level, Level::Error, "by hand");
         // The same build that could not check it keeps it failed (#1243).
         let mut same = SelfTests::default();
         same.take(&built(

@@ -239,4 +239,20 @@ mod tests {
             "camera     pass"
         );
     }
+
+    /// #1399's `build` is a plain name: an empty one, one over 128 bytes and
+    /// one with a control character are refused; a sha256 folder is taken,
+    /// and none at all is fine (the reviewer on #1426).
+    #[test]
+    fn a_runs_build_is_a_plain_name_or_none() {
+        let mut test = run(vec![PartResult::new("ring", Verdict::Pass, "")]);
+        assert_eq!(test.check(), Ok(()));
+        test.build = Some("0e8211e769ed".repeat(5) + "abcd");
+        assert_eq!(test.build.as_ref().unwrap().len(), 64);
+        assert_eq!(test.check(), Ok(()));
+        for refused in [String::new(), "a".repeat(129), "bad\nname".to_owned()] {
+            test.build = Some(refused.clone());
+            assert!(test.check().is_err(), "{refused:?}");
+        }
+    }
 }

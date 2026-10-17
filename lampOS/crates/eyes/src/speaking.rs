@@ -365,6 +365,22 @@ mod tests {
         );
     }
 
+    /// A face too narrow to measure a turn on, or with its marks off the
+    /// picture, has no turn from `bus_out`: it is `unknown`, even talking.
+    #[test]
+    fn a_face_whose_turn_was_not_measured_is_unknown() {
+        let (mut mouths, mut noise) = (Mouths::default(), Noise(1));
+        let talking = Scene {
+            talk: true,
+            ..STILL
+        };
+        for look in 0..20u64 {
+            let seen = marks(&talking, look as f32 * 0.15, &mut noise);
+            let said = mouths.judge(3, &seen, None, look * LOOK_US);
+            assert_eq!(said.state, SpeakingState::Unknown, "look {look}");
+        }
+    }
+
     #[test]
     fn a_new_face_is_unknown_until_its_window_fills() {
         let (mut mouths, mut noise) = (Mouths::default(), Noise(1));
@@ -402,6 +418,17 @@ mod tests {
                 eprintln!(
                     "jitter {jitter} px, eyes {eyes_px} px: still no {still:.2}, talking yes {talk:.2}"
                 );
+                // What docs/eyes.md rests on: at 0.5 px of jitter it holds from
+                // 30 px between the eyes and not at 24; at 1 px not at 30, but at 60.
+                let holds = still >= 0.9 && talk >= 0.9;
+                let said = match (jitter, eyes_px as u32) {
+                    (0.5, 30) | (0.5, 40) | (0.5, 60) | (1.0, 60) => Some(true),
+                    (0.5, 24) | (1.0, 24) | (1.0, 30) | (1.0, 40) => Some(false),
+                    _ => None,
+                };
+                if let Some(said) = said {
+                    assert_eq!(holds, said, "jitter {jitter} px, eyes {eyes_px} px");
+                }
             }
         }
     }

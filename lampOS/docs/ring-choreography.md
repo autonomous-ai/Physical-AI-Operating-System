@@ -328,6 +328,17 @@ parameter) with a waiter that says the slide closed or open and then
 looks; it fails if the slide's state isn't kept or isn't given to the face
 (the reviewer on #1288). Not shown on a lamp.
 
+### The setup light (#806)
+
+While a lamp is not set up, no voice runs, so the ring belongs to
+`lamp-setup`, which breathes soft white while it waits for its person, soft
+blue while it joins the home's Wi-Fi and amber after a join that failed
+(docs/setup.md, "The setup light"). It writes through
+`lamp_ring::setup::SetupRing`, the second writer that needs no permit: it can
+show only those colours over the whole ring, no brighter than 24, and black.
+It sends black and closes the device just before the marker that starts the
+lamp, so the voice's ring worker is again the only writer.
+
 ### The lamp's own light
 
 The resting face is also the lamp's light: a colour and a level that

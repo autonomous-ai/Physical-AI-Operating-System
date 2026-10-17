@@ -64,6 +64,7 @@ impl Root {
             web_start: vec![],
             web_stop: vec![],
             free_port: vec![],
+            light: false,
         }
     }
 }
@@ -464,6 +465,8 @@ fn the_own_page_stops_nginx_after_the_hotspot_restarts_it_and_before_answering()
     let own = fixture(include_str!("../fixtures/serve-own-page.json"));
     assert!(own.page);
     assert_eq!(own.listen, "0.0.0.0:80");
+    // The product's setup shows the setup light (#806, First, 17 Oct 14:44).
+    assert!(own.light);
     let mut lamp = Lamp::new(true);
     let (started, logged) = start_on(&mut lamp, &own, "");
     started.unwrap();
@@ -482,7 +485,7 @@ fn the_own_page_stops_nginx_after_the_hotspot_restarts_it_and_before_answering()
 
     // Behind V1's nginx nothing changes: nginx is started, never stopped.
     let behind = fixture(include_str!("../fixtures/serve-behind-v1-nginx.json"));
-    assert!(behind.free_port.is_empty() && !behind.page);
+    assert!(behind.free_port.is_empty() && !behind.page && !behind.light);
     let mut lamp = Lamp::new(true);
     let (started, _) = start_on(&mut lamp, &behind, "");
     started.unwrap();

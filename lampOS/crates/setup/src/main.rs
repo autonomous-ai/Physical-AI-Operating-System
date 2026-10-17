@@ -1,13 +1,18 @@
 //! `lamp-setup`: a lamp's first boot and its way back there (#806).
 use lamp_bus::Bus;
 use lamp_msgs::TouchEvent;
-use lamp_setup::reset::{self, Effects, Plan, System};
+use lamp_setup::{
+    light::Light,
+    reset::{self, Effects, Plan, System},
+    serve::Status,
+};
 use std::{
     collections::BTreeMap,
     fs::File,
     io::{self, Read},
     path::{Path, PathBuf},
     process::ExitCode,
+    sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 
@@ -267,12 +272,6 @@ fn serve(
     plan: Plan,
     seconds: Option<u64>,
 ) -> Result<bool, Box<dyn std::error::Error>> {
-    use lamp_setup::{
-        http::{Shared, router},
-        serve::Files,
-        wifi::ImageHost,
-    };
-    use std::sync::{Arc, Mutex};
     // A reset a power cut or a failed stop left unfinished comes first.
     let finished = reset::resume(&plan, &mut System)?;
     if !finished.is_empty() {
@@ -286,6 +285,49 @@ fn serve(
     for path in lamp_setup::serve::leftover_temporaries(&config) {
         let _ = std::fs::remove_file(path);
     }
+    // The setup light from here to the marker (`lamp_setup::light`): the
+    // voice is not running, and a dark, silent lamp looks broken.
+    let status = Arc::new(Mutex::new(Status::new(String::new())));
+    let light = setup_light(config.light, &status).map(Arc::new);
+    let served = answer(config, seconds, status, light.clone());
+    if let Some(light) = &light {
+        light.stop();
+    }
+    served
+}
+
+/// The setup light on the lamp's ring, when setup's `light` is on.
+#[cfg(target_os = "linux")]
+fn setup_light(on: bool, status: &Arc<Mutex<Status>>) -> Option<Light> {
+    Light::spawn_if(
+        on,
+        Arc::clone(status),
+        lamp_ring::linux::open_setup,
+        |line| eprintln!("lamp-setup: {line}"),
+    )
+}
+
+#[cfg(not(target_os = "linux"))]
+fn setup_light(on: bool, _: &Arc<Mutex<Status>>) -> Option<Light> {
+    if on {
+        eprintln!("lamp-setup: the setup light needs a lamp's ring, and there is none here");
+    }
+    None
+}
+
+/// Serving itself, from the hotspot until it is time to stop.
+fn answer(
+    config: lamp_setup::serve::Config,
+    seconds: Option<u64>,
+    status: Arc<Mutex<Status>>,
+    light: Option<Arc<Light>>,
+) -> Result<bool, Box<dyn std::error::Error>> {
+    use lamp_setup::{
+        http::{Shared, router},
+        light::ReleasingSave,
+        serve::Files,
+        wifi::ImageHost,
+    };
     // One look at the networks while the radio is still a station: as the
     // hotspot it may refuse to scan (V1 lists networks in station mode only).
     // A radio that is down fails at once; the page then waits on its own scans.
@@ -305,14 +347,14 @@ fn serve(
     }
     let before_hotspot = before_hotspot.ok().filter(|list| !list.is_empty());
     // The hotspot first: on a fresh image it is what names the lamp.
-    let status = lamp_setup::serve::start(
+    let started = lamp_setup::serve::start(
         &config,
         &mut ImageHost::new(),
         |argv| System.run(argv),
         host_name,
         |line| eprintln!("lamp-setup: {line}"),
     )?;
-    let status = Arc::new(Mutex::new(status));
+    *status.lock().unwrap() = started;
     eprintln!(
         "lamp-setup: the lamp's hotspot is up; answering on {}",
         config.listen
@@ -326,6 +368,7 @@ fn serve(
             move |accepted| {
                 let status = Arc::clone(&status);
                 let config = config.clone();
+                let light = light.clone();
                 std::thread::spawn(move || {
                     // V1 replies first and starts 2 s later, so the reply
                     // reaches the phone before the hotspot goes.
@@ -337,7 +380,11 @@ fn serve(
                         &accepted,
                         &config.country,
                         &mut ImageHost::new(),
-                        &mut Files(&config),
+                        // The ring let go just before the marker starts the lamp.
+                        &mut ReleasingSave {
+                            save: Files(&config),
+                            light: light.as_deref(),
+                        },
                         move || lamp_setup::serve::station_ip(&interface, &hotspot),
                     );
                     let now = status.lock().unwrap().clone();
@@ -373,17 +420,31 @@ fn serve(
         .build()?;
     runtime.block_on(async move {
         let listener = tokio::net::TcpListener::bind(&config.listen).await?;
+        // A stop (`systemctl stop`, a shutdown) ends serving as its end
+        // does, so the setup light is put out with black, not left lit.
+        let mut stopped =
+            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
         let limit = seconds.map(Duration::from_secs);
         let started = tokio::time::Instant::now();
         let done = async move {
+            let mut completed_at = None;
             loop {
-                tokio::time::sleep(Duration::from_millis(500)).await;
+                tokio::select! {
+                    _ = stopped.recv() => {
+                        eprintln!("lamp-setup: asked to stop");
+                        return;
+                    }
+                    () = tokio::time::sleep(Duration::from_millis(500)) => {}
+                }
                 if limit.is_some_and(|limit| started.elapsed() >= limit) {
                     return;
                 }
-                let completed = status.lock().unwrap().set_up_completed;
-                if completed {
-                    tokio::time::sleep(LINGER).await;
+                if status.lock().unwrap().set_up_completed
+                    && completed_at
+                        .get_or_insert_with(tokio::time::Instant::now)
+                        .elapsed()
+                        >= LINGER
+                {
                     return;
                 }
             }

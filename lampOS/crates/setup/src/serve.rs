@@ -92,6 +92,11 @@ pub struct Config {
     /// nginx has nothing to stop; a port still held ends serving at once.
     #[serde(default)]
     pub free_port: Vec<String>,
+    /// Show the setup light on the ring (`crate::light`): soft white while
+    /// waiting, soft blue while joining, amber after a failed join. Off when
+    /// left out; the product's configuration turns it on.
+    #[serde(default)]
+    pub light: bool,
 }
 
 impl Config {

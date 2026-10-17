@@ -178,7 +178,7 @@ key is not in it.
 
 V1 says "Factory reset starting" before it reboots; V2 does not yet speak: the
 voice is among the parts stopped. What the person sees is the lamp folding and
-going dark, then the hotspot coming back. Where `resume-reset` and
+going dark, then the hotspot coming back with the setup light (below). Where `resume-reset` and
 `watch-reset` run in the boot order, and with what rights, waits on the
 keeper's owner (the fifth builder, asked on #702).
 
@@ -332,6 +332,67 @@ source: not online, no current network, no capabilities so no voice or face
 step, an empty form), so its one Wi-Fi step still works. A lamp run must
 confirm it.
 
+## The setup light (on for the product)
+
+From the reset to the lamp's first words the voice is not running, so
+without this the lamp is dark and silent, and a person would think it broke
+(the first builder, #806, 17 Oct 14:44). With `"light": true` in setup's
+settings, `lamp-setup serve` draws a light on the ring itself, with no voice
+and no Controls. The product's `serve-own-page.json` has it on; left out, it
+is off (`serve-behind-v1-nginx.json`).
+
+| Setup's phase | The ring |
+|---|---|
+| `idle`: the hotspot is up, waiting for the person | soft white (24, 20, 14 of 255), breathing once every 6 s |
+| `connecting`: joining the home's Wi-Fi and saving | soft blue (4, 12, 24), breathing once every 3 s, busy but not hurried |
+| `failed`: the join failed, the hotspot is back | amber (24, 8, 0), breathing once every 6 s, until the next try |
+| `connected`: set up | dark, and the ring is the lamp's |
+
+The whole ring is one colour. A breath goes from 35 hundredths of the colour
+to all of it and back, never dark, so it reads as on; no channel is ever over
+24, the product voice's own ring ceiling (`--ring-channel-ceiling 24`), so
+setup is no brighter than the lamp after it. It fades in over 1.5 s, one look
+turns into the next over 0.8 s, and the breath runs on through a change, so
+nothing jumps or blinks: a calm thing breathing, quicker while it works.
+
+It starts once `serve` knows the lamp is not set up, before the network look
+and the hotspot, so the light comes up about as soon as the service does.
+It follows the status the page reads, one frame every 50 ms, so it begins to
+change within 50 ms of the phase. Setup turns `connecting` the moment it
+accepts Setup, so blue begins within 50 ms of the press; the join itself
+starts 2 s later, as in V1. Just before the marker is written, the light
+fades out over 0.6 s, sends black and closes the ring device (waiting at
+most 2 s, and saying so if that was not enough): the marker starts the lamp,
+and the voice's ring worker must find the device free, or the voice runs
+with no ring. From then on the ring is opened only while a look is wanted,
+so a retry that comes due during the fade out never takes the device after
+the marker. If saving then fails, the hotspot comes back and so does the
+ring, amber, and the next press shows blue at once. When serving ends,
+after setup or on a stop (`systemctl stop`, a shutdown: SIGTERM ends serving
+the same way), the light ends with black.
+
+It is painted by `lamp_setup::light` from a thread of `lamp-setup`, through
+`lamp_ring::setup::SetupRing`, a writer like the asleep face's that needs no
+permit: it can show only the setup colours over the whole ring, no brighter
+than 24, and black. A ring that cannot be opened or written is said once in
+the journal and tried again every 5 s; setup goes on either way. Only a
+process killed outright (SIGKILL, a crash) cannot send black: its last frame
+stays until something writes the ring again (after a crash, `lamp-setup`
+itself, 20 s later).
+
+Host tests: `crates/ring/src/setup.rs` (one colour over the ring, never over
+24, black first and last); `crates/setup/src/light.rs` (each phase's look,
+the fade in, a breath that never goes dark, the change, the fade out, joining
+breathing twice as fast); `crates/setup/tests/light.rs`, the painter's
+thread on a fake ring: white, blue, then black and the ring closed before the
+marker; amber again after a save that failed; nothing drawn after the marker
+of a run that finished; black at stop; a ring that cannot be opened said once
+and letting go waiting for nothing; a ring that failed and is free again
+during the fade out not opened after the marker (the reviewer's probe on
+#1325; it fails without the fix); the press after a failed save blue at once,
+never dark; and with the switch off no ring opened. Not shown on a lamp: the colours, the
+brightness in a room and the timing on the ring itself are a lamp check.
+
 ## On a lamp
 
 For a builder with a lamp other than lamp-4ace (#806 asks for one), from #817's
@@ -367,10 +428,14 @@ ARM64 run and the keeper's `--setup-marker` (#816):
    page). Time, separately: phone joined
    to page shown (target under 5 s); Setup pressed to the hotspot gone; to
    `connected` or a named failure (at most 60 s); marker to the lamp's first
-   word.
+   word. With the product's settings, the setup light: the service's start
+   to the ring's first soft white (expect about 2 s, its fade in), white
+   while waiting, blue at once after Setup, dark before the marker,
+   and the voice's ring worker starting with no "ring startup" fault.
 4. **Failures.** A wrong password (expect `wrong_password` in about 5 s and the
    hotspot back), a network out of range (`ssid_not_found` at 60 s), a name with
-   an accent and one with a `"`. Each failure must leave the previous Wi-Fi file.
+   an accent and one with a `"`. Each failure must leave the previous Wi-Fi file,
+   and the ring amber until the next try.
 5. **Reset.** Controls with `--touch` and a `reset` line in its pins file. Hold
    the reset button 5 s and release: the lamp pauses, folds, reboots into the
    hotspot, and every path in the plan is empty. Once, cut the power during the

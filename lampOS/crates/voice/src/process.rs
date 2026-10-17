@@ -729,6 +729,10 @@ fn worker_command(
             role,
             var(crate::quiet_pace::EVIDENCE_ENVIRONMENT).as_deref(),
         ))
+        .envs(person_name_worker_environment(
+            role,
+            var(crate::person::ENVIRONMENT).as_deref(),
+        ))
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::inherit());
@@ -775,6 +779,19 @@ fn quiet_evidence_worker_environment(
 ) -> Option<(&'static str, &'static str)> {
     (role == "capture" && value == Some(std::ffi::OsStr::new("on")))
         .then_some((crate::quiet_pace::EVIDENCE_ENVIRONMENT, "on"))
+}
+
+// The typed name's file (#806), to the two workers that build the model's
+// instruction: the Live provider and the second route. A path, not `on`:
+// passed only when absolute. Cleared, it never reached them, and the name
+// was never told (Fourth on #1323).
+fn person_name_worker_environment(
+    role: &str,
+    value: Option<&std::ffi::OsStr>,
+) -> Option<(&'static str, std::ffi::OsString)> {
+    value
+        .filter(|path| matches!(role, "provider" | "second") && Path::new(path).is_absolute())
+        .map(|path| (crate::person::ENVIRONMENT, path.to_owned()))
 }
 
 #[cfg(test)]
@@ -858,6 +875,36 @@ mod tests {
     /// capture the quiet evidence switch (#1285). With every other variable
     /// set to a secret, nothing else reaches any of them but the shell's
     /// own.
+    /// The typed name's file goes to the provider and second workers only,
+    /// and only as an absolute path (#806, Fourth on #1323).
+    #[test]
+    fn the_typed_names_file_reaches_only_the_workers_that_tell_the_model() {
+        let absolute = std::ffi::OsStr::new("/etc/lampOS/person/name");
+        for role in ["provider", "second"] {
+            assert_eq!(
+                person_name_worker_environment(role, Some(absolute)),
+                Some((crate::person::ENVIRONMENT, absolute.to_owned()))
+            );
+            assert_eq!(person_name_worker_environment(role, None), None);
+            for unfit in ["person/name", "", "on"] {
+                assert_eq!(
+                    person_name_worker_environment(role, Some(std::ffi::OsStr::new(unfit))),
+                    None,
+                    "{unfit:?}"
+                );
+            }
+        }
+        for role in [
+            "capture", "speaker", "denoise", "echo", "privacy", "unknown",
+        ] {
+            assert_eq!(
+                person_name_worker_environment(role, Some(absolute)),
+                None,
+                "{role}"
+            );
+        }
+    }
+
     #[test]
     fn a_started_worker_gets_its_roles_switches_and_nothing_else() {
         use std::os::unix::fs::PermissionsExt;
@@ -879,6 +926,8 @@ mod tests {
                 .contains(&name)
                 {
                     "on"
+                } else if name == crate::person::ENVIRONMENT {
+                    "/etc/lampOS/person/name"
                 } else {
                     "a-secret"
                 },
@@ -919,11 +968,16 @@ mod tests {
                     "LAMP_KERNEL_CLOCK=on",
                     "LAMP_MEMORY_DAYS=on",
                     "LAMP_MEMORY_RULES=on",
+                    "LAMP_PERSON_NAME=/etc/lampOS/person/name",
                 ],
             ),
             (
                 "second",
-                vec!["LAMP_KERNEL_CLOCK=on", "LAMP_MEMORY_DAYS=on"],
+                vec![
+                    "LAMP_KERNEL_CLOCK=on",
+                    "LAMP_MEMORY_DAYS=on",
+                    "LAMP_PERSON_NAME=/etc/lampOS/person/name",
+                ],
             ),
             ("capture", vec!["LAMP_QUIET_EVIDENCE=on"]),
         ] {

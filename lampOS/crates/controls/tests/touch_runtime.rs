@@ -671,6 +671,70 @@ fn a_head_only_legacy_engine_hears_a_gpio_read_fault() {
     assert_eq!(state.fault, Some(ControlFault::Missing));
 }
 
+/// The reviewer on #1209: `legacy_head` with no head pads is ignored, not
+/// refused, so the touch path starts and the reset works, with a button and
+/// without one. Alone, the old engine once had nothing to read and took the
+/// touch path's GPIO down: a 5 s hold made no reset (the reviewer on #1176).
+#[test]
+fn legacy_head_with_no_head_pads_is_ignored_and_the_reset_still_works() {
+    for button in [true, false] {
+        let wiring = TouchPinsConfig {
+            buttons: if button { wiring().buttons } else { vec![] },
+            head_pads: vec![],
+            base: None,
+            legacy_head: true,
+            ..wiring()
+        };
+        let config = Config {
+            enabled: true,
+            buttons: if button {
+                vec!["primary".into()]
+            } else {
+                vec![]
+            },
+            head_pads: vec![],
+            base_selected_mask: None,
+        };
+        let mut rig = Rig::with_config(config, wiring);
+        let mut resets = 0;
+        for at in (0..=7_100_000u64).step_by(20_000) {
+            rig.gpio_sequence += 1;
+            let mut buttons = vec![PinLevel {
+                name: "reset".into(),
+                active: (2_000_000..=7_000_000).contains(&at),
+            }];
+            if button {
+                buttons.insert(
+                    0,
+                    PinLevel {
+                        name: "primary".into(),
+                        active: false,
+                    },
+                );
+            }
+            let sample = Observation {
+                stamp: ClockStamp {
+                    clock_id: CLOCK.into(),
+                    at_us: at,
+                    sequence: rig.gpio_sequence,
+                },
+                session_id: "gpio-reader".into(),
+                buttons,
+                head_pads: vec![],
+                base_mask: None,
+            };
+            rig.gpio.values.borrow_mut().push_back(Ok(sample));
+            resets += rig
+                .step(at)
+                .events
+                .iter()
+                .filter(|event| event.source == TouchSource::Reset)
+                .count();
+        }
+        assert_eq!(resets, 1, "with a button: {button}");
+    }
+}
+
 #[test]
 fn missing_all_inputs_never_advertises_a_released_or_ready_hand() {
     let mut rig = Rig::new(true);

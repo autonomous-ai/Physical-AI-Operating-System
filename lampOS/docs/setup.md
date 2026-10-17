@@ -352,8 +352,9 @@ ARM64 run and the keeper's `--setup-marker` (#816):
    product and there is no keeper: the reset plan is
    `reset-plan-product.json`, the example stopped by
    `systemctl stop lampos.target` (every part is `PartOf` the target), and
-   nothing else changes. `install` writes neither file yet, so both are put
-   there by hand. The product's pair is `serve-own-page.json` with
+   nothing else changes. `install --setup on` writes both files
+   (`SETUP_SETTINGS` in `crates/update/src/install.rs`); without it, both
+   are put there by hand. The product's pair is `serve-own-page.json` with
    `reset-plan-product.json`: a test holds them to the same marker, and what
    setup saves of the person, the user's key in both its places and the name,
    is what the reset wipes. Settings that name no key files take the

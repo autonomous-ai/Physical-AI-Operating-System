@@ -1096,19 +1096,67 @@ fn physical_button_events_preserve_stop_mute_and_reset_asleep() {
     assert_eq!(events[1].released_us, Some(6_320_001));
 }
 
-/// The reviewer on #1167: a reset line that rests pressed (a pad driving it
-/// low) and lifts briefly never arms, so two short lifts 5 s apart are no
-/// factory reset. Released a full second, it arms, and a 5 s hold is one.
+/// The reviewer on #1167: a reset line that rests pressed and lifts briefly
+/// never arms, so two short lifts 5 s apart are no factory reset. Released
+/// a full second running, it arms, and a 5 s hold is one.
 #[test]
-fn a_reset_line_resting_pressed_never_arms_on_short_lifts() {
+fn a_reset_line_arms_only_after_a_full_released_second() {
     let mut rig = Rig::new(buttons());
+    rig.hold(0, 500_000, false, false, 0);
+    assert!(rig.hold(510_000, 5_610_000, false, true, 0).is_empty());
+    assert!(rig.hold(5_620_000, 5_800_000, false, false, 0).is_empty());
+    assert!(rig.hold(5_810_000, 10_910_000, false, true, 0).is_empty());
+    rig.hold(10_920_000, 12_020_000, false, false, 0);
+    assert!(rig.hold(12_030_000, 17_030_000, false, true, 0).is_empty());
+    let e = rig.gpio(17_040_000, false, false, 0).pop().unwrap();
+    assert_eq!(e.source, TouchSource::Reset);
+    assert_eq!(e.when_speaking, TouchIntent::FactoryReset);
+    assert!(!rig.engine.reset_refused());
+}
+
+/// The reviewer on #1176: a reset line read pressed through all of its
+/// first second is not a reset button, and never arms in that run, even
+/// after a full released second. Rests pressed, lifts 1.1 s (a hand kept on
+/// a pad), pressed 5.2 s, a short release: no factory reset. The primary
+/// button still works.
+#[test]
+fn a_reset_line_read_pressed_through_its_first_second_never_arms_in_that_run() {
+    let mut rig = Rig::new(buttons());
+    assert!(!rig.engine.reset_refused());
     rig.hold(0, 2_000_000, false, true, 0);
-    rig.hold(2_010_000, 2_200_000, false, false, 0);
-    assert!(rig.hold(2_210_000, 7_300_000, false, true, 0).is_empty());
-    assert!(rig.hold(7_310_000, 7_500_000, false, false, 0).is_empty());
-    rig.hold(7_510_000, 8_600_000, false, false, 0);
-    assert!(rig.hold(8_610_000, 13_610_000, false, true, 0).is_empty());
-    let e = rig.gpio(13_620_000, false, false, 0).pop().unwrap();
+    assert!(rig.engine.reset_refused());
+    rig.hold(2_010_000, 3_110_000, false, false, 0);
+    assert!(rig.hold(3_120_000, 8_320_000, false, true, 0).is_empty());
+    assert!(rig.hold(8_330_000, 8_500_000, false, false, 0).is_empty());
+    rig.hold(8_510_000, 9_610_000, false, false, 0);
+    assert!(rig.hold(9_620_000, 14_620_000, false, true, 0).is_empty());
+    assert!(rig.gpio(14_630_000, false, false, 0).is_empty());
+    let output = rig.engine.tick(14_630_000);
+    let reset = output
+        .state
+        .sources
+        .iter()
+        .find(|source| source.source == TouchSource::Reset)
+        .unwrap();
+    assert!(!reset.armed);
+    assert!(rig.engine.reset_refused());
+    rig.gpio(14_700_000, true, false, 0);
+    let tap = rig.gpio(14_710_000, false, false, 0).pop().unwrap();
+    assert_eq!(tap.source, TouchSource::Primary);
+}
+
+/// The reviewer on #1209: one pressed read as Controls starts (a line still
+/// charging through its pull-up, a hand leaving the button) does not turn
+/// the reset off. Pressed for one read, released 2 s, then a 5 s hold: one
+/// factory reset.
+#[test]
+fn a_reset_line_released_once_in_its_first_second_still_arms() {
+    let mut rig = Rig::new(buttons());
+    rig.gpio(0, false, true, 0);
+    rig.hold(10_000, 2_010_000, false, false, 0);
+    assert!(!rig.engine.reset_refused());
+    assert!(rig.hold(2_020_000, 7_020_000, false, true, 0).is_empty());
+    let e = rig.gpio(7_030_000, false, false, 0).pop().unwrap();
     assert_eq!(e.source, TouchSource::Reset);
     assert_eq!(e.when_speaking, TouchIntent::FactoryReset);
 }

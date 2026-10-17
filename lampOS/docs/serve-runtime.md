@@ -188,8 +188,10 @@ drains that pipe at once and copies whole lines to the real stderr without
 waiting on it. On Linux it sends to a socket (the journal's stream) with
 `MSG_DONTWAIT`, and writes to a pipe (a worker's stderr, its parent's relay
 pipe) through a file of its own on that pipe, opened write-only and
-non-blocking from `/proc/self/fd`. Anywhere else (macOS) it writes only when
-`poll` says there is room, at most `PIPE_BUF` at a time; another writer that
+non-blocking from `/proc/self/fd`. To anything else it writes only when
+`poll` says there is room, at most `PIPE_BUF` at a time: on Linux a
+terminal, a file, or a pipe `/proc` cannot reopen, and everything on macOS.
+Another writer that
 takes a pipe's room between the two calls can still make it wait until the
 pipe is read. It never sets `O_NONBLOCK` on the real stderr: that flag
 belongs to the open file, and a worker's stderr is its parent's relay pipe,

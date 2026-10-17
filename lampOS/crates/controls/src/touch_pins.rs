@@ -36,12 +36,16 @@ pub struct TouchPinsConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub head_gap_ms: Option<u64>,
     /// Also give the head pads to the old engine, whose `Pet` on
-    /// `controls/gesture` wakes a lamp asleep at night and whose
-    /// `head_active` the voice counts: for a lamp whose voice and Expression
-    /// do not read `controls/touch` yet, the product's (the reviewer on
-    /// #1167). Never with `LAMP_HEAD_TOUCH=on` or Expression's
-    /// `--head-touch`: a three-second hold would then put the lamp to sleep
-    /// and its release, a `Pet`, wake it again.
+    /// `controls/gesture` wakes a lamp asleep at night: for a lamp whose
+    /// voice and Expression do not read `controls/touch` yet, the product's
+    /// (the reviewer on #1167). Nothing else reads it: the voice only counts
+    /// pets for its trace, and nothing reads `head_active`. Only beside
+    /// neither `LAMP_HEAD_TOUCH=on` nor Expression's `--head-touch`, which
+    /// read the head from `controls/touch`; and `--head-touch` only with the
+    /// voice's sleep mute, or a hand held 3 s puts the face to sleep with
+    /// the microphones open (the reviewer on #1176). Install's tests hold
+    /// the product to both. With no head pads it is ignored, and the journal
+    /// says so.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub legacy_head: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]

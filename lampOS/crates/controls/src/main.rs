@@ -681,7 +681,7 @@ fn run_touch(args: Args, config: Config, clock: &str) -> Result<(), Box<dyn std:
     {
         let began = lamp_ipc::monotonic_us();
         let output = service.step(lamp_ipc::monotonic_us);
-        hands.note_reset(began, &output);
+        hands.note_reset(began, &output, service.reset_refused());
         let elapsed = lamp_ipc::monotonic_us().saturating_sub(began);
         if elapsed < service.poll_us() {
             thread::sleep(Duration::from_micros(service.poll_us() - elapsed));
@@ -858,8 +858,14 @@ impl HandLog {
 
     /// The reset button on the touch path: pressed, let go, or held long
     /// enough to ask for a factory reset, so a hold that did nothing can be
-    /// told from one Controls never saw (the reviewer on #1167).
-    fn note_reset(&mut self, at_us: u64, output: &lamp_controls::touch::TouchOutput) {
+    /// told from one Controls never saw (the reviewer on #1167). A line read
+    /// pressed through its first second is said once, and nothing more of it.
+    fn note_reset(
+        &mut self,
+        at_us: u64,
+        output: &lamp_controls::touch::TouchOutput,
+        refused: bool,
+    ) {
         use lamp_msgs::TouchSource;
         let Some(reset) = output
             .state
@@ -870,6 +876,9 @@ impl HandLog {
             return;
         };
         let now = match reset.active {
+            _ if refused => {
+                "reset read pressed through its first second: no factory reset until Controls starts again"
+            }
             Some(true) => "reset pressed",
             Some(false) => "reset released",
             None => "reset not read",
@@ -880,7 +889,7 @@ impl HandLog {
             .filter(|event| event.source == TouchSource::Reset)
             .map(|event| {
                 format!(
-                    "reset held {} ms and let go: a factory reset asked, acted on: {}",
+                    "reset held {} ms and let go: a factory reset asked, enabled: {}",
                     event.observed_us.saturating_sub(event.began_us) / 1000,
                     event.enabled
                 )

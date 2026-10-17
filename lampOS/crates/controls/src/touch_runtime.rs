@@ -97,7 +97,15 @@ impl<G: PinReader, S: StripReader> Service<G, S> {
         // touch mode, and with `legacy_head` the head's Pet. Base and reset
         // are never sent to this legacy engine.
         let button = wiring.buttons.first().map(|pin| pin.name.clone());
-        let primary = if button.is_some() || wiring.legacy_head {
+        // With no head pads, `legacy_head` gives the old engine nothing to
+        // read: alone, its refused reads would take the touch path's GPIO
+        // down (the reviewer on #1176). Ignored, never refused: a pins file
+        // install kept must not stop the button and the reset (#1209).
+        let legacy_head = wiring.legacy_head && !wiring.head_pads.is_empty();
+        if wiring.legacy_head && !legacy_head {
+            eprintln!("lamp-controls: legacy_head ignored: the pins name no head pads");
+        }
+        let primary = if button.is_some() || legacy_head {
             let state = bus.publisher_declared(
                 ControlsState::TOPIC,
                 &ControlsState::declaration(),
@@ -108,7 +116,7 @@ impl<G: PinReader, S: StripReader> Service<G, S> {
                     Config {
                         enabled: config.enabled,
                         buttons: button.iter().cloned().collect(),
-                        head_pads: if wiring.legacy_head {
+                        head_pads: if legacy_head {
                             wiring
                                 .head_pads
                                 .iter()
@@ -130,7 +138,7 @@ impl<G: PinReader, S: StripReader> Service<G, S> {
                     "controls",
                 )?,
                 name: button,
-                head: wiring.legacy_head,
+                head: legacy_head,
             })
         } else {
             None
@@ -232,6 +240,11 @@ impl<G: PinReader, S: StripReader> Service<G, S> {
 
     pub fn finish_recording(&mut self) -> Option<crate::record::RecordStats> {
         self.recorder.take().map(crate::record::Recorder::finish)
+    }
+
+    /// [`TouchEngine::reset_refused`].
+    pub fn reset_refused(&self) -> bool {
+        self.engine.reset_refused()
     }
 
     pub fn poll_us(&self) -> u64 {

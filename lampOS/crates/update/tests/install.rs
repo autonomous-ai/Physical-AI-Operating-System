@@ -524,6 +524,44 @@ fn time_of_day_parts_wait_for_the_kernel_to_say_the_clock_is_set() {
     assert!(voice.contains(&"Environment=LAMP_KERNEL_CLOCK=on"));
 }
 
+/// #1176 (Nine and the reviewer): Expression's `--head-touch` only beside
+/// the voice's own head touch and its sleep mute (`LAMP_HEAD_TOUCH=on` and
+/// `--controls-mute`). Without the mute a hand held 3 s puts the face to
+/// sleep with the microphones open. Pins that give the head pads to the old
+/// engine (`legacy_head`) are for a voice and an Expression that read
+/// neither.
+#[test]
+fn head_touch_comes_whole_and_never_beside_the_old_engines_head() {
+    let service = |name: &str| {
+        let text = install::PRODUCT
+            .iter()
+            .find(|(unit, _)| *unit == name)
+            .unwrap_or_else(|| panic!("no {name}"))
+            .1;
+        format!(" {} ", section(text, "Service").join(" "))
+    };
+    let voice = service("lamp-voice.service");
+    let voice_head = voice.contains(" Environment=LAMP_HEAD_TOUCH=on ");
+    let sleep_mute = voice.contains(" --controls-mute ");
+    let face_head = service("lamp-expression.service").contains(" --head-touch ");
+    assert!(
+        !face_head || (voice_head && sleep_mute),
+        "Expression's --head-touch without the voice's head touch and sleep mute"
+    );
+    let pins = SETTINGS
+        .iter()
+        .find(|(path, _)| *path == "/etc/lampOS/controls/controls-pins.json")
+        .unwrap()
+        .1;
+    let pins: serde_json::Value = serde_json::from_str(pins).unwrap();
+    if pins["legacy_head"] == true {
+        assert!(
+            !voice_head && !face_head,
+            "the old engine's head beside the voice's or Expression's head touch"
+        );
+    }
+}
+
 /// #811 / #806 (the first builder, 12:36): a home lamp's voice uses V1's
 /// route with the lamp's own device key, which the customer never types.
 /// Install writes the product `provider.json` and takes the key from V1's

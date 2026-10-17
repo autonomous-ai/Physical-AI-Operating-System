@@ -62,12 +62,12 @@ selection), which must stay identical:
   module's other 28 left on 2026-10-17, `hung_worker…` later that day, and
   `coordinator::tests::early_end` and `coordinator::tests::pilot_faults` on
   2026-10-16, below);
-- single tests that took 4 s or more outside those, named exactly:
-  `lamp-memory::health`'s
-  `the_environment_alone_does_not_enable_reporting_or_create_bus_data` and
+- one single test that took 4 s or more outside those, named exactly:
   `lamp-health::program`'s
   `between_two_healths_five_seconds_apart_the_program_is_not_taken_for_gone`
-  (`lamp-actions::server`'s light test left on 2026-10-17, below);
+  (`lamp-actions::server`'s light test and `lamp-memory::health`'s
+  `the_environment_alone_does_not_enable_reporting_or_create_bus_data` left
+  on 2026-10-17, below);
 - tests with a real-clock bound that a loaded runner misses: none now. A
   test goes here only until it gets its own time; the bound the lamp runs
   with is never raised for it. `lamp-voice`'s `coordinator::motor::tests::native_head`
@@ -143,8 +143,8 @@ Review points:
 - Who decides that a red full run holds the next merge? The workflow only
   opens the issue; it does not block merging.
 - Does a pull request's run list the expected number of tests? As of
-  2026-10-17 nextest says "including 3 tests and 1 binary via
-  profile.pr.default-filter": the two named single tests, the named
+  2026-10-17 nextest says "including 2 tests and 1 binary via
+  profile.pr.default-filter": the named single test, the named
   `endpoint_session` test, and `capture_hold_worker` as one binary.
 
 ## The measured list
@@ -870,10 +870,10 @@ fixture of 10 s (`final_drain_clock`'s delayed line) and 5 s (the audit
 test).
 
 Memory's seventh,
-`the_environment_alone_does_not_enable_reporting_or_create_bus_data`, stays
+`the_environment_alone_does_not_enable_reporting_or_create_bus_data`, stayed
 in the group by name: with no `--bus-root` the program makes no reporter, so
-there is no report clock to step, and the test watches for 2.2 s, twice, that
-nothing appears (4.4 s in that run).
+there is no report clock to step, and the test watched for 2.2 s, twice, that
+nothing appears (4.4 s in that run). It left later that day (below).
 
 They were qualified the way a pull request runs them, each test in its own
 process, on the Intel Mac (16 cores) at `54be5904b`, release build: all 57
@@ -1158,3 +1158,29 @@ With the 400 ms sleep it passes. Each test in its own process, 30 at once:
 before, 16 of 90 passed (all 74 failures at `voice.rs:118`); after, 90 of 90,
 and 48 of 48 at 16 at once. It takes about 3.9 s instead of 2.0 s, since the
 caller now waits its 1 s twice.
+
+## Memory's env-alone test waits for the program to say reports are off (#823)
+
+`lamp-memory::health`'s
+`the_environment_alone_does_not_enable_reporting_or_create_bus_data` (4.4 s
+on ARM64, 6.1 s on the Intel Mac) checked that `LAMP_BUS_ROOT` alone, without
+`--bus-root`, makes no health reports and no bus data. With no reporter there
+is no report clock to step, so it watched for 2.2 s, twice, that nothing
+appeared.
+
+The program now says so once at start, after taking its socket:
+`lamp-memory: health reports off: no --bus-root` (docs/memory.md). The test
+waits for that line, an event, then checks as before that the process is
+still serving, that the bus directory doesn't exist and that the log has no
+`health delivery`. The line comes from the same decision that makes the
+reporter, so the program states the absence instead of the test watching
+for it. That is a change of method, not of what is checked: a scratch change
+that lets `LAMP_BUS_ROOT` alone set the bus root fails the new test ("never
+logged …", 8 s) as it fails the old one (the bus directory appears). With a
+400 ms sleep before the line, it passes. `lamp-memory::binary`'s
+`a_killed_process_leaves_a_store_the_next_one_loads_and_a_socket_it_replaces`
+counts each journal's lines exactly, and now counts the new one (5, not 4).
+
+It takes about 1.8 s on the Intel Mac, almost all of it the program starting
+twice in a debug build. It left the group, in all three filtersets, on
+2026-10-17.

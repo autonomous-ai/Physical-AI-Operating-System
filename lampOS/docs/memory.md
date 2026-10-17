@@ -79,7 +79,9 @@ application logic; this step adds no fixture executable or clock mode.
 
 `--bus-root ABSOLUTE_DIR` enables one `lamp_msgs/Diagnostic` on `diagnostics`
 each second, named `memory`. Without this flag, even `LAMP_BUS_ROOT` does
-nothing: there is no reporting thread, counter initialization or bus I/O.
+nothing: there is no reporting thread, counter initialization or bus I/O,
+and the journal says so once at start, after the socket is taken:
+`lamp-memory: health reports off: no --bus-root`.
 Both store modes support the flag. Add `--expect memory` to Health's existing
 command when enabling it; [health.md](health.md#memory-reports) explains what
 the aggregate can show.

@@ -10,7 +10,7 @@ Ready for lamp-voice: #1271, #1273 and #1279 (green, waiting for peer reviews); 
 - `hung_worker` (6.4 s): stepped, waiting on its real worker's hang and respawn. Merged in #1267, 1.152 s on ARM64.
 - `lamp-actions::server`'s light test (4.1 s): the server's two periods are on a clock its caller gives (`serve_with_clock`), and the test moves its own on after events on the bus. #1273, 1.219 s on ARM64.
 - `lamp-memory::health`'s env-alone test (4.4 s): the program says once that reports are off without `--bus-root`, and the test waits for that line. #1283, stacked on #1273. That's a change of method, put to the reviewer.
-- Kept by name, reasons on #823 (10:2x): `lamp-health::program` (it checks the real 5 s period against the real lease) and `endpoint_fixture_reaps` (the real 1.5 s grace and kill). Next: a design for `capture_hold_worker`'s six (the production capture loop on the host clock).
+- Kept by name, reasons on #823 (10:16): `lamp-health::program` (it checks the real 5 s period against the real lease) and `endpoint_fixture_reaps` (the real 1.5 s grace and kill). Next: a design for `capture_hold_worker`'s six (the production capture loop on the host clock).
 
 **Flakes:**
 - #1269 (the twelfth's remember flake): the test read with the lamp's real 300 ms against a stand-in thread. A 400 ms stall reproduced it. #1271 passes the test's own 2 s; the lamp keeps 300 ms.

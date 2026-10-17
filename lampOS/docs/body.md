@@ -260,19 +260,23 @@ Temperatures pass one place too, `Bus::judge_temperatures` in
 `src/body.rs`, right after the positions of the same read and before a
 peak (`peak_temperature`, `arm_peak_temperature`) or the hot-servo stop uses
 them. A temperature is a bad read if it is over 100 (`TEMPERATURE_MAX`), or
-farther from the joint's last good one than 3 (`TEMPERATURE_JUMP`) and a
-degree per 100 steps (2 s, `STEPS_PER_DEGREE`) since that one. That is 30
-degrees a minute, ten times the fastest real warming seen: on lamp-52e6 on
+farther from the joint's last good one than 3 (`TEMPERATURE_JUMP`). A real
+rise moves the good one with it a read at a time: on lamp-52e6 on
 2026-10-17, over 632 pairs of the arm's logged standing steps 20 to 30 s
 apart (readings under 58), none rose more than a degree, 3 degrees a minute
 at most. A bad one is counted in the end report as `bad_temperatures` (per
 joint, in the order of `bad_reads`) and replaced by the joint's last good
-one, so it is never a peak and neither starts nor resets the heat streak.
-A bad value that stays within 2 degrees (`TEMPERATURE_SETTLE`) of itself
-for `temperature_steps` (50) reads in a row is what the servo reads now and
-becomes the good one, so a servo really at 70 after a low first read, a
-jump to 70 that stays, or a steady 150 still stops on heat, a second later
-than without the check; one 150 is still dropped. With no good one yet (the
+one, so it is never a peak, and the heat streak holds on it for that step,
+neither adding nor resetting (`Bus::temperature_held`). Before this hold, a
+replaced read carried the last good value into the streak: one read of 63
+let in at a true 60, then the register at 59, made 50 hot steps of one hot
+read and let the whole lamp go (the seventh's re-check of #1236, 2026-10-17
+08:37). Bad reads that each stay within 2 degrees (`TEMPERATURE_SETTLE`) of
+the one before for `temperature_steps` (50) reads in a row are what the
+servo reads now, and the last becomes the good one, so a servo really at 70
+after a low first read, one rising 5 degrees a second after it, a jump to 70
+that stays, or a steady 150 still stops on heat, a second later than
+without the check; one 150 is still dropped. With no good one yet (the
 first read) a reading is taken as it is: one over 100 is counted and goes
 down the found-hot path, refused with torque off on all five. Bad ones in a
 row do not stop the run, unlike positions: the hot-servo stop they would
@@ -303,7 +307,9 @@ register (63) said. The tests are
 `a_joint_that_really_warms_still_stops_after_its_hot_steps`,
 `a_joint_really_at_70_after_a_first_read_of_40_still_stops_on_heat`,
 `a_jump_that_stays_becomes_the_reading_and_stops_on_heat`,
-`a_glitch_of_32_between_47_and_48_is_dropped` and
+`a_glitch_of_32_between_47_and_48_is_dropped`,
+`a_small_glitch_near_the_limit_then_a_flicker_down_is_not_heat`,
+`a_fast_rise_after_a_low_first_read_still_stops_near_the_limit` and
 `one_hot_reading_while_it_moves_is_not_heat` (lamp-4ace's yaw reading 72
 for one step, now a bad read).
 

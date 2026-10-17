@@ -6759,6 +6759,46 @@ fn a_glitch_of_32_between_47_and_48_is_dropped() {
     assert_eq!(report.peak_temperature[0], 48);
 }
 
+/// The seventh's case (a): the servo at 60, one read of 63 let in, and its
+/// register a degree down to 59 from the next read. The 59s are replaced
+/// by 63 until they settle; a replaced read holds the heat streak, so the
+/// one 63 never becomes 50 hot steps and nothing is let go.
+#[test]
+fn a_small_glitch_near_the_limit_then_a_flicker_down_is_not_heat() {
+    let report = heated_pitch(
+        60,
+        Some(63),
+        vec![(Duration::from_millis(1_510), PITCH, 59)],
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.bad_temperatures[4] > 0, "{report:?}");
+}
+
+/// The seventh's 5 degrees a second row: the first read 5, the servo
+/// rising from 45 at once. The rise settles a read at a time, so it is
+/// judged on it within a second and stops on heat near 62, not at 120.
+#[test]
+fn a_fast_rise_after_a_low_first_read_still_stops_near_the_limit() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(8));
+    lamp.servos[PITCH].temperature = 45;
+    lamp.event = Some((Duration::ZERO, PITCH, Event::HeatOnce(5)));
+    lamp.heats = (0..100)
+        .map(|n| (Duration::from_millis(200 * (n + 1)), PITCH, 46 + n as u8))
+        .collect();
+    let news = script(&clock.time);
+    let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
+    assert!(
+        matches!(
+            report.stop,
+            Stop::Temperature {
+                joint: 5,
+                temperature: 62..=70
+            }
+        ),
+        "{report:?}"
+    );
+}
+
 /// Taking hold of an arm joint writes its goal by itself, and that write is
 /// checked as every other arm goal is: an elbow found without torque
 /// outside its window is not given that as its goal.

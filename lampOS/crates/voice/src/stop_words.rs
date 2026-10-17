@@ -32,19 +32,91 @@ use std::{
 };
 use tokio::sync::mpsc as queue;
 
-/// Where the coordinator reads whether a yield's words are listened for.
-/// `heard` only.
+/// Where the coordinator reads whether stop words are listened for:
+/// `heard` or `heard-always`.
 pub const ENVIRONMENT: &str = "LAMP_STOP_WORDS";
 
-/// Whether the voice's environment says `heard`.
-pub fn heard_on() -> bool {
-    std::env::var(ENVIRONMENT).ok().as_deref() == Some("heard")
+/// What is listened to for a stop word.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Listen {
+    Off,
+    /// What is said in a yield (`heard`).
+    InYields,
+    /// Everything heard while the lamp speaks (`heard-always`, #828): a
+    /// short "Stop." said under the lamp's voice is heard by the canceller's
+    /// measures as the lamp's own and makes no yield (the first builder's
+    /// 01:51 recordings, #828 at 13:1x).
+    Always,
 }
+
+/// Where the words are heard, for the journal: the relay's host, never a
+/// key or a path.
+pub fn where_heard(config: &SecondConfig) -> String {
+    match &config.stt {
+        crate::second_config::Stt::Deepgram { .. } => "Deepgram".into(),
+        crate::second_config::Stt::Autonomous { base_url, .. } => reqwest::Url::parse(base_url)
+            .ok()
+            .and_then(|url| url.host_str().map(str::to_owned))
+            .unwrap_or_else(|| "a relay".into()),
+    }
+}
+
+/// What the voice's environment asks for.
+pub fn listen() -> Listen {
+    listen_for(std::env::var(ENVIRONMENT).ok().as_deref())
+}
+
+/// Where the coordinator reads what the stop words hear: `raw`, the
+/// microphone's block before the canceller, or the canceller's output as
+/// the provider hears it (unset, or `processed`). On lamp-4ace on 16
+/// October at 22:44 the canceller's output carried 16 to 18 speech starts
+/// and no words over a reply: the canceller takes out a short "Stop." said
+/// over the lamp with its echo (`lamp_audio::duplex`; the first builder on
+/// #1047). Raw blocks carry the lamp's own words too, which
+/// [`stop_over`] already leaves out.
+pub const SOURCE_ENVIRONMENT: &str = "LAMP_STOP_WORDS_SOURCE";
+
+/// Whether the stop words hear the raw blocks.
+pub fn raw_source() -> bool {
+    raw_source_for(std::env::var(SOURCE_ENVIRONMENT).ok().as_deref())
+}
+
+fn raw_source_for(value: Option<&str>) -> bool {
+    value == Some("raw")
+}
+
+fn listen_for(value: Option<&str>) -> Listen {
+    match value {
+        Some("heard") => Listen::InYields,
+        Some("heard-always") => Listen::Always,
+        _ => Listen::Off,
+    }
+}
+
+/// The lamp's own words this long before what is heard are its own, not a
+/// person's: it may say "wait" in a story, and the canceller lets its voice
+/// through. Its words are written a moment before they are played.
+pub const LAMP_WORDS_US: u64 = 6_000_000;
 
 /// Blocks of stillness in a yield after which its words are asked for:
 /// 100 ms, so that they come back inside the 400 ms after which stillness
 /// would resume the reply.
 pub const FINALIZE_AFTER_STILL_BLOCKS: u8 = 10;
+
+/// Still blocks after speech, while the lamp speaks, after which the
+/// stream is asked for the words so far ([`Ears::flush`]): 200 ms. With
+/// the relay's 269 ms to answer, a "Stop." stops the lamp about 0.5 s
+/// after it is said.
+pub const FLUSH_AFTER_STILL_BLOCKS: u8 = 20;
+
+/// With the raw blocks ([`raw_source`]), blocks sent while the lamp sounds
+/// after which the words are asked for, whatever the detector heard: 50,
+/// half a second. Over the lamp the canceller's output, which the detector
+/// scores, holds no speech, so a pause after speech never came and no
+/// words were asked for (the first builder at 02:29 and 02:57 on #1047).
+/// Words said across an ask come back in two results; a stop word is one
+/// word, but "Hold on." split there is missed.
+pub const CADENCE_BLOCKS: u16 = 50;
 
 /// Words that tell the lamp to stop, alone or among others: "Stop.",
 /// "Wait, wait, wait.", "Okay, okay, that is enough.", "Lamp, stop."
@@ -58,22 +130,38 @@ const NOT: &[&str] = &[
     "don't", "dont", "not", "never", "doesn't", "didn't", "won't", "can't", "cannot",
 ];
 
-/// Whether what was heard tells the lamp to stop.
-pub fn stop_phrase(heard: &str) -> bool {
-    let words: Vec<String> = heard
-        .replace('\u{2019}', "'")
+/// The words of `text`, lowercase. A word with an apostrophe is kept
+/// whole, and ’ reads as '.
+fn words(text: &str) -> Vec<String> {
+    text.replace('\u{2019}', "'")
         .split(|c: char| !(c.is_alphanumeric() || c == '\''))
         .map(|word| word.trim_matches('\''))
         .filter(|word| !word.is_empty())
         .map(str::to_lowercase)
-        .collect();
-    let turned = |at: usize| at > 0 && NOT.contains(&words[at - 1].as_str());
-    words
+        .collect()
+}
+
+/// Whether what was heard tells the lamp to stop.
+pub fn stop_phrase(heard: &str) -> bool {
+    stop_over(heard, "")
+}
+
+/// Whether what was heard tells the lamp to stop, when the lamp itself has
+/// just said `lamp`: a stop word, or pair, that is not among the lamp's own
+/// words, nor right after one that turns it round. "The fox had to wait"
+/// in its story stops nothing, and nor does "Don't stop."
+pub fn stop_over(heard: &str, lamp: &str) -> bool {
+    let (heard, lamp) = (words(heard), words(lamp));
+    let own = |word: &String| lamp.contains(word);
+    let turned = |at: usize| at > 0 && NOT.contains(&heard[at - 1].as_str());
+    heard
         .iter()
         .enumerate()
-        .any(|(at, word)| STOP_WORDS.contains(&word.as_str()) && !turned(at))
-        || words.windows(2).enumerate().any(|(at, pair)| {
-            STOP_PAIRS.contains(&(pair[0].as_str(), pair[1].as_str())) && !turned(at)
+        .any(|(at, word)| STOP_WORDS.contains(&word.as_str()) && !own(word) && !turned(at))
+        || heard.windows(2).enumerate().any(|(at, pair)| {
+            STOP_PAIRS.contains(&(pair[0].as_str(), pair[1].as_str()))
+                && !(own(&pair[0]) && own(&pair[1]))
+                && !turned(at)
         })
 }
 
@@ -86,6 +174,9 @@ pub trait Ears: Send {
     fn hear(&mut self, captured_at_us: u64, samples: &[i16]);
     /// The yield's speech has gone still: ask for its words.
     fn finalize(&mut self);
+    /// Listening to everything ([`Listen::Always`]): a pause, so ask for
+    /// the words of what has been heard so far, and go on listening.
+    fn flush(&mut self) {}
     /// The words, once they came: at most once a yield.
     fn words(&mut self) -> Option<String>;
     /// The yield is over: what it heard is dropped, nothing more of it goes
@@ -123,9 +214,39 @@ pub struct StopWords {
     /// yield, which a hand Stop or a head touch leaves in force, is not a
     /// new one, and is let be until it ends (the reviewer on #970).
     closed: bool,
+    /// Everything heard while the lamp speaks is listened to
+    /// ([`Listen::Always`]), with the lamp's own words of the last
+    /// [`LAMP_WORDS_US`], a stop heard and not yet taken, and whether this
+    /// reply's one stop has been heard.
+    always: bool,
+    lamp: VecDeque<(u64, String)>,
+    stopped: bool,
+    stop_heard: bool,
+    /// This reply's blocks sent and results back, for the journal at its
+    /// end: whether the stream heard anything at all.
+    sent: usize,
+    results: usize,
+    /// With `always`: whether the block in hand is speech-like, as the
+    /// coordinator's detector scored it ([`Self::heard_speech`]); whether
+    /// speech has been heard since the last pause; the still blocks since
+    /// it; and the pauses this reply asked for words at.
+    speech_like: bool,
+    voiced: bool,
+    still: u8,
+    flushes: usize,
+    /// [`COUNTS_ENVIRONMENT`]: where this reply's counts go at its end, and
+    /// what it heard so far, each with whether it stopped the lamp.
+    counts: Option<std::path::PathBuf>,
+    heard: Vec<(String, bool)>,
+    /// With `always`: the words are also asked for every
+    /// [`CADENCE_BLOCKS`] sent ([`Self::with_cadence`]), and the blocks
+    /// sent since they last were.
+    cadence: bool,
+    since_asked: u16,
 }
 
 impl StopWords {
+    /// What is said in a yield ([`Listen::InYields`]).
     pub fn new(ears: Box<dyn Ears>) -> Self {
         Self {
             ears,
@@ -134,24 +255,209 @@ impl StopWords {
             yielded: false,
             asked: false,
             told: false,
+            always: false,
+            lamp: VecDeque::new(),
+            stopped: false,
+            stop_heard: false,
             closed: false,
+            sent: 0,
+            results: 0,
+            speech_like: false,
+            voiced: false,
+            still: 0,
+            flushes: 0,
+            counts: None,
+            heard: Vec::new(),
+            cadence: false,
+            since_asked: 0,
+        }
+    }
+
+    /// With `on`, listening to everything, the words are asked for every
+    /// [`CADENCE_BLOCKS`] sent as well as at each pause after speech: for
+    /// the raw blocks, whose speech the detector does not score.
+    pub fn with_cadence(mut self, on: bool) -> Self {
+        self.cadence = on && self.always;
+        self
+    }
+
+    /// Everything heard while the lamp speaks ([`Listen::Always`]). A yield
+    /// takes its usual course; a stop phrase heard stops the reply as a
+    /// hand Stop does ([`Self::spoken_stop`]).
+    pub fn always(ears: Box<dyn Ears>) -> Self {
+        Self::always_counted(ears, counts_path())
+    }
+
+    /// The same, with each reply's counts written to `counts`.
+    pub fn always_counted(ears: Box<dyn Ears>, counts: Option<std::path::PathBuf>) -> Self {
+        Self {
+            always: true,
+            counts,
+            ..Self::new(ears)
+        }
+    }
+
+    /// Whether everything heard while the lamp speaks is listened to
+    /// ([`Listen::Always`]).
+    /// Whether the next block is speech-like, as the coordinator's detector
+    /// scored it, for the pauses at which the words are asked for.
+    pub fn heard_speech(&mut self, speech_like: bool) {
+        self.speech_like = speech_like;
+    }
+
+    pub fn hears_always(&self) -> bool {
+        self.always
+    }
+
+    /// The lamp said `text`, as its words were written, at `at_us`.
+    pub fn lamp_said(&mut self, text: &str, at_us: u64) {
+        if self.always {
+            self.lamp.push_back((at_us, text.to_owned()));
+        }
+    }
+
+    /// Whether a stop phrase was heard over the lamp since last asked:
+    /// once a reply.
+    pub fn spoken_stop(&mut self) -> bool {
+        std::mem::take(&mut self.stopped)
+    }
+
+    /// [`Listen::Always`]: every block while the lamp sounds, or while it
+    /// has stopped for someone, goes to the stream, and each result is
+    /// read as it comes.
+    fn listen_always(
+        &mut self,
+        replying: bool,
+        sounding: bool,
+        yielded: bool,
+        captured_at_us: u64,
+        samples: &[i16],
+    ) {
+        if replying && !self.replying {
+            self.ears.ready();
+            self.rested = false;
+            self.stopped = false;
+            self.stop_heard = false;
+            self.sent = 0;
+            self.results = 0;
+            self.voiced = false;
+            self.still = 0;
+            self.flushes = 0;
+            self.since_asked = 0;
+            self.heard.clear();
+        }
+        self.replying = replying;
+        if replying && (sounding || yielded) {
+            self.ears.hear(captured_at_us, samples);
+            self.sent += 1;
+            // Through the relay a short "Stop." gets no interim result, and
+            // its words come only once `Finalize` asks for them (the first
+            // builder's `stt-check` on lamp-4ace, 16:59): they are asked
+            // for at each pause after speech, and the stream goes on.
+            self.since_asked = self.since_asked.saturating_add(1);
+            if self.speech_like {
+                self.voiced = true;
+                self.still = 0;
+            } else if self.voiced {
+                self.still += 1;
+            }
+            let after_speech = self.voiced && self.still >= FLUSH_AFTER_STILL_BLOCKS;
+            if after_speech || self.cadence && self.since_asked >= CADENCE_BLOCKS {
+                self.ears.flush();
+                self.flushes += 1;
+                self.voiced = false;
+                self.still = 0;
+                self.since_asked = 0;
+            }
+        }
+        let since = captured_at_us.saturating_sub(LAMP_WORDS_US);
+        while self.lamp.front().is_some_and(|(at, _)| *at < since) {
+            self.lamp.pop_front();
+        }
+        while let Some(heard) = self.ears.words() {
+            self.results += 1;
+            let lamp: Vec<&str> = self.lamp.iter().map(|(_, text)| text.as_str()).collect();
+            let stops = replying && !self.stop_heard && stop_over(&heard, &lamp.join(" "));
+            if stops {
+                self.stop_heard = true;
+                self.stopped = true;
+                eprintln!("lamp-voice: stop words: a stop phrase was heard over the lamp's voice");
+            }
+            if self.counts.is_some() && self.heard.len() < MOST_HEARD {
+                let mut text = heard;
+                if text.len() > HEARD_BYTES {
+                    let mut end = HEARD_BYTES;
+                    while !text.is_char_boundary(end) {
+                        end -= 1;
+                    }
+                    text.truncate(end);
+                }
+                self.heard.push((text, stops));
+            }
+        }
+        if !replying && !self.rested {
+            // Written before the stream rests, so that its thread adds its
+            // own counts to them.
+            if let Some(path) = self.counts.as_deref() {
+                let value = serde_json::json!({
+                    "at_unix_ms": unix_ms(),
+                    "reply": {
+                        "blocks_sent": self.sent,
+                        "pauses_asked": self.flushes,
+                        "asked_every_ms": self.cadence.then_some(u64::from(CADENCE_BLOCKS) * 10),
+                        "results": self.results,
+                        "stop_heard": self.stop_heard,
+                        "heard": self.heard.iter().map(|(text, stopped)| {
+                            serde_json::json!({"text": text, "stopped_the_lamp": stopped})
+                        }).collect::<Vec<_>>(),
+                    },
+                });
+                if let Err(error) = write_json(path, &value) {
+                    eprintln!(
+                        "lamp-voice: stop words: the reply's counts could not be written to {}: {error}",
+                        path.display()
+                    );
+                }
+            }
+            self.ears.rest();
+            self.rested = true;
+            self.lamp.clear();
+            // Counts only: whether anything was sent and heard back.
+            eprintln!(
+                "lamp-voice: stop words: the reply's {} blocks went to the speech-to-text, its words asked for at {} pauses, {} results came back{}",
+                self.sent,
+                self.flushes,
+                self.results,
+                if self.stop_heard {
+                    ", a stop phrase among them"
+                } else {
+                    ""
+                }
+            );
         }
     }
 
     /// One capture block, after the rule has heard it. `replying`: a reply
-    /// is under way. `yielded`: a yield is in force after this block, and
+    /// is under way, and `sounding`: the lamp's sound still reaches the
+    /// microphone. `yielded`: a yield is in force after this block, and
     /// `still` its blocks of stillness. `held`: the audio held for a yield
     /// that began at this block, this block's own among it; `samples`: this
     /// block's audio, captured at `captured_at_us`.
+    #[allow(clippy::too_many_arguments)]
     pub fn block(
         &mut self,
         replying: bool,
+        sounding: bool,
         yielded: bool,
         still: Option<u8>,
         held: Option<&[crate::activity::ObservedAudio]>,
         captured_at_us: u64,
         samples: &[i16],
     ) -> Tell {
+        if self.always {
+            self.listen_always(replying, sounding, yielded, captured_at_us, samples);
+            return Tell::Nothing;
+        }
         if self.closed {
             if yielded {
                 return Tell::Nothing;
@@ -221,7 +527,39 @@ impl StopWords {
         }
         self.replying = false;
         self.closed = true;
+        self.stopped = false;
+        self.lamp.clear();
     }
+}
+
+/// `lamp-voice stt-check SECOND_CONFIG WAV` (#1047, the first builder at
+/// 15:29): a recording, 16 kHz mono 16-bit, through the speech-to-text the
+/// second voice's configuration names, as the stop words send it, with
+/// everything the service sends back printed by kind and when. For a
+/// recording made for the purpose, never a person's: the words heard are
+/// printed.
+pub fn stt_check(config: &std::path::Path, wav: &std::path::Path) -> io::Result<()> {
+    let config = crate::second_config::load_from_path(config)?;
+    let mut reader = hound::WavReader::open(wav).map_err(io::Error::other)?;
+    let spec = reader.spec();
+    if (
+        spec.sample_rate,
+        spec.channels,
+        spec.bits_per_sample,
+        spec.sample_format,
+    ) != (16_000, 1, 16, hound::SampleFormat::Int)
+    {
+        return Err(io::Error::other("stt-check takes 16 kHz mono 16-bit audio"));
+    }
+    let samples = reader
+        .samples::<i16>()
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(io::Error::other)?;
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?
+        .block_on(crate::second_provider::net::stt_check(&config, &samples))
+        .map_err(|error| io::Error::other(error.to_string()))
 }
 
 /// The second voice's speech-to-text, on its own thread so that nothing on
@@ -253,6 +591,9 @@ enum Command {
         samples: Vec<i16>,
     },
     Finalize {
+        of: u64,
+    },
+    Flush {
         of: u64,
     },
     Rest,
@@ -345,9 +686,14 @@ impl Live {
 }
 
 impl RelayEars {
-    /// The speech-to-text `config` names, from a thread of its own.
-    pub fn start(config: SecondConfig) -> io::Result<Self> {
-        Self::with(move || {
+    /// The speech-to-text `config` names, from a thread of its own. With
+    /// `always` ([`Listen::Always`]), each result's words are given as they
+    /// come, interim ones among them, and no stream is asked to finish.
+    pub fn start(config: SecondConfig, always: bool) -> io::Result<Self> {
+        let record = std::env::var_os(AUDIO_ENVIRONMENT)
+            .map(std::path::PathBuf::from)
+            .filter(|path| path.is_absolute());
+        Self::with(always, record, counts_path(), move || {
             let config = config.clone();
             async move {
                 SttStream::connect(&config)
@@ -358,7 +704,12 @@ impl RelayEars {
     }
 
     /// The same, with streams from `connect`.
-    fn with<C, F>(connect: C) -> io::Result<Self>
+    fn with<C, F>(
+        always: bool,
+        record: Option<std::path::PathBuf>,
+        counts: Option<std::path::PathBuf>,
+        connect: C,
+    ) -> io::Result<Self>
     where
         C: Fn() -> F + Send + 'static,
         F: Future<Output = Result<SttStream, String>> + Send + 'static,
@@ -376,7 +727,9 @@ impl RelayEars {
                     .build()
                 {
                     // Its streams and their tasks go with the runtime.
-                    Ok(runtime) => runtime.block_on(serve(connect, queued, said, &shared)),
+                    Ok(runtime) => runtime.block_on(serve(
+                        connect, always, record, counts, queued, said, &shared,
+                    )),
                     Err(error) => {
                         eprintln!("lamp-voice: stop words cannot be heard: {error}");
                     }
@@ -418,6 +771,11 @@ impl Ears for RelayEars {
             of: self.live.now(),
         });
     }
+    fn flush(&mut self) {
+        self.send(Command::Flush {
+            of: self.live.now(),
+        });
+    }
     fn words(&mut self) -> Option<String> {
         let live = self.live.now();
         // Words of a yield that is over are not this one's (the
@@ -447,10 +805,104 @@ impl Drop for RelayEars {
     }
 }
 
+/// Blocks handed to a stream, blocks that could not be, and how many times
+/// a stream ended during the reply and another was asked for.
+#[derive(Default)]
+struct Handed {
+    taken: usize,
+    dropped: usize,
+    reopened: usize,
+}
+
+/// Where the coordinator reads where to write each reply's last 10 s of
+/// stream audio, as sent, for `lamp-voice stt-check` (#1047, the first
+/// builder at 20:58). An absolute path, written over at each reply's end.
+/// Unset: nothing is kept.
+pub const AUDIO_ENVIRONMENT: &str = "LAMP_STOP_WORDS_AUDIO";
+
+/// With [`Listen::Always`], where each reply's counts are written at its
+/// end, as JSON, written over each reply: what the stop words sent and got
+/// back, what the stream heard and whether it stopped the lamp, and the
+/// stream's own counts. An absolute path, off unless set. On lamp-4ace on
+/// 17 October the journal could not be read after midnight's log sync, and
+/// whether a stop came from the stop words or the duplex yield could not be
+/// told (the first builder on #1047). It holds what was said over the
+/// lamp's replies: for played tests.
+pub const COUNTS_ENVIRONMENT: &str = "LAMP_STOP_WORDS_COUNTS";
+
+fn counts_path() -> Option<std::path::PathBuf> {
+    std::env::var_os(COUNTS_ENVIRONMENT)
+        .map(std::path::PathBuf::from)
+        .filter(|path| path.is_absolute())
+}
+
+/// What a reply heard, at most this many results of it.
+const MOST_HEARD: usize = 16;
+/// Each result's words, at most this many bytes of them.
+const HEARD_BYTES: usize = 200;
+
+/// `value` written to `path` whole: through a file beside it, renamed.
+fn write_json(path: &std::path::Path, value: &serde_json::Value) -> io::Result<()> {
+    let beside = path.with_extension("json.part");
+    std::fs::write(&beside, serde_json::to_vec_pretty(value)?)?;
+    std::fs::rename(&beside, path)
+}
+
+fn unix_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |since| since.as_millis().try_into().unwrap_or(u64::MAX))
+}
+
+/// The most kept: 10 s at 16 kHz.
+const MOST_KEPT: usize = 160_000;
+
+/// `samples`, kept at the end of `kept` when `on`, the oldest let go past
+/// [`MOST_KEPT`].
+fn keep(kept: &mut VecDeque<i16>, on: bool, samples: &[i16]) {
+    if !on {
+        return;
+    }
+    kept.extend(samples.iter().copied());
+    while kept.len() > MOST_KEPT {
+        kept.pop_front();
+    }
+}
+
+/// `kept` as a 16 kHz mono 16-bit WAV at `path`.
+fn write_kept(path: &std::path::Path, kept: &VecDeque<i16>) -> Result<(), hound::Error> {
+    let mut writer = hound::WavWriter::create(
+        path,
+        hound::WavSpec {
+            channels: 1,
+            sample_rate: 16_000,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        },
+    )?;
+    for sample in kept {
+        writer.write_sample(*sample)?;
+    }
+    writer.finalize()
+}
+
+impl Handed {
+    fn count(&mut self, taken: bool) {
+        if taken {
+            self.taken += 1;
+        } else {
+            self.dropped += 1;
+        }
+    }
+}
+
 /// The thread's loop: a stream connected and kept ready while a reply is
 /// under way, the yield's audio to it, and its words back once asked for.
 async fn serve<C, F>(
     connect: C,
+    always: bool,
+    record: Option<std::path::PathBuf>,
+    counts: Option<std::path::PathBuf>,
     mut queued: queue::Receiver<Command>,
     said: mpsc::Sender<(u64, String)>,
     live: &Live,
@@ -462,20 +914,48 @@ async fn serve<C, F>(
     let mut ready: Option<SttStream> = None;
     // The stream a yield's audio goes to, and that yield.
     let mut current: Option<(u64, SttStream)> = None;
+    // With `always`, the current stream's words as they come, and its yield.
+    let mut listening: Option<(u64, tokio::sync::mpsc::UnboundedReceiver<String>)> = None;
     let mut waiting: VecDeque<(u64, u64, Vec<i16>)> = VecDeque::new();
     let mut finalize_waiting: Option<u64> = None;
     let mut connecting: Option<tokio::task::JoinHandle<Result<SttStream, String>>> = None;
     let mut finishing: Option<(u64, tokio::task::JoinHandle<Result<String, String>>)> = None;
     let mut retry_at: Option<tokio::time::Instant> = None;
     let mut told_failure = false;
+    // When the connection in hand was asked for, for the journal.
+    let mut asked_at = tokio::time::Instant::now();
+    // With `always`, the blocks handed to the current stream and those
+    // dropped (too old, or a backlog), for the journal at the reply's end.
+    let mut handed = Handed::default();
+    // With `LAMP_STOP_WORDS_AUDIO`: the last 10 s of what this reply's
+    // streams were given, exactly as sent, for `stt-check`.
+    let mut kept: VecDeque<i16> = VecDeque::new();
+    // What the stream a revocation took away sent back, for the end-of-reply
+    // line: a reply's end revokes before its `Rest` comes (#1047, the
+    // first builder at 21:02: that line was never written).
+    let mut last_replies: Option<std::sync::Arc<crate::second_provider::net::Replies>> = None;
     loop {
         // What a revocation took away is dropped before anything else.
         let number = live.now();
         if number == CLOSED {
+            eprintln!(
+                "lamp-voice: stop words: the speech-to-text thread ends: the voice let it go"
+            );
             return;
         }
-        if current.as_ref().is_some_and(|(of, _)| *of != number) {
-            current = None;
+        if current.as_ref().is_some_and(|(of, _)| *of != number)
+            && let Some((_, stream)) = current.take()
+        {
+            last_replies = Some(stream.replies());
+        }
+        if listening.as_ref().is_some_and(|(of, _)| *of != number) {
+            listening = None;
+        }
+        if always
+            && listening.is_none()
+            && let Some((of, stream)) = current.as_mut()
+        {
+            listening = stream.take_words().map(|words| (*of, words));
         }
         waiting.retain(|(of, _, _)| *of == number);
         finalize_waiting = finalize_waiting.filter(|of| *of == number);
@@ -489,6 +969,7 @@ async fn serve<C, F>(
             && connecting.is_none()
             && retry_at.is_none_or(|at| tokio::time::Instant::now() >= at)
         {
+            asked_at = tokio::time::Instant::now();
             connecting = Some(tokio::spawn(connect()));
         }
         tokio::select! {
@@ -498,8 +979,14 @@ async fn serve<C, F>(
                 #[cfg(test)]
                 drop(live.pause.lock().unwrap_or_else(PoisonError::into_inner));
                 match command {
-                    None => return,
-                    Some(Command::Ready) => wanted = true,
+                    None => {
+                        eprintln!("lamp-voice: stop words: the speech-to-text thread ends: nothing more can be asked of it");
+                        return;
+                    }
+                    Some(Command::Ready) => {
+                        wanted = true;
+                        kept.clear();
+                    }
                     Some(Command::Hear { of, captured_at_us, samples }) => {
                         if of != live.now() {
                             continue;
@@ -510,9 +997,13 @@ async fn serve<C, F>(
                         match &current {
                             Some((_, stream)) => {
                                 for (of, at, block) in waiting.drain(..) {
-                                    live.hand(of, at, &block, stream);
+                                    let taken = live.hand(of, at, &block, stream);
+                                    handed.count(taken);
+                                    keep(&mut kept, record.is_some() && taken, &block);
                                 }
-                                live.hand(of, captured_at_us, &samples, stream);
+                                let taken = live.hand(of, captured_at_us, &samples, stream);
+                                handed.count(taken);
+                                keep(&mut kept, record.is_some() && taken, &samples);
                             }
                             None => {
                                 if waiting.len() == MOST_WAITING {
@@ -535,10 +1026,77 @@ async fn serve<C, F>(
                             None => finalize_waiting = Some(of),
                         }
                     }
+                    // The stream asked for the words heard so far and kept
+                    // open; none yet, nothing to ask.
+                    Some(Command::Flush { of }) => {
+                        if of == live.now()
+                            && let Some((_, stream)) = current.as_ref()
+                        {
+                            let _ = stream.flush();
+                        }
+                    }
                     Some(Command::Rest) => {
+                        if always {
+                            let replies = current
+                                .as_ref()
+                                .map(|(_, stream)| stream.replies())
+                                .or_else(|| last_replies.take());
+                            eprintln!(
+                                "lamp-voice: stop words: the stream took {} blocks and dropped {} (too old, or a backlog), and was opened again {} times; {}",
+                                handed.taken,
+                                handed.dropped,
+                                handed.reopened,
+                                replies.as_ref().map_or_else(
+                                    || "no stream was open".to_owned(),
+                                    |replies| format!("the last sent back {}", replies.told())
+                                )
+                            );
+                            // Beside the reply's own counts, written just
+                            // before it rested the stream.
+                            if let Some(path) = counts.as_deref() {
+                                let mut value = std::fs::read(path)
+                                    .ok()
+                                    .and_then(|bytes| {
+                                        serde_json::from_slice::<serde_json::Value>(&bytes).ok()
+                                    })
+                                    .filter(serde_json::Value::is_object)
+                                    .unwrap_or_else(|| serde_json::json!({}));
+                                value["stream"] = serde_json::json!({
+                                    "blocks_taken": handed.taken,
+                                    "blocks_dropped": handed.dropped,
+                                    "opened_again": handed.reopened,
+                                    "last": replies.as_ref().map(|replies| replies.counts()),
+                                });
+                                if let Err(error) = write_json(path, &value) {
+                                    eprintln!(
+                                        "lamp-voice: stop words: the stream's counts could not be written to {}: {error}",
+                                        path.display()
+                                    );
+                                }
+                            }
+                        }
+                        if let Some(path) = record.as_deref()
+                            && !kept.is_empty()
+                        {
+                            match write_kept(path, &kept) {
+                                Ok(()) => eprintln!(
+                                    "lamp-voice: stop words: the reply's last {:.1} s of stream audio are in {}",
+                                    kept.len() as f64 / 16_000.0,
+                                    path.display()
+                                ),
+                                Err(error) => eprintln!(
+                                    "lamp-voice: stop words: the reply's stream audio could not be written to {}: {error}",
+                                    path.display()
+                                ),
+                            }
+                        }
+                        kept.clear();
+                        last_replies = None;
+                        handed = Handed::default();
                         wanted = false;
                         ready = None;
                         current = None;
+                        listening = None;
                         waiting.clear();
                         finalize_waiting = None;
                         if let Some(task) = connecting.take() {
@@ -554,12 +1112,19 @@ async fn serve<C, F>(
                 connecting = None;
                 match connected {
                     Ok(Ok(stream)) => {
+                        eprintln!(
+                            "lamp-voice: stop words: a stream is ready, connected in {} ms{}",
+                            asked_at.elapsed().as_millis(),
+                            if told_failure { ", the speech-to-text reached again" } else { "" }
+                        );
                         told_failure = false;
                         retry_at = None;
                         let number = live.now();
                         if current.is_none() && (!waiting.is_empty() || finalize_waiting.is_some()) {
                             for (of, at, block) in waiting.drain(..) {
-                                live.hand(of, at, &block, &stream);
+                                let taken = live.hand(of, at, &block, &stream);
+                                handed.count(taken);
+                                keep(&mut kept, record.is_some() && taken, &block);
                             }
                             match finalize_waiting.take() {
                                 Some(of) => {
@@ -581,6 +1146,27 @@ async fn serve<C, F>(
                         retry_at = Some(tokio::time::Instant::now() + RETRY);
                     }
                     Err(_) => {}
+                }
+            },
+            heard = async { listening.as_mut().expect("guarded").1.recv().await }, if listening.is_some() => {
+                match (heard, listening.as_ref()) {
+                    (Some(words), Some((of, _))) => {
+                        let _ = said.send((*of, words));
+                    }
+                    // The stream ended during the reply (#1047, the first
+                    // builder at 20:58: nothing came back after the first
+                    // pauses): it is let go and another asked for, and what
+                    // is heard meanwhile waits for it.
+                    _ => {
+                        listening = None;
+                        if always && let Some((_, stream)) = current.take() {
+                            handed.reopened += 1;
+                            eprintln!(
+                                "lamp-voice: stop words: the stream ended during the reply after it sent back {}; another is asked for",
+                                stream.replies().told()
+                            );
+                        }
+                    }
                 }
             },
             finished = async { (&mut finishing.as_mut().expect("guarded").1).await }, if finishing.is_some() => {
@@ -606,6 +1192,15 @@ async fn serve<C, F>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #1047: `raw` only; anything else hears the canceller's output.
+    #[test]
+    fn the_source_is_raw_only_when_asked() {
+        assert!(raw_source_for(Some("raw")));
+        for value in [None, Some(""), Some("processed"), Some("RAW"), Some("mic1")] {
+            assert!(!raw_source_for(value), "{value:?}");
+        }
+    }
     use std::sync::{Arc, Mutex};
 
     #[test]
@@ -667,6 +1262,9 @@ mod tests {
         fn finalize(&mut self) {
             self.0.lock().unwrap().told.push("finalize".into());
         }
+        fn flush(&mut self) {
+            self.0.lock().unwrap().told.push("flush".into());
+        }
         fn words(&mut self) -> Option<String> {
             self.0.lock().unwrap().words.take()
         }
@@ -698,27 +1296,27 @@ mod tests {
         let script = Arc::new(Mutex::new(Script::default()));
         let mut words = StopWords::new(Box::new(Scripted(Arc::clone(&script))));
         assert_eq!(
-            words.block(true, false, None, None, 0, &block(1)),
+            words.block(true, true, false, None, None, 0, &block(1)),
             Tell::Nothing
         );
         let held = [observed(2), observed(3), observed(4)];
         assert_eq!(
-            words.block(true, true, Some(0), Some(&held), 0, &block(4)),
+            words.block(true, true, true, Some(0), Some(&held), 0, &block(4)),
             Tell::Await
         );
         assert_eq!(
-            words.block(true, true, Some(0), None, 0, &block(5)),
+            words.block(true, true, true, Some(0), None, 0, &block(5)),
             Tell::Nothing
         );
         for still in 1..=10 {
             assert_eq!(
-                words.block(true, true, Some(still), None, 0, &block(6)),
+                words.block(true, true, true, Some(still), None, 0, &block(6)),
                 Tell::Nothing
             );
         }
         script.lock().unwrap().words = Some("Wait, wait.".into());
         assert_eq!(
-            words.block(true, true, Some(11), None, 0, &block(7)),
+            words.block(true, true, true, Some(11), None, 0, &block(7)),
             Tell::Words {
                 stop: true,
                 count: 2
@@ -726,15 +1324,15 @@ mod tests {
         );
         script.lock().unwrap().words = Some("Stop.".into());
         assert_eq!(
-            words.block(true, true, Some(12), None, 0, &block(7)),
+            words.block(true, true, true, Some(12), None, 0, &block(7)),
             Tell::Nothing
         );
         assert_eq!(
-            words.block(true, false, None, None, 0, &block(8)),
+            words.block(true, true, false, None, None, 0, &block(8)),
             Tell::Nothing
         );
         assert_eq!(
-            words.block(false, false, None, None, 0, &block(9)),
+            words.block(false, false, false, None, None, 0, &block(9)),
             Tell::Nothing
         );
         let told = script.lock().unwrap().told.clone();
@@ -747,21 +1345,169 @@ mod tests {
     /// A yield that ends before its words is said to be unheard. The
     /// microphone closing drops a yield and the stream at once, and only
     /// once, and the next reply has a stream ready again.
+    /// #1047, the first builder's `stt-check` at 16:59: through the relay a
+    /// short "Stop." gets no interim result, and its words come only once
+    /// `Finalize` asks for them. Listening to everything, the words are
+    /// asked for after each 200 ms pause that follows speech, and the
+    /// stream goes on; never after a pause with no speech before it.
+    #[test]
+    fn listening_always_asks_for_the_words_at_each_pause_after_speech() {
+        let script = Arc::new(Mutex::new(Script::default()));
+        let mut words = StopWords::always(Box::new(Scripted(Arc::clone(&script))));
+        let mut at = 0u64;
+        let mut heard = |words: &mut StopWords, speech: bool, blocks: u64| {
+            for _ in 0..blocks {
+                at += 10_000;
+                words.heard_speech(speech);
+                words.block(true, true, false, None, None, at, &block(1));
+            }
+        };
+        let flushes = |script: &Arc<Mutex<Script>>| {
+            script
+                .lock()
+                .unwrap()
+                .told
+                .iter()
+                .filter(|told| *told == "flush")
+                .count()
+        };
+        // Quiet from the start: nothing asked.
+        heard(&mut words, false, 50);
+        assert_eq!(flushes(&script), 0);
+        // "Stop.", then 190 ms still: not yet; at 200 ms, once.
+        heard(&mut words, true, 30);
+        heard(&mut words, false, u64::from(FLUSH_AFTER_STILL_BLOCKS) - 1);
+        assert_eq!(flushes(&script), 0);
+        heard(&mut words, false, 1);
+        assert_eq!(flushes(&script), 1);
+        // The stillness going on asks nothing more; the next speech and
+        // pause do.
+        heard(&mut words, false, 100);
+        assert_eq!(flushes(&script), 1);
+        heard(&mut words, true, 10);
+        heard(&mut words, false, u64::from(FLUSH_AFTER_STILL_BLOCKS));
+        assert_eq!(flushes(&script), 2);
+        assert!(!script.lock().unwrap().told.contains(&"rest".to_owned()));
+    }
+
+    /// #1047, the first builder at 02:57: with the raw blocks the words are
+    /// asked for every half second while the lamp sounds, though the
+    /// detector hears no speech over it; a pause after speech asks too, and
+    /// starts the half second again. Nothing is counted while nothing is
+    /// sent, and without the cadence quiet asks nothing.
+    #[test]
+    fn with_the_raw_blocks_the_words_are_asked_for_every_half_second() {
+        let flushes = |script: &Arc<Mutex<Script>>| {
+            script
+                .lock()
+                .unwrap()
+                .told
+                .iter()
+                .filter(|told| *told == "flush")
+                .count()
+        };
+        let script = Arc::new(Mutex::new(Script::default()));
+        let mut words =
+            StopWords::always(Box::new(Scripted(Arc::clone(&script)))).with_cadence(true);
+        let mut at = 0u64;
+        let mut heard = |words: &mut StopWords, sounding: bool, speech: bool, blocks: u16| {
+            for _ in 0..blocks {
+                at += 10_000;
+                words.heard_speech(speech);
+                words.block(true, sounding, false, None, None, at, &block(1));
+            }
+        };
+        heard(&mut words, true, false, CADENCE_BLOCKS - 1);
+        assert_eq!(flushes(&script), 0);
+        heard(&mut words, true, false, 1);
+        assert_eq!(flushes(&script), 1);
+        heard(&mut words, true, false, CADENCE_BLOCKS);
+        assert_eq!(flushes(&script), 2);
+        // The lamp silent and no yield: nothing sent, nothing counted.
+        heard(&mut words, false, false, 3 * CADENCE_BLOCKS);
+        assert_eq!(flushes(&script), 2);
+        // Speech and the 0.2 s pause after it ask, and the half second
+        // starts again from there.
+        heard(&mut words, true, true, 10);
+        heard(&mut words, true, false, u16::from(FLUSH_AFTER_STILL_BLOCKS));
+        assert_eq!(flushes(&script), 3);
+        heard(&mut words, true, false, CADENCE_BLOCKS - 1);
+        assert_eq!(flushes(&script), 3);
+        heard(&mut words, true, false, 1);
+        assert_eq!(flushes(&script), 4);
+
+        let plain = Arc::new(Mutex::new(Script::default()));
+        let mut words = StopWords::always(Box::new(Scripted(Arc::clone(&plain))));
+        for step in 0..u64::from(4 * CADENCE_BLOCKS) {
+            words.heard_speech(false);
+            words.block(true, true, false, None, None, step * 10_000, &block(1));
+        }
+        assert_eq!(flushes(&plain), 0);
+        // Only listening to everything has it.
+        let yields = StopWords::new(Box::new(Scripted(Arc::new(Mutex::new(Script::default())))))
+            .with_cadence(true);
+        assert!(!yields.cadence);
+    }
+
+    /// #1047, the first builder at 02:05: with the journal unreadable on
+    /// the lamp, each reply's counts go to a file at its end: what was
+    /// sent and asked for, what the stream heard and whether it stopped
+    /// the lamp. The stream's own counts are added beside them.
+    #[test]
+    fn listening_always_writes_each_replys_counts_to_a_file() {
+        let dir =
+            std::env::temp_dir().join(format!("lamp-voice-stop-counts-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("stop-words.json");
+        let script = Arc::new(Mutex::new(Script::default()));
+        let mut words =
+            StopWords::always_counted(Box::new(Scripted(Arc::clone(&script))), Some(path.clone()));
+        words.lamp_said("Once upon a time there was a fox.", 0);
+        let mut at = 0u64;
+        for _ in 0..30 {
+            at += 10_000;
+            words.heard_speech(true);
+            words.block(true, true, false, None, None, at, &block(1));
+        }
+        script.lock().unwrap().words = Some("Stop.".into());
+        at += 10_000;
+        words.block(true, true, false, None, None, at, &block(1));
+        assert!(words.spoken_stop());
+        at += 10_000;
+        words.block(false, false, false, None, None, at, &block(1));
+        let written: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        assert_eq!(written["reply"]["blocks_sent"], 31, "{written}");
+        assert_eq!(written["reply"]["results"], 1, "{written}");
+        assert_eq!(written["reply"]["stop_heard"], true, "{written}");
+        assert_eq!(
+            written["reply"]["heard"],
+            serde_json::json!([{"text": "Stop.", "stopped_the_lamp": true}])
+        );
+        assert!(script.lock().unwrap().told.contains(&"rest".to_owned()));
+        // Without a path, nothing is kept or written.
+        let mut quiet =
+            StopWords::always(Box::new(Scripted(Arc::new(Mutex::new(Script::default())))));
+        assert!(quiet.counts.is_none() || std::env::var_os(COUNTS_ENVIRONMENT).is_some());
+        quiet.block(true, true, false, None, None, 10_000, &block(1));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
     #[test]
     fn a_yield_without_words_is_unheard_and_closing_drops_everything_once() {
         let script = Arc::new(Mutex::new(Script::default()));
         let mut words = StopWords::new(Box::new(Scripted(Arc::clone(&script))));
-        words.block(true, false, None, None, 0, &block(1));
+        words.block(true, true, false, None, None, 0, &block(1));
         assert_eq!(
-            words.block(true, true, Some(0), None, 0, &block(2)),
+            words.block(true, true, true, Some(0), None, 0, &block(2)),
             Tell::Await
         );
         assert_eq!(
-            words.block(true, false, None, None, 0, &block(3)),
+            words.block(true, true, false, None, None, 0, &block(3)),
             Tell::Unheard
         );
         assert_eq!(
-            words.block(true, true, Some(0), None, 0, &block(4)),
+            words.block(true, true, true, Some(0), None, 0, &block(4)),
             Tell::Await
         );
         words.close();
@@ -769,11 +1515,11 @@ mod tests {
         // The reviewer on #970: a hand Stop leaves the duplex rule's yield in
         // force; it is not begun again, and not called unheard when it ends.
         assert_eq!(
-            words.block(true, true, Some(3), None, 0, &block(40)),
+            words.block(true, true, true, Some(3), None, 0, &block(40)),
             Tell::Nothing
         );
         assert_eq!(
-            words.block(true, false, None, None, 0, &block(5)),
+            words.block(true, true, false, None, None, 0, &block(5)),
             Tell::Nothing
         );
         let told = script.lock().unwrap().told.clone();
@@ -785,7 +1531,7 @@ mod tests {
         );
         // The next yield is heard again.
         assert_eq!(
-            words.block(true, true, Some(0), None, 0, &block(6)),
+            words.block(true, true, true, Some(0), None, 0, &block(6)),
             Tell::Await
         );
     }
@@ -797,6 +1543,9 @@ mod tests {
         audio: Arc<std::sync::atomic::AtomicUsize>,
         connections: Arc<std::sync::atomic::AtomicUsize>,
         words: Arc<Mutex<VecDeque<&'static str>>>,
+        /// Each stream's words are also given as an interim result once its
+        /// first audio comes, as the service does while someone speaks.
+        interim: bool,
     }
 
     type Connected =
@@ -808,14 +1557,23 @@ mod tests {
                 audio: Arc::default(),
                 connections: Arc::default(),
                 words: Arc::new(Mutex::new(words.iter().copied().collect())),
+                interim: false,
+            }
+        }
+
+        fn interim(words: &[&'static str]) -> Self {
+            Self {
+                interim: true,
+                ..Self::new(words)
             }
         }
 
         fn connect(&self) -> impl Fn() -> Connected + Send + 'static {
-            let (audio, connections, words) = (
+            let (audio, connections, words, interim) = (
                 Arc::clone(&self.audio),
                 Arc::clone(&self.connections),
                 Arc::clone(&self.words),
+                self.interim,
             );
             move || {
                 use futures_util::{SinkExt, StreamExt};
@@ -831,6 +1589,7 @@ mod tests {
                     tokio::spawn(async move {
                         let mut socket =
                             WebSocketStream::from_raw_socket(far, Role::Server, None).await;
+                        let mut told = !interim;
                         while let Some(Ok(message)) = socket.next().await {
                             match message {
                                 Message::Binary(bytes) => {
@@ -838,6 +1597,12 @@ mod tests {
                                         bytes.len(),
                                         std::sync::atomic::Ordering::SeqCst,
                                     );
+                                    if !std::mem::replace(&mut told, true) {
+                                        let results = format!(
+                                            r#"{{"type":"Results","is_final":false,"speech_final":false,"start":0.0,"duration":0.5,"channel":{{"alternatives":[{{"transcript":"{said}"}}]}}}}"#
+                                        );
+                                        let _ = socket.send(Message::text(results)).await;
+                                    }
                                 }
                                 Message::Text(text) if text.contains("Finalize") => {
                                     let results = format!(
@@ -885,7 +1650,7 @@ mod tests {
     fn audio_queued_for_a_yield_never_goes_once_it_is_forgotten_rested_or_dropped() {
         for way in ["forget", "rest", "drop"] {
             let service = Service::new(&[]);
-            let mut ears = Some(RelayEars::with(service.connect()).unwrap());
+            let mut ears = Some(RelayEars::with(false, None, None, service.connect()).unwrap());
             let live = Arc::clone(&ears.as_ref().unwrap().live);
             ears.as_mut().unwrap().ready();
             until("a stream is asked for", || service.connections() == 1);
@@ -916,7 +1681,7 @@ mod tests {
         }
         // Too old: captured 4 s ago, it never goes; the block after it does.
         let service = Service::new(&[]);
-        let mut ears = RelayEars::with(service.connect()).unwrap();
+        let mut ears = RelayEars::with(false, None, None, service.connect()).unwrap();
         ears.ready();
         until("a stream is asked for", || service.connections() == 1);
         ears.hear(lamp_ipc::monotonic_us() - 4_000_000, &[1; 160]);
@@ -932,7 +1697,7 @@ mod tests {
     #[test]
     fn words_that_come_for_a_yield_after_it_is_forgotten_are_not_the_next_ones() {
         let service = Service::new(&["Stop.", "Mm-hm."]);
-        let mut ears = RelayEars::with(service.connect()).unwrap();
+        let mut ears = RelayEars::with(false, None, None, service.connect()).unwrap();
         let live = Arc::clone(&ears.live);
         ears.ready();
         until("a stream is asked for", || service.connections() == 1);
@@ -956,5 +1721,170 @@ mod tests {
             words.is_some()
         });
         assert_eq!(words.as_deref(), Some("Mm-hm."));
+    }
+
+    #[test]
+    fn a_stop_word_the_lamp_did_not_say_itself_is_heard_over_it() {
+        assert!(stop_over("Stop.", ""));
+        assert!(stop_over(
+            "the fox had to wait stop",
+            "and the fox had to wait"
+        ));
+        assert!(!stop_over(
+            "the fox had to wait",
+            "and the fox had to wait for the rain"
+        ));
+        assert!(!stop_over("Hold on.", "hold on, said the owl"));
+        assert!(stop_over("Hang on.", "hold on, said the owl"));
+        assert!(!stop_over("Mm-hm.", ""));
+        assert_eq!(listen_for(Some("heard")), Listen::InYields);
+        assert_eq!(listen_for(Some("heard-always")), Listen::Always);
+        assert_eq!(listen_for(Some("on")), Listen::Off);
+        assert_eq!(listen_for(None), Listen::Off);
+    }
+
+    /// With `heard-always`: every block goes to the stream while the lamp
+    /// sounds, and none once it has gone quiet; a stop word the lamp said
+    /// itself stops nothing; one said over it stops the reply once; the next
+    /// reply begins afresh; a yield takes its usual course, told nothing.
+    #[test]
+    fn listening_always_hears_the_lamps_whole_reply_and_stops_on_a_word_it_did_not_say() {
+        let script = Arc::new(Mutex::new(Script::default()));
+        let mut words = StopWords::always(Box::new(Scripted(Arc::clone(&script))));
+        let at = |n: u64| 10_000_000 + n * 10_000;
+        assert_eq!(
+            words.block(true, true, false, None, None, at(1), &block(1)),
+            Tell::Nothing
+        );
+        words.lamp_said("And so the fox had to wait.", at(1));
+        script.lock().unwrap().words = Some("the fox had to wait".into());
+        words.block(true, true, false, None, None, at(2), &block(2));
+        assert!(!words.spoken_stop());
+        // A yield: the rule is told nothing, and its audio goes on.
+        assert_eq!(
+            words.block(true, true, true, Some(0), None, at(3), &block(3)),
+            Tell::Nothing
+        );
+        script.lock().unwrap().words = Some("Stop.".into());
+        words.block(true, true, false, None, None, at(4), &block(4));
+        assert!(words.spoken_stop());
+        assert!(!words.spoken_stop());
+        script.lock().unwrap().words = Some("Stop.".into());
+        words.block(true, true, false, None, None, at(5), &block(5));
+        assert!(!words.spoken_stop(), "a second stop in the same reply");
+        // The lamp quiet: nothing more goes.
+        words.block(true, false, false, None, None, at(6), &block(6));
+        words.block(false, false, false, None, None, at(7), &block(7));
+        // A new reply hears afresh, and the old reply's words are forgotten.
+        words.block(true, true, false, None, None, at(800), &block(8));
+        script.lock().unwrap().words = Some("wait".into());
+        words.block(true, true, false, None, None, at(801), &block(9));
+        assert!(words.spoken_stop());
+        let told = script.lock().unwrap().told.clone();
+        assert_eq!(
+            told,
+            [
+                "ready", "hear 1", "hear 2", "hear 3", "hear 4", "hear 5", "rest", "ready",
+                "hear 8", "hear 9"
+            ]
+        );
+    }
+
+    /// With `heard-always`, through the real thread: a reply's audio goes
+    /// to the stream as it is heard, and the words come back as the
+    /// service gives them, interim ones, with no stream asked to finish;
+    /// none are given once the reply is over.
+    #[test]
+    fn listening_always_gives_the_words_as_they_come_through_the_thread() {
+        let service = Service::interim(&["Stop."]);
+        let mut ears = RelayEars::with(true, None, None, service.connect()).unwrap();
+        ears.ready();
+        until("a stream is asked for", || service.connections() == 1);
+        let mut words = None;
+        until("the interim words", || {
+            ears.hear(lamp_ipc::monotonic_us(), &[1; 160]);
+            words = words.take().or_else(|| ears.words());
+            words.is_some()
+        });
+        assert_eq!(words.as_deref(), Some("Stop."));
+        ears.rest();
+        ears.hear(lamp_ipc::monotonic_us(), &[1; 160]);
+        std::thread::sleep(Duration::from_millis(50));
+        assert_eq!(ears.words(), None);
+    }
+
+    /// #1047, the first builder at 20:58: a service that closes the stream
+    /// once it has answered a `Finalize`, as the relay may. The words it
+    /// gave are read, the stream is replaced at once, and the reply's audio
+    /// goes on to the new one. With `LAMP_STOP_WORDS_AUDIO`, the reply's
+    /// stream audio, as sent, is written at its end; with
+    /// `LAMP_STOP_WORDS_COUNTS`, the stream's counts beside the reply's
+    /// (the first builder at 02:05).
+    #[test]
+    fn a_stream_closed_after_a_flush_is_replaced_and_its_audio_written() {
+        let service = Service::new(&["Stop.", ""]);
+        let path = std::env::temp_dir().join(format!(
+            "lamp-stop-words-{}-{:x}.wav",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .subsec_nanos()
+        ));
+        let counts = path.with_extension("json");
+        let mut ears = RelayEars::with(
+            true,
+            Some(path.clone()),
+            Some(counts.clone()),
+            service.connect(),
+        )
+        .unwrap();
+        ears.ready();
+        until("a stream is asked for", || service.connections() == 1);
+        until("audio reaches the service", || {
+            ears.hear(lamp_ipc::monotonic_us(), &[1; 160]);
+            service.audio() > 0
+        });
+        ears.flush();
+        let mut words = None;
+        until("the flush's words", || {
+            words = words.take().or_else(|| ears.words());
+            words.is_some()
+        });
+        assert_eq!(words.as_deref(), Some("Stop."));
+        until("another stream", || {
+            ears.hear(lamp_ipc::monotonic_us(), &[2; 160]);
+            service.connections() == 2
+        });
+        let before = service.audio();
+        until("audio reaches the new stream", || {
+            ears.hear(lamp_ipc::monotonic_us(), &[2; 160]);
+            service.audio() > before
+        });
+        // The reply's own counts, as `StopWords` writes them before it rests
+        // the stream.
+        std::fs::write(&counts, br#"{"reply":{"results":1}}"#).unwrap();
+        ears.rest();
+        until("the reply's stream audio is written", || {
+            hound::WavReader::open(&path).is_ok_and(|wav| wav.len() >= 320)
+        });
+        let wav = hound::WavReader::open(&path).unwrap();
+        assert_eq!((wav.spec().sample_rate, wav.spec().channels), (16_000, 1));
+        let mut written = serde_json::Value::Null;
+        until("the stream's counts are written", || {
+            written = std::fs::read(&counts)
+                .ok()
+                .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+                .unwrap_or_default();
+            written.get("stream").is_some()
+        });
+        assert_eq!(written["reply"]["results"], 1, "{written}");
+        assert!(
+            written["stream"]["blocks_taken"].as_u64() > Some(0),
+            "{written}"
+        );
+        assert_eq!(written["stream"]["opened_again"], 1, "{written}");
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(&counts);
     }
 }

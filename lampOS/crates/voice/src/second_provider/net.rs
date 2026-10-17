@@ -12,7 +12,7 @@ mod tts;
 
 pub use chat::{Chat, ChatEvent, ChatStream, Declare, Message, ToolCall};
 pub use sentences::Sentences;
-pub use stt::SttStream;
+pub use stt::{Replies, SttStream, check as stt_check};
 pub use tts::{PACKET_SAMPLES, TTS_SAMPLE_RATE, Tts, TtsStream};
 
 /// To open a connection, TLS included.

@@ -6,7 +6,10 @@ use crate::second_config::{SecondConfig, Stt};
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
 use std::{
-    sync::{Arc, OnceLock},
+    sync::{
+        Arc, OnceLock,
+        atomic::{AtomicUsize, Ordering},
+    },
     time::Duration,
 };
 use tokio::{sync::mpsc, task::JoinHandle, time::Instant};
@@ -227,15 +230,88 @@ impl Transcript {
     }
 }
 
+/// What a stream's service sent back, by kind: for telling a service that
+/// said nothing from one whose results held no words (#1047, the first
+/// builder at 15:29).
+#[derive(Debug, Default)]
+pub struct Replies {
+    with_words: AtomicUsize,
+    without_words: AtomicUsize,
+    speech_started: AtomicUsize,
+    other: AtomicUsize,
+    /// How the stream ended, once it has: the service's close code and
+    /// reason, the socket ending, or a failure (#1047, the first builder at
+    /// 20:58).
+    ended: std::sync::Mutex<Option<String>>,
+}
+
+impl Replies {
+    fn count(&self, kind: &AtomicUsize) {
+        kind.fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn end(&self, how: String) {
+        if let Ok(mut ended) = self.ended.lock() {
+            ended.get_or_insert(how);
+        }
+    }
+
+    /// How the stream ended, if it has.
+    pub fn ended(&self) -> Option<String> {
+        self.ended.lock().ok().and_then(|ended| ended.clone())
+    }
+
+    /// The counts, and how the stream ended if it has, for a file
+    /// (`stop_words::COUNTS_ENVIRONMENT`); no words of what was heard.
+    pub fn counts(&self) -> serde_json::Value {
+        let read = |kind: &AtomicUsize| kind.load(Ordering::Relaxed);
+        serde_json::json!({
+            "results_with_words": read(&self.with_words),
+            "results_without_words": read(&self.without_words),
+            "speech_starts": read(&self.speech_started),
+            "other_messages": read(&self.other),
+            "ended": self.ended(),
+        })
+    }
+
+    /// The counts, in words, and how the stream ended if it has; no words
+    /// of what was heard.
+    pub fn told(&self) -> String {
+        let read = |kind: &AtomicUsize| kind.load(Ordering::Relaxed);
+        format!(
+            "{} results with words, {} without, {} speech starts, {} other messages{}",
+            read(&self.with_words),
+            read(&self.without_words),
+            read(&self.speech_started),
+            read(&self.other),
+            self.ended()
+                .map_or(String::new(), |how| format!("; the stream {how}"))
+        )
+    }
+}
+
+/// What the stream's task writes, in the order queued.
+enum Outgoing {
+    Audio(Vec<u8>),
+    /// `Finalize` with the stream kept open: the words of what was sent so
+    /// far, then more audio ([`SttStream::flush`]).
+    Flush,
+}
+
 /// One utterance's stream. The socket is owned by a task that writes the
 /// queued audio, keeps an idle socket alive and collects the transcript.
 pub struct SttStream {
     /// `None` once finishing: the task then sends `CloseStream`.
-    audio: Option<mpsc::Sender<Vec<u8>>>,
+    audio: Option<mpsc::Sender<Outgoing>>,
     /// The words, and the account of the end of the line once it came.
     task: JoinHandle<Result<(String, Option<String>)>>,
     /// When the first words came back, interim or final (#828).
     words_at: Arc<OnceLock<Instant>>,
+    /// Each result's words as they come, interim and final, until taken
+    /// ([`Self::take_words`], `LAMP_STOP_WORDS=heard-always`, #828).
+    words: Option<mpsc::UnboundedReceiver<String>>,
+    /// What the service has sent back so far, by kind.
+    replies: Arc<Replies>,
 }
 
 impl SttStream {
@@ -248,34 +324,46 @@ impl SttStream {
     }
 
     async fn open(url: reqwest::Url, key: &str) -> Result<Self> {
-        let mut request = url.as_str().into_client_request().map_err(|_| Error::Url)?;
-        let mut auth =
-            HeaderValue::from_str(&format!("Token {key}")).map_err(|_| Error::Protocol("key"))?;
-        auth.set_sensitive(true);
-        request.headers_mut().insert("authorization", auth);
-        let socket_config = tokio_tungstenite::tungstenite::protocol::WebSocketConfig::default()
-            .max_message_size(Some(MAX_MESSAGE))
-            .max_frame_size(Some(MAX_MESSAGE));
-        let (socket, _) = tokio::time::timeout(
-            CONNECT,
-            connect_async_tls_with_config(
-                request,
-                Some(socket_config),
-                true,
-                Some(Connector::Rustls(Arc::new(tls()?))),
-            ),
-        )
-        .await
-        .map_err(|_| Error::Timeout("speech-to-text connect"))?
-        .map_err(|error| match error {
-            tokio_tungstenite::tungstenite::Error::Http(response) => {
-                Error::Status(response.status().as_u16())
-            }
-            _ => Error::Transport("speech-to-text connect"),
-        })?;
-        Ok(Self::start(socket))
+        Ok(Self::start(socket(url, key).await?))
     }
+}
 
+/// The service's websocket at `url`, signed with `key`.
+async fn socket(
+    url: reqwest::Url,
+    key: &str,
+) -> Result<
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
+> {
+    let mut request = url.as_str().into_client_request().map_err(|_| Error::Url)?;
+    let mut auth =
+        HeaderValue::from_str(&format!("Token {key}")).map_err(|_| Error::Protocol("key"))?;
+    auth.set_sensitive(true);
+    request.headers_mut().insert("authorization", auth);
+    let socket_config = tokio_tungstenite::tungstenite::protocol::WebSocketConfig::default()
+        .max_message_size(Some(MAX_MESSAGE))
+        .max_frame_size(Some(MAX_MESSAGE));
+    let (socket, _) = tokio::time::timeout(
+        CONNECT,
+        connect_async_tls_with_config(
+            request,
+            Some(socket_config),
+            true,
+            Some(Connector::Rustls(Arc::new(tls()?))),
+        ),
+    )
+    .await
+    .map_err(|_| Error::Timeout("speech-to-text connect"))?
+    .map_err(|error| match error {
+        tokio_tungstenite::tungstenite::Error::Http(response) => {
+            Error::Status(response.status().as_u16())
+        }
+        _ => Error::Transport("speech-to-text connect"),
+    })?;
+    Ok(socket)
+}
+
+impl SttStream {
     /// A stream on `socket`, for tests of what is sent on it (#970).
     #[cfg(test)]
     pub(crate) fn on<S>(socket: tokio_tungstenite::WebSocketStream<S>) -> Self
@@ -291,11 +379,33 @@ impl SttStream {
     {
         let (audio, queued) = mpsc::channel(QUEUE);
         let words_at = Arc::new(OnceLock::new());
+        let (said, words) = mpsc::unbounded_channel();
+        let replies = Arc::new(Replies::default());
         Self {
             audio: Some(audio),
-            task: tokio::spawn(run(socket, queued, Arc::clone(&words_at))),
+            task: tokio::spawn(run(
+                socket,
+                queued,
+                Arc::clone(&words_at),
+                said,
+                Arc::clone(&replies),
+            )),
             words_at,
+            words: Some(words),
+            replies,
         }
+    }
+
+    /// Each result's words as they come back, interim and final, in order,
+    /// for one taker: a stop said over the lamp is heard as it is said, not
+    /// when the stream ends (#828).
+    pub fn take_words(&mut self) -> Option<mpsc::UnboundedReceiver<String>> {
+        self.words.take()
+    }
+
+    /// What the service has sent back on this stream so far, by kind.
+    pub fn replies(&self) -> Arc<Replies> {
+        Arc::clone(&self.replies)
     }
 
     /// When the service first gave back words for this stream, interim or
@@ -309,11 +419,23 @@ impl SttStream {
     /// queue is full (the service stopped reading); nothing waits.
     pub fn send(&self, samples: &[i16]) -> Result<()> {
         let bytes = samples.iter().flat_map(|s| s.to_le_bytes()).collect();
+        self.queue(Outgoing::Audio(bytes))
+    }
+
+    /// Ask for the words of everything sent so far, and keep the stream
+    /// open for more (#1047, the first builder at 16:59: through the
+    /// relay, a short "Stop." gets no interim result at all, and its words
+    /// come only once `Finalize` asks for them, 269 ms after its audio).
+    pub fn flush(&self) -> Result<()> {
+        self.queue(Outgoing::Flush)
+    }
+
+    fn queue(&self, outgoing: Outgoing) -> Result<()> {
         let audio = self
             .audio
             .as_ref()
             .ok_or(Error::Transport("speech-to-text stream"))?;
-        audio.try_send(bytes).map_err(|error| match error {
+        audio.try_send(outgoing).map_err(|error| match error {
             mpsc::error::TrySendError::Full(_) => Error::Protocol("speech-to-text backlog"),
             mpsc::error::TrySendError::Closed(_) => Error::Transport("speech-to-text stream"),
         })
@@ -354,10 +476,132 @@ impl Drop for SttStream {
     }
 }
 
+/// For `lamp-voice stt-check` (#1047, the first builder at 15:29): stream
+/// `samples` (16 kHz mono) to the speech-to-text `config` names, in 10 ms
+/// blocks at the pace they were recorded, as the stop words do. Then, 1.5 s
+/// after the last block, `Finalize`, and 2 s later `CloseStream`. Print
+/// everything the service sends back, by kind and when, from the first
+/// block sent. That shows whether results come at all, and if so only
+/// after `Finalize` or only at the close.
+pub async fn check(config: &SecondConfig, samples: &[i16]) -> Result<()> {
+    let (proxy, key) = match &config.stt {
+        Stt::Deepgram { key } => (None, key),
+        Stt::Autonomous { base_url, key } => (Some(base_url.as_str()), key),
+    };
+    let asked = Instant::now();
+    let (mut write, mut read) = socket(url(proxy, config.stt_language.as_deref())?, key.expose())
+        .await?
+        .split();
+    println!(
+        "connected in {} ms; sending {:.2} s of audio",
+        asked.elapsed().as_millis(),
+        samples.len() as f64 / 16_000.0
+    );
+    let started = Instant::now();
+    let at = move || started.elapsed().as_millis();
+    let writer = async {
+        for (index, block) in samples.chunks(160).enumerate() {
+            tokio::time::sleep_until(started + Duration::from_millis(10 * index as u64)).await;
+            let bytes: Vec<u8> = block
+                .iter()
+                .flat_map(|sample| sample.to_le_bytes())
+                .collect();
+            write
+                .send(Message::binary(bytes))
+                .await
+                .map_err(|_| Error::Transport("speech-to-text send"))?;
+        }
+        println!("{:>6} ms  the last block went", at());
+        tokio::time::sleep(Duration::from_millis(1_500)).await;
+        write
+            .send(Message::text(r#"{"type":"Finalize"}"#))
+            .await
+            .map_err(|_| Error::Transport("speech-to-text send"))?;
+        println!("{:>6} ms  Finalize went", at());
+        tokio::time::sleep(Duration::from_secs(2)).await;
+        write
+            .send(Message::text(r#"{"type":"CloseStream"}"#))
+            .await
+            .map_err(|_| Error::Transport("speech-to-text send"))?;
+        println!("{:>6} ms  CloseStream went", at());
+        // The close is waited for below.
+        std::future::pending::<()>().await;
+        Ok::<(), Error>(())
+    };
+    let counts = Replies::default();
+    let reader = async {
+        while let Some(message) = read.next().await {
+            match message {
+                Ok(Message::Text(text)) => {
+                    if let Some(heard) = heard(&text) {
+                        counts.count(if heard.transcript.is_empty() {
+                            &counts.without_words
+                        } else {
+                            &counts.with_words
+                        });
+                        println!(
+                            "{:>6} ms  Results final={} speech_final={} from_finalize={} audio {:.2} s: {:?}",
+                            at(),
+                            heard.is_final,
+                            heard.speech_final,
+                            heard.from_finalize,
+                            heard.end,
+                            heard.transcript
+                        );
+                    } else {
+                        let kind = serde_json::from_str::<serde_json::Value>(&text)
+                            .ok()
+                            .and_then(|message| message["type"].as_str().map(str::to_owned))
+                            .unwrap_or_else(|| "not JSON".to_owned());
+                        counts.count(if kind == "SpeechStarted" {
+                            &counts.speech_started
+                        } else {
+                            &counts.other
+                        });
+                        println!(
+                            "{:>6} ms  {kind}: {}",
+                            at(),
+                            text.chars().take(300).collect::<String>()
+                        );
+                    }
+                }
+                Ok(Message::Binary(bytes)) => {
+                    counts.count(&counts.other);
+                    println!("{:>6} ms  binary, {} bytes", at(), bytes.len());
+                }
+                Ok(Message::Close(frame)) => {
+                    println!("{:>6} ms  closed: {frame:?}", at());
+                    break;
+                }
+                Ok(_) => {}
+                Err(error) => {
+                    println!("{:>6} ms  failed: {error}", at());
+                    break;
+                }
+            }
+        }
+    };
+    tokio::select! {
+        written = writer => written?,
+        read = tokio::time::timeout(
+            Duration::from_secs_f64(samples.len() as f64 / 16_000.0) + Duration::from_secs(8),
+            reader,
+        ) => {
+            if read.is_err() {
+                println!("{:>6} ms  no close came", at());
+            }
+        }
+    }
+    println!("{}", counts.told());
+    Ok(())
+}
+
 async fn run<S>(
     socket: tokio_tungstenite::WebSocketStream<S>,
-    mut queued: mpsc::Receiver<Vec<u8>>,
+    mut queued: mpsc::Receiver<Outgoing>,
     words_at: Arc<OnceLock<Instant>>,
+    said: mpsc::UnboundedSender<String>,
+    replies: Arc<Replies>,
 ) -> Result<(String, Option<String>)>
 where
     S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
@@ -379,14 +623,27 @@ where
         let sent = samples_sent as f64 / 16_000.0;
         tokio::select! {
             frame = queued.recv(), if finalize_by.is_none() && !closing => {
-                if let Some(bytes) = frame {
-                    samples_sent += bytes.len() / 2;
-                    write
-                        .send(Message::binary(bytes))
-                        .await
-                        .map_err(|_| Error::Transport("speech-to-text send"))?;
-                    last_sent = Instant::now();
-                    continue;
+                match frame {
+                    Some(Outgoing::Audio(bytes)) => {
+                        samples_sent += bytes.len() / 2;
+                        write
+                            .send(Message::binary(bytes))
+                            .await
+                            .map_err(|_| Error::Transport("speech-to-text send"))?;
+                        last_sent = Instant::now();
+                        continue;
+                    }
+                    // Its answer comes as `from_finalize` results, read as
+                    // any other; the stream goes on.
+                    Some(Outgoing::Flush) => {
+                        write
+                            .send(Message::text(r#"{"type":"Finalize"}"#))
+                            .await
+                            .map_err(|_| Error::Transport("speech-to-text send"))?;
+                        last_sent = Instant::now();
+                        continue;
+                    }
+                    None => {}
                 }
                 // The end of the line. Words already settled are the
                 // answer; otherwise `Finalize` asks for the final at once
@@ -423,8 +680,14 @@ where
             message = read.next() => match message {
                 Some(Ok(Message::Text(text))) => {
                     if let Some(words) = heard(&text) {
+                        replies.count(if words.transcript.is_empty() {
+                            &replies.without_words
+                        } else {
+                            &replies.with_words
+                        });
                         if !words.transcript.is_empty() {
                             let _ = words_at.set(Instant::now());
+                            let _ = said.send(words.transcript.clone());
                         }
                         let finalized = words.from_finalize;
                         if words.is_final && finalize_by.is_none() {
@@ -453,18 +716,43 @@ where
                             }
                         }
                     } else if let Some(at) = speech_started(&text) {
+                        replies.count(&replies.speech_started);
                         transcript.speech_started(at);
+                    } else {
+                        replies.count(&replies.other);
                     }
                 }
-                Some(Ok(Message::Close(_))) | None => {
+                Some(Ok(Message::Close(frame))) => {
+                    replies.end(frame.map_or_else(
+                        || "was closed by the service, with no code".to_owned(),
+                        |frame| {
+                            format!(
+                                "was closed by the service, code {} {:?}",
+                                u16::from(frame.code),
+                                frame.reason.as_str()
+                            )
+                        },
+                    ));
                     return if finalize_by.is_some() {
                         Ok((transcript.text(), told(&at_end, "close_stream")))
                     } else {
                         Err(Error::Transport("speech-to-text stream"))
                     };
                 }
+                None => {
+                    replies.end("ended with no close".to_owned());
+                    return if finalize_by.is_some() {
+                        Ok((transcript.text(), told(&at_end, "close_stream")))
+                    } else {
+                        Err(Error::Transport("speech-to-text stream"))
+                    };
+                }
+                Some(Ok(Message::Binary(_))) => replies.count(&replies.other),
                 Some(Ok(_)) => {}
-                Some(Err(_)) => return Err(Error::Transport("speech-to-text stream")),
+                Some(Err(error)) => {
+                    replies.end(format!("failed: {error}"));
+                    return Err(Error::Transport("speech-to-text stream"));
+                }
             }
         }
     }
@@ -731,6 +1019,127 @@ mod tests {
         assert_eq!(words, "hello");
         assert_eq!(first_words.get().copied(), Some(at));
         server.abort();
+    }
+
+    /// #1047, the first builder at 15:29: what came back is counted by kind,
+    /// so that a service that said nothing is told from one whose results
+    /// held no words, and both from messages that are not read.
+    #[tokio::test(start_paused = true)]
+    async fn what_the_service_sends_back_is_counted_by_kind() {
+        use tokio_tungstenite::{WebSocketStream, tungstenite::protocol::Role};
+        const SILENT: &str = r#"{"type":"Results","is_final":false,"speech_final":false,"start":0.0,"duration":0.2,"channel":{"alternatives":[{"transcript":""}]}}"#;
+        let (near, far) = tokio::io::duplex(1 << 16);
+        let server = tokio::spawn(async move {
+            let mut socket = WebSocketStream::from_raw_socket(far, Role::Server, None).await;
+            if let Some(Ok(Message::Binary(_))) = socket.next().await {
+                for message in [
+                    SILENT,
+                    SILENT,
+                    INTERIM,
+                    r#"{"type":"SpeechStarted","timestamp":0.1}"#,
+                    r#"{"type":"Metadata"}"#,
+                    r#"{"type":"UtteranceEnd","last_word_end":0.4}"#,
+                ] {
+                    socket.send(Message::text(message)).await.unwrap();
+                }
+            }
+            std::future::pending::<()>().await;
+        });
+        let stream =
+            SttStream::start(WebSocketStream::from_raw_socket(near, Role::Client, None).await);
+        let replies = stream.replies();
+        assert_eq!(
+            replies.told(),
+            "0 results with words, 0 without, 0 speech starts, 0 other messages"
+        );
+        stream.send(&[0; 320]).unwrap();
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert_eq!(
+            replies.told(),
+            "1 results with words, 2 without, 1 speech starts, 2 other messages"
+        );
+        server.abort();
+    }
+
+    /// #1047: `flush` asks for the words of what was sent so far with
+    /// `Finalize`, in order with the audio, and the stream goes on: more
+    /// audio follows, and the answer's words come as they are given.
+    #[tokio::test(start_paused = true)]
+    async fn a_flush_asks_for_the_words_so_far_and_the_stream_goes_on() {
+        use tokio_tungstenite::{WebSocketStream, tungstenite::protocol::Role};
+        const STOP: &str = r#"{"type":"Results","is_final":true,"speech_final":true,"from_finalize":true,"start":0.0,"duration":0.46,"channel":{"alternatives":[{"transcript":"Stop."}]}}"#;
+        let (near, far) = tokio::io::duplex(1 << 16);
+        let server = tokio::spawn(async move {
+            let mut socket = WebSocketStream::from_raw_socket(far, Role::Server, None).await;
+            let mut seen = Vec::new();
+            while let Some(Ok(message)) = socket.next().await {
+                match message {
+                    Message::Binary(_) => seen.push("audio"),
+                    Message::Text(text) if text.contains("Finalize") => {
+                        seen.push("finalize");
+                        socket.send(Message::text(STOP)).await.unwrap();
+                    }
+                    Message::Text(text) if text.contains("CloseStream") => break,
+                    _ => {}
+                }
+                if seen.len() == 3 {
+                    break;
+                }
+            }
+            seen
+        });
+        let mut stream =
+            SttStream::start(WebSocketStream::from_raw_socket(near, Role::Client, None).await);
+        let mut words = stream.take_words().unwrap();
+        stream.send(&[0; 160]).unwrap();
+        stream.flush().unwrap();
+        stream.send(&[0; 160]).unwrap();
+        assert_eq!(words.recv().await.as_deref(), Some("Stop."));
+        assert_eq!(server.await.unwrap(), ["audio", "finalize", "audio"]);
+    }
+
+    /// #1047, the first builder at 20:58: how the stream ended is kept,
+    /// with the service's close code and reason, and said with the counts.
+    #[tokio::test]
+    async fn how_the_service_closed_the_stream_is_kept() {
+        use tokio_tungstenite::WebSocketStream;
+        use tokio_tungstenite::tungstenite::protocol::{
+            CloseFrame, Role, frame::coding::CloseCode,
+        };
+        let (near, far) = tokio::io::duplex(1 << 16);
+        let server = tokio::spawn(async move {
+            let mut socket = WebSocketStream::from_raw_socket(far, Role::Server, None).await;
+            if let Some(Ok(Message::Text(text))) = socket.next().await {
+                assert!(text.contains("Finalize"), "{text}");
+                socket
+                    .close(Some(CloseFrame {
+                        code: CloseCode::Normal,
+                        reason: "finalized".into(),
+                    }))
+                    .await
+                    .unwrap();
+            }
+        });
+        let stream =
+            SttStream::start(WebSocketStream::from_raw_socket(near, Role::Client, None).await);
+        let replies = stream.replies();
+        assert_eq!(replies.ended(), None);
+        stream.flush().unwrap();
+        server.await.unwrap();
+        let began = Instant::now();
+        while replies.ended().is_none() {
+            assert!(began.elapsed() < Duration::from_secs(5), "never ended");
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+        assert_eq!(
+            replies.ended().as_deref(),
+            Some("was closed by the service, code 1000 \"finalized\"")
+        );
+        assert!(
+            replies
+                .told()
+                .ends_with("; the stream was closed by the service, code 1000 \"finalized\"")
+        );
     }
 
     const SET_A_TIMER: &str = r#"{"type":"Results","is_final":true,"speech_final":true,"start":0.0,"duration":1.0,"channel":{"alternatives":[{"transcript":"set a timer"}]}}"#;

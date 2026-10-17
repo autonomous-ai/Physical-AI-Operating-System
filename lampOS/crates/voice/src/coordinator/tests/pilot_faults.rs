@@ -884,6 +884,7 @@ impl Peers {
                     let speech = self.speech(frame);
                     let peer = &mut self.peers[index];
                     let sent = peer.channels.data.send(MicrophoneFrame {
+                        raw: None,
                         epoch: self.capture_epoch,
                         dsp_epoch: 1,
                         privacy_generation: peer.snapshot.unwrap().microphone_generation(),

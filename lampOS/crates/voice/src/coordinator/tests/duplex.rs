@@ -282,6 +282,9 @@ impl Harness {
                 &self.admission,
                 &update.step,
                 self.reply.is_some(),
+                echo.as_ref().is_some_and(|echo| {
+                    echo.render_quiet_blocks < Hearing::EVALUATED.clear_after_blocks
+                }),
                 at,
                 &samples,
                 &mut self.trace,

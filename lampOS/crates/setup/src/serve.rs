@@ -448,6 +448,33 @@ pub fn start(
     Ok(Status::new(hostname()))
 }
 
+/// [`start`] when serving may be stopped (`systemctl stop`, a shutdown):
+/// `None` when it was. A stop seen first skips the hotspot. A start that
+/// fails with a stop pending is that stop, not a failure: systemd's stop
+/// reaches the whole unit, so the hotspot script dies of it too, and the
+/// unit must not read failed (the reviewers on #1336 and #1341). The start's
+/// error is kept in the line, in case the script failed by itself first.
+pub fn start_unless_stopped(
+    mut stopped: impl FnMut() -> bool,
+    start: impl FnOnce() -> io::Result<Status>,
+    mut log: impl FnMut(&str),
+) -> io::Result<Option<Status>> {
+    if stopped() {
+        log("asked to stop before the hotspot");
+        return Ok(None);
+    }
+    match start() {
+        Ok(status) => Ok(Some(status)),
+        Err(error) if stopped() => {
+            log(&format!(
+                "asked to stop while the hotspot came up ({error})"
+            ));
+            Ok(None)
+        }
+        Err(error) => Err(error),
+    }
+}
+
 /// One setup run, after V1's 2 s pause: join, then save, then the marker.
 /// `station_ip` is the address the home network gave, polled every second
 /// while joining so the page learns it before the hotspot is gone.

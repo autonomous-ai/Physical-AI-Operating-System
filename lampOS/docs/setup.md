@@ -376,7 +376,8 @@ begun, so a stop in the first seconds also ends in black (the reviewer on
 #1325). systemd's stop reaches the whole unit, so it also ends the hotspot
 script; setup then says it was asked to stop, with the script's error,
 and exits cleanly, and the unit does not read failed (the reviewer on
-#1336 and #1341).
+#1336 and #1341). That choice is `serve::start_unless_stopped`, tested in
+`tests/serve.rs` (Fourth on #1341).
 
 It is painted by `lamp_setup::light` from a thread of `lamp-setup`, through
 `lamp_ring::setup::SetupRing`, a writer like the asleep face's that needs no

@@ -6,7 +6,8 @@ use lamp_setup::{
     http::{Shared, router},
     scan,
     serve::{
-        Accepted, Config, Files, Phase, Save, SetupRequest, Status, check, run, start, zone_known,
+        Accepted, Config, Files, Phase, Save, SetupRequest, Status, check, run, start,
+        start_unless_stopped, zone_known,
     },
     wifi::Host,
 };
@@ -856,4 +857,67 @@ fn the_scan_reads_v1s_fields_and_iws_escapes() {
     assert_eq!((list[0].signal, list[0].channel), (-48, 6));
     assert_eq!(list[1].ssid, "Neighbour", "the first SSID line wins");
     assert_eq!(list[1].signal, -67);
+}
+
+/// A stop around the hotspot's start (the reviewers on #1336 and #1341):
+/// before it, nothing is started; a start that fails with a stop pending is
+/// that stop, its error kept in the line; with no stop a failure stays one.
+#[test]
+fn a_stop_around_the_hotspot_is_a_stop_and_a_failure_without_one_stays_a_failure() {
+    let ended = || Err(io::Error::other("device-ap-mode ended with signal: 15"));
+    let started = || Ok(Status::new("lamp-4ace".into()));
+
+    // Asked to stop during the look: the hotspot is never started.
+    let mut logged = Vec::new();
+    let mut began = false;
+    let outcome = start_unless_stopped(
+        || true,
+        || {
+            began = true;
+            started()
+        },
+        |line| logged.push(line.to_owned()),
+    );
+    assert!(outcome.unwrap().is_none() && !began);
+    assert_eq!(logged, ["asked to stop before the hotspot"]);
+
+    // systemd's stop ended the hotspot script too: a stop, with its error.
+    let mut asked = 0;
+    let mut logged = Vec::new();
+    let outcome = start_unless_stopped(
+        || {
+            asked += 1;
+            asked > 1
+        },
+        ended,
+        |line| logged.push(line.to_owned()),
+    );
+    assert!(outcome.unwrap().is_none());
+    assert_eq!(
+        logged,
+        ["asked to stop while the hotspot came up (device-ap-mode ended with signal: 15)"]
+    );
+
+    // No stop: the failure ends setup with its error, as before.
+    let mut logged = Vec::new();
+    let failed = start_unless_stopped(|| false, ended, |line| logged.push(line.to_owned()));
+    assert_eq!(
+        failed.unwrap_err().to_string(),
+        "device-ap-mode ended with signal: 15"
+    );
+    assert!(logged.is_empty());
+
+    // A start that worked is served, even with a stop pending: serving's
+    // own loop ends it at once, after which the light is put out.
+    let mut asked = 0;
+    let outcome = start_unless_stopped(
+        || {
+            asked += 1;
+            asked > 1
+        },
+        started,
+        |_| {},
+    );
+    assert_eq!(outcome.unwrap().unwrap().mac, "lamp-4ace");
+    assert_eq!(asked, 1, "a good start is not asked about a stop again");
 }

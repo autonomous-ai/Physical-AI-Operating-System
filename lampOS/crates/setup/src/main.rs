@@ -358,30 +358,24 @@ fn answer(
         ),
     }
     let before_hotspot = before_hotspot.ok().filter(|list| !list.is_empty());
-    // A stop during the look: no hotspot. A stop from here on ends serving
-    // at once, once it has begun.
-    if asked_to_stop(&runtime, &mut stopped) {
-        eprintln!("lamp-setup: asked to stop before the hotspot");
-        return Ok(true);
-    }
-    // The hotspot first: on a fresh image it is what names the lamp.
-    let started = match lamp_setup::serve::start(
-        &config,
-        &mut ImageHost::new(),
-        |argv| System.run(argv),
-        host_name,
+    // A stop during the look: no hotspot. One while the hotspot comes up
+    // ends serving at once, once it has begun, or is the hotspot's failure.
+    let Some(started) = lamp_setup::serve::start_unless_stopped(
+        || asked_to_stop(&runtime, &mut stopped),
+        // The hotspot first: on a fresh image it is what names the lamp.
+        || {
+            lamp_setup::serve::start(
+                &config,
+                &mut ImageHost::new(),
+                |argv| System.run(argv),
+                host_name,
+                |line| eprintln!("lamp-setup: {line}"),
+            )
+        },
         |line| eprintln!("lamp-setup: {line}"),
-    ) {
-        Ok(started) => started,
-        // systemd's stop reaches the whole unit, so the hotspot script dies
-        // of it too: that is a stop, not a failure (the reviewer on #1336).
-        // Its error is kept in the line: a script that failed by itself
-        // just before the stop is still in the journal.
-        Err(error) if asked_to_stop(&runtime, &mut stopped) => {
-            eprintln!("lamp-setup: asked to stop while the hotspot came up ({error})");
-            return Ok(true);
-        }
-        Err(error) => return Err(error.into()),
+    )?
+    else {
+        return Ok(true);
     };
     *status.lock().unwrap() = started;
     eprintln!(

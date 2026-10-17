@@ -1149,8 +1149,11 @@ fn fetch_checked(
 /// written, and only into a lamp that never had one from install or
 /// prepare: one recorded and now gone was removed on purpose (a reset wipes
 /// the user's key, #806), and V1's config, which may still hold the previous
-/// owner's, never puts it back. `root` is `/` on a lamp. Returns the paths
-/// written; the key is never in what it returns or says.
+/// owner's, never puts it back. The records are read as install reads them:
+/// a corrupt file is set aside and said, and V1's key is then not copied;
+/// one that cannot be read is said, and nothing is written. `root` is `/` on
+/// a lamp. Returns the paths written; the key is never in what it returns or
+/// says.
 pub fn provision_device_key(
     root: &Path,
     records: &str,
@@ -1169,13 +1172,33 @@ pub fn provision_device_key(
     let _lock = records
         .lock()
         .map_err(|error| format!("another lamp-update is running: {error}"))?;
-    let mut state = records.peek_state();
+    // The records as install reads them (`Records::state`, #1094's review):
+    // a corrupt file is set aside and said, and then what was written
+    // before is not known, so V1's key is not copied (a reset may have wiped
+    // the user's). One that cannot be read is said and left alone, nothing
+    // written: a refusal would refuse every lamp-os update.
+    let state_file = config.on(&config.records).join("state.json");
+    let existed = state_file.exists();
+    let mut state = match records.state(say) {
+        Ok(state) => state,
+        Err(error) => {
+            say(&format!(
+                "the records cannot be read ({error}): V1's key is not written; install or setup sees to it"
+            ));
+            return Ok(Vec::new());
+        }
+    };
+    let records_lost = existed && !state_file.exists();
     let mut wanted = Vec::new();
     for path in [CREDENTIAL_PATH, JEV_KEY_PATH] {
         if fs::symlink_metadata(config.on(path)).is_ok() {
             continue;
         }
-        if state.settings.contains_key(path) {
+        if records_lost {
+            say(&format!(
+                "{path} is missing and the records were set aside: V1's key is not copied; setup takes the user's"
+            ));
+        } else if state.settings.contains_key(path) {
             say(&format!(
                 "{path} was removed since it was written (a reset?): V1's key is not put back; setup takes the user's"
             ));

@@ -1932,6 +1932,70 @@ fn a_reset_then_prepare_does_not_restore_the_old_key() {
     assert!(gone(&lamp.root));
 }
 
+/// The follow-up to #1184: prepare reads the records as install does. A
+/// corrupt file is set aside and said, and a key a reset removed is then not
+/// taken for one never written; one that cannot be read is said and left
+/// alone, with nothing written and no refusal (prepare runs before every
+/// update).
+#[test]
+fn prepare_sets_corrupt_records_aside_and_leaves_unreadable_ones_alone() {
+    let key_of = |root: &Path, path: &str| root.join(path.trim_start_matches('/'));
+    let cleared = |root: &Path| {
+        for path in [install::CREDENTIAL_PATH, install::JEV_KEY_PATH] {
+            fs::remove_file(key_of(root, path)).unwrap();
+        }
+    };
+    // Written by prepare, then a reset, and the records damaged.
+    let lamp = v1_lamp(Some(&v1_config()));
+    assert_eq!(prepare(lamp.path()).0.unwrap().len(), 2);
+    cleared(lamp.path());
+    let state = lamp.path().join("var/lib/lampos-update/state.json");
+    fs::write(&state, b"{ not json").unwrap();
+    let (wrote, said) = prepare(lamp.path());
+    assert!(wrote.unwrap().is_empty());
+    for path in [install::CREDENTIAL_PATH, install::JEV_KEY_PATH] {
+        assert!(!key_of(lamp.path(), path).exists(), "{path}");
+    }
+    let aside = fs::read_dir(state.parent().unwrap())
+        .unwrap()
+        .filter(|entry| {
+            let name = entry.as_ref().unwrap().file_name();
+            name.to_string_lossy().starts_with("state.json.corrupt-")
+        })
+        .count();
+    assert_eq!(aside, 1, "the damaged file is kept beside");
+    assert!(
+        said.iter()
+            .any(|line| line.contains("could not be read") && line.contains("begun again")),
+        "{said:?}"
+    );
+    assert_eq!(
+        said.iter()
+            .filter(|line| line.contains("the records were set aside: V1's key is not copied"))
+            .count(),
+        2,
+        "{said:?}"
+    );
+    assert!(said.iter().all(|line| !line.contains(&DEVICE_KEY[..6])));
+
+    // Records that cannot be read: said, nothing written, nothing refused.
+    let lamp = v1_lamp(Some(&v1_config()));
+    let state = lamp.path().join("var/lib/lampos-update/state.json");
+    fs::create_dir_all(&state).unwrap();
+    let (wrote, said) = prepare(lamp.path());
+    assert!(wrote.unwrap().is_empty());
+    assert!(state.is_dir(), "never written over");
+    assert!(!lamp.path().join("etc").exists());
+    assert!(
+        said.iter()
+            .any(|line| line.starts_with("the records cannot be read")),
+        "{said:?}"
+    );
+    // Readable again: the key is provisioned as before.
+    fs::remove_dir(&state).unwrap();
+    assert_eq!(prepare(lamp.path()).0.unwrap().len(), 2);
+}
+
 /// Where prepare's record and install's rule meet: a key prepare wrote and a
 /// reset removed is not put back by the install that follows the migration.
 #[test]

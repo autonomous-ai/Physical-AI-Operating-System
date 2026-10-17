@@ -297,13 +297,13 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
     };
     Ok((continuation, sight, files, visual))
 }
+/// The eyes' known face as the voice started, before its first session:
+/// that session's person, and where the switch's count starts.
+static KNOWN_AT_START: std::sync::OnceLock<(String, Instant)> = std::sync::OnceLock::new();
 /// When the lamp last looked (a picture went into this session), and when
 /// anything was last submitted. A picture in a session's history makes
 /// every later answer about half a second slower ([eyes.md]), so once the
 /// conversation has paused the session is renewed without it.
-/// The eyes' known face as the voice started, before its first session:
-/// that session's person, and where the switch's count starts.
-static KNOWN_AT_START: std::sync::OnceLock<(String, Instant)> = std::sync::OnceLock::new();
 static LOOKED_AT_US: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 static SUBMITTED_AT_US: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 const RENEW_AFTER_LOOK_QUIET_US: u64 = 20_000_000;

@@ -87,7 +87,9 @@ the cut-ins, 833 with the lamp alone):
 On these recordings, no sign per block tells a short stop word said under
 the lamp's voice from its own voice let through, so the duplex rule
 cannot yield for it, and words heard only in a yield never hear it. Words
-heard over the whole reply can.
+heard over the whole reply might, but neither lamp has shown it yet: on
+lamp-4ace the canceller's output held no words of the person, and on
+lamp-52e6 the raw microphone's words were the lamp's own story (#1047).
 
 ## Not shown
 

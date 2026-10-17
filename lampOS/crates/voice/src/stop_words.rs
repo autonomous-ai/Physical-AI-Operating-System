@@ -20,8 +20,10 @@
 //!   the reply ends and what was said goes to the provider. Any other words
 //!   let stillness resume it as before.
 //!
-//! Nothing is sent but what was said in a yield. Without the second voice's
-//! configuration it is off.
+//! With `heard`, nothing is sent but what was said in a yield; with
+//! `heard-always`, everything heard while the lamp speaks is sent
+//! ([`Listen::Always`]). Without the second voice's configuration it is
+//! off.
 use crate::second_config::SecondConfig;
 use crate::second_provider::net::SttStream;
 use std::{
@@ -297,14 +299,14 @@ impl StopWords {
         }
     }
 
-    /// Whether everything heard while the lamp speaks is listened to
-    /// ([`Listen::Always`]).
     /// Whether the next block is speech-like, as the coordinator's detector
     /// scored it, for the pauses at which the words are asked for.
     pub fn heard_speech(&mut self, speech_like: bool) {
         self.speech_like = speech_like;
     }
 
+    /// Whether everything heard while the lamp speaks is listened to
+    /// ([`Listen::Always`]).
     pub fn hears_always(&self) -> bool {
         self.always
     }
@@ -396,45 +398,54 @@ impl StopWords {
             }
         }
         if !replying && !self.rested {
-            // Written before the stream rests, so that its thread adds its
-            // own counts to them.
-            if let Some(path) = self.counts.as_deref() {
-                let value = serde_json::json!({
-                    "at_unix_ms": unix_ms(),
-                    "reply": {
-                        "blocks_sent": self.sent,
-                        "pauses_asked": self.flushes,
-                        "asked_every_ms": self.cadence.then_some(u64::from(CADENCE_BLOCKS) * 10),
-                        "results": self.results,
-                        "stop_heard": self.stop_heard,
-                        "heard": self.heard.iter().map(|(text, stopped)| {
-                            serde_json::json!({"text": text, "stopped_the_lamp": stopped})
-                        }).collect::<Vec<_>>(),
-                    },
-                });
-                if let Err(error) = write_json(path, &value) {
-                    eprintln!(
-                        "lamp-voice: stop words: the reply's counts could not be written to {}: {error}",
-                        path.display()
-                    );
-                }
-            }
-            self.ears.rest();
-            self.rested = true;
-            self.lamp.clear();
-            // Counts only: whether anything was sent and heard back.
-            eprintln!(
-                "lamp-voice: stop words: the reply's {} blocks went to the speech-to-text, its words asked for at {} pauses, {} results came back{}",
-                self.sent,
-                self.flushes,
-                self.results,
-                if self.stop_heard {
-                    ", a stop phrase among them"
-                } else {
-                    ""
-                }
-            );
+            self.end_reply();
         }
+    }
+
+    /// The reply is over, by its end or by a close ([`Self::close`]):
+    /// listening to everything, its counts go to the file and the journal
+    /// before the stream rests, so that a stop heard over the lamp, which
+    /// ends it through the hand's path, is in them too (the reviewer on
+    /// #1047).
+    fn end_reply(&mut self) {
+        // Written before the stream rests, so that its thread adds its
+        // own counts to them.
+        if let Some(path) = self.counts.as_deref() {
+            let value = serde_json::json!({
+                "at_unix_ms": unix_ms(),
+                "reply": {
+                    "blocks_sent": self.sent,
+                    "pauses_asked": self.flushes,
+                    "asked_every_ms": self.cadence.then_some(u64::from(CADENCE_BLOCKS) * 10),
+                    "results": self.results,
+                    "stop_heard": self.stop_heard,
+                    "heard": self.heard.iter().map(|(text, stopped)| {
+                        serde_json::json!({"text": text, "stopped_the_lamp": stopped})
+                    }).collect::<Vec<_>>(),
+                },
+            });
+            if let Err(error) = write_json(path, &value) {
+                eprintln!(
+                    "lamp-voice: stop words: the reply's counts could not be written to {}: {error}",
+                    path.display()
+                );
+            }
+        }
+        self.ears.rest();
+        self.rested = true;
+        self.lamp.clear();
+        // Counts only: whether anything was sent and heard back.
+        eprintln!(
+            "lamp-voice: stop words: the reply's {} blocks went to the speech-to-text, its words asked for at {} pauses, {} results came back{}",
+            self.sent,
+            self.flushes,
+            self.results,
+            if self.stop_heard {
+                ", a stop phrase among them"
+            } else {
+                ""
+            }
+        );
     }
 
     /// One capture block, after the rule has heard it. `replying`: a reply
@@ -522,8 +533,12 @@ impl StopWords {
             self.ears.forget();
         }
         if !self.rested {
-            self.ears.rest();
-            self.rested = true;
+            if self.always {
+                self.end_reply();
+            } else {
+                self.ears.rest();
+                self.rested = true;
+            }
         }
         self.replying = false;
         self.closed = true;
@@ -1342,9 +1357,6 @@ mod tests {
         assert_eq!(told, expected);
     }
 
-    /// A yield that ends before its words is said to be unheard. The
-    /// microphone closing drops a yield and the stream at once, and only
-    /// once, and the next reply has a stream ready again.
     /// #1047, the first builder's `stt-check` at 16:59: through the relay a
     /// short "Stop." gets no interim result, and its words come only once
     /// `Finalize` asks for them. Listening to everything, the words are
@@ -1493,6 +1505,70 @@ mod tests {
         std::fs::remove_dir_all(dir).unwrap();
     }
 
+    /// The reviewer on #1047 at 07:42: a stop heard over the lamp ends the
+    /// reply through the hand's path, which closes the stream. Its counts
+    /// were then never written, so `stopped_the_lamp: true` could never
+    /// appear. Closing writes them as the reply's end does.
+    #[test]
+    fn a_stop_that_closes_the_reply_is_in_its_counts() {
+        let dir =
+            std::env::temp_dir().join(format!("lamp-voice-stop-closed-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("stop-words.json");
+        let script = Arc::new(Mutex::new(Script::default()));
+        let mut words =
+            StopWords::always_counted(Box::new(Scripted(Arc::clone(&script))), Some(path.clone()));
+        let mut at = 0u64;
+        for _ in 0..30 {
+            at += 10_000;
+            words.heard_speech(true);
+            words.block(true, true, false, None, None, at, &block(1));
+        }
+        script.lock().unwrap().words = Some("Stop.".into());
+        at += 10_000;
+        words.block(true, true, false, None, None, at, &block(1));
+        assert!(words.spoken_stop());
+        words.close();
+        let written: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        assert_eq!(written["reply"]["stop_heard"], true, "{written}");
+        assert_eq!(
+            written["reply"]["heard"],
+            serde_json::json!([{"text": "Stop.", "stopped_the_lamp": true}])
+        );
+        assert!(script.lock().unwrap().told.contains(&"rest".to_owned()));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    /// The reviewer on #1047 at 07:42: the lamp's words are its own while
+    /// they are being heard. Their text can come 10 s or more before their
+    /// sound, the voice holding up to 30 s of a reply ahead of playback, so
+    /// the coordinator stamps them with when they will play. Stamped then,
+    /// the story's own "wait" read back from the raw microphone at 12.5 s
+    /// stops nothing; stamped as its text came, at 1 s, it stopped the lamp.
+    #[test]
+    fn the_lamps_own_words_count_from_when_they_play() {
+        let stops = |stamped_at_us: u64| {
+            let script = Arc::new(Mutex::new(Script::default()));
+            let mut words = StopWords::always(Box::new(Scripted(Arc::clone(&script))));
+            words.lamp_said("And so the fox had to wait.", stamped_at_us);
+            let mut at = 12_000_000u64;
+            for _ in 0..50 {
+                at += 10_000;
+                words.heard_speech(true);
+                words.block(true, true, false, None, None, at, &block(1));
+            }
+            script.lock().unwrap().words = Some("the fox had to wait".into());
+            words.block(true, true, false, None, None, at + 10_000, &block(1));
+            words.spoken_stop()
+        };
+        assert!(!stops(11_000_000));
+        assert!(stops(1_000_000));
+    }
+
+    /// A yield that ends before its words is said to be unheard. The
+    /// microphone closing drops a yield and the stream at once, and only
+    /// once, and the next reply has a stream ready again.
     #[test]
     fn a_yield_without_words_is_unheard_and_closing_drops_everything_once() {
         let script = Arc::new(Mutex::new(Script::default()));

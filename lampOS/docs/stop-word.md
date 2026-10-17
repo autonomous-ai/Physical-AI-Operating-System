@@ -857,10 +857,13 @@ come sooner.
 - At start, "stop words: heard-always, …" with the speech-to-text's host,
   or why it isn't heard.
 - Each stream: "a stream is ready, connected in N ms", or why not.
-- Each reply's end: "the reply's N blocks went to the speech-to-text, M
-  results came back". Then, from the stream's own thread, "the stream took
-  N blocks and dropped M (too old, or a backlog); the speech-to-text sent
-  back A results with words, B without, C speech starts, D other messages".
+- Each reply's end, or its close by a stop: "the reply's N blocks went to
+  the speech-to-text, its words asked for at P pauses, M results came
+  back", with ", a stop phrase among them" when one stopped it. Then, from
+  the stream's own thread, "the stream took N blocks and dropped M (too
+  old, or a backlog), and was opened again K times; the last sent back A
+  results with words, B without, C speech starts, D other messages", and
+  how it ended.
   Those tell a service that said nothing from one whose results held no
   words, and both from results that weren't read.
 
@@ -882,9 +885,11 @@ finish during a reply, so 33 replies with sound since 16:20 had 0 results.
 detector at 0.5 or more), 20 blocks that aren't ask the stream for the words
 heard so far with `Finalize`, and the stream goes on (`SttStream::flush`,
 in order with the audio). Pauses between the lamp's own words ask too, and
-their words are the lamp's, checked as before. A "Stop." should then stop
-the lamp about 0.5 s after it's said. The end-of-reply line says how many
-pauses asked.
+their words are the lamp's, checked as before. How soon a "Stop." would
+then stop the lamp is not measured: by the relay's 269 ms after the ask,
+about 0.5 s after it's said, and with the half-second asks of the raw
+source up to about 0.8 s. The end-of-reply line says how many pauses
+asked.
 
 **On lamp-4ace at 20:49 with that** (the first builder, #1047, 20:58):
 "Lamp, stop." and "Stop." played over a story. The pauses asked for words
@@ -950,7 +955,16 @@ pauses asked.
     to read it out. Nor mic1: the first builder's recording there (22:55)
     had the played request only 8 dB over the floor, and no words even in
     the request.
-  - Not yet played on the lamp.
+  - **Played three times, and no person's stop came through.** On
+    lamp-4ace on 16 October at 01:46 (the first builder), 8 of 10 cut-ins
+    stopped the story against 7 of 10 on the canceller's output, mostly by
+    Gemini's own yield, and "Lamp, stop." alone never did. On lamp-52e6 on
+    17 October at 06:53 and 07:20 (the sixth, the Mac's speaker at 45, 70
+    and 90), the stream's words were the lamp's own story every time,
+    never the person's, and the stop words stopped it 0 times: from raw
+    mic2 the lamp drowns a person 1 to 2 m off. Louder, Gemini's yield
+    took over (4 of 5), which isn't a stop. Next (the first builder, 07:07):
+    the canceller's linear output, before its residual suppressor.
 
 **`lamp-voice stt-check SECOND_CONFIG WAV`** is for finding out why, on
 the lamp, with its own configuration and a recording made for the purpose
@@ -968,7 +982,15 @@ Tests: `stop_words::tests::a_stop_word_the_lamp_did_not_say_itself_is_heard_over
 `listening_always_hears_the_lamps_whole_reply_and_stops_on_a_word_it_did_not_say`
 (the driver) and `listening_always_gives_the_words_as_they_come_through_the_thread`
 (the relay's real thread, against a stand-in speech-to-text that gives an
-interim result), and `with_the_raw_blocks_the_words_are_asked_for_every_half_second`.
+interim result), `with_the_raw_blocks_the_words_are_asked_for_every_half_second`,
+`a_stop_that_closes_the_reply_is_in_its_counts` and
+`the_lamps_own_words_count_from_when_they_play`. The lamp's own words are
+stamped with when they will play, the reply's queued audio ahead of them
+(the voice holds up to 30 s of it): stamped as their text came, a story's
+own "wait" read back from the raw microphone stopped the lamp (the
+reviewer on #1047). `tests/capture_hold_worker.rs::raw_blocks_carry_the_microphone_before_the_canceller_only_when_asked`
+is Linux only and in a binary the pull-request runs skip, so it first runs
+on `lamp-voice`'s own run.
 Not exercised: the coordinator's loop taking the stop
 (`spoken_stop`), and the relay with a person's voice under the lamp's.
 

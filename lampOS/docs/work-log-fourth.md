@@ -4353,6 +4353,15 @@ A usage limit paused me briefly before 16:41.
   - the cost (the asker's reply to the lamp's own question held) and the wording, in the docs.
   At `0186c11ec`, gate running.
 
+## 2026-10-18, 06:36 ICT: #1415 ready; #1429 for a wall-clock test; #1422 filed
+
+A usage limit paused me from about 00:40 to 06:2x.
+
+- **#1415** (one line held as another voice ends the conversation): both reviews' findings are in at `6ea956900`. The reviewer has no finding and calls it ready (00:44); ARM64 green. Its merge waits on the first builder's lamp-4ace run with `LAMP_SAME_VOICE_MODEL`, now next (last night's run had the child in the wrong folder, his note at 06:24).
+- **#1429** (tests only), for the first builder's 06:24: `with_the_switch_and_a_voice_check_another_voice_is_no_part_of_the_conversation` ran on the host clock against the rig's 100 ms leases. A stall over 100 ms before `input_ended` revoked the turn (`StaleOwner`), as in his emulated ARM64 run. Reproduced with a 150 ms sleep; on the paused clock with `logical_clock()` it passes, and it still fails with the voice check broken.
+- **#1422** filed: my #1355 sound test reads the process's one conversation thread, which other tests write in a parallel `cargo test` (the Seventh's 1 in 3). It can't race under nextest or one thread.
+- **#1396**, the app: waiting on the backend's `lamp-v2` number, the setup choice, Ten's Light answer and a yes to push there.
+
 ## Not shown
 
 No lamp access or deployment, physical power-loss test,

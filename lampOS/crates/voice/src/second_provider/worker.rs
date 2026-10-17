@@ -459,9 +459,10 @@ pub(crate) struct Heeding {
     /// The room microphone's rise over its quiet, by when it was sampled,
     /// with `--attention-near`: the last [`LEVELS_KEPT_US`].
     levels: Option<Levels>,
-    /// The request the rule judged last, and the session it is judged in,
-    /// which a request going on from it keeps.
-    judged: Option<(u64, u64)>,
+    /// The request the rule judged last, the session it is judged in, which
+    /// a request going on from it keeps, and the words it was judged with,
+    /// which are stripped from the front of that request's.
+    judged: Option<(u64, u64, String)>,
 }
 
 /// The room microphone's rise over its quiet, dB, by when it was sampled.
@@ -651,20 +652,30 @@ impl Heeding {
         // what the rule knew of it (its name, the words so far, whether it
         // was close), as on the Live route. Anything else, a request never
         // judged among them, is judged fresh (the reviewer on #1226).
-        let session = match self
+        let (session, heard) = match self
             .judged
-            .filter(|(last, _)| signs.continues_from == Some(*last))
+            .as_ref()
+            .filter(|(last, _, _)| signs.continues_from == Some(*last))
         {
-            Some((_, session)) => {
-                attention.continued_at(request, session, began_us);
-                session
+            Some((_, session, before)) => {
+                attention.continued_at(request, *session, began_us);
+                // The engine put the words going on from in front of these
+                // (#1168); the rule keeps them already, so it is given only
+                // this request's own (the reviewer on #1226).
+                // Its leading space kept: the rule's text goes on from the
+                // first half's words (Fourth on #1262: "HeyLamp, …").
+                let own = heard.strip_prefix(before.trim()).unwrap_or(heard);
+                // ponytail: a chain whose first link was never judged keeps
+                // that link's words in `before`, the strip misses, and the
+                // rule reads the joined words as before this (Fourth on #1262).
+                (*session, own)
             }
             None => {
                 attention.began_at(request, request, began_us);
-                request
+                (request, heard)
             }
         };
-        self.judged = Some((request, session));
+        self.judged = Some((request, session, heard.to_owned()));
         attention.ended(request, ended_us);
         for (at_us, score) in signs.names {
             attention.name_heard_scored(at_us, score);
@@ -1004,6 +1015,31 @@ mod tests {
                     busy(Some(301))
                 )
                 .is_some()
+        );
+    }
+
+    /// Fourth's probe on #1262: "Hey" held, then the request going on from
+    /// it with the engine's joined words "Hey Lamp, turn the light on." is a
+    /// call, so it plays; the stripped words keep their space.
+    #[test]
+    fn a_carried_over_call_keeps_the_space_between_its_halves() {
+        use crate::room_told::Room;
+        let busy = |continues_from: Option<u64>| Signs {
+            room: Room::Busy,
+            going_on: false,
+            lamp_asked: false,
+            turned: Some(false),
+            names: Vec::new(),
+            near: false,
+            continues_from,
+        };
+        let said = (10_000_000, 10_400_000);
+        let rest = (10_800_000, 12_000_000);
+        let mut heeding = Heeding::new(true, true, None, None);
+        assert!(heeding.judge(300, said, "Hey", busy(None)).is_some());
+        assert_eq!(
+            heeding.judge(301, rest, "Hey Lamp, turn the light on.", busy(Some(300))),
+            None
         );
     }
 

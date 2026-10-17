@@ -113,6 +113,31 @@ a row for it and the pins are measured again.
    22)"), on I2C bus 0 with the MPR121 (how many reads still succeed was
    not counted). Its wiring and pull-ups, please, or whether this unit's
    sensor is faulty.
+10. **The board runs hot.** From 16 October 16:03 to 17 October 14:21, one
+    reading a minute, `cpul_thermal_zone` and `cpub_thermal_zone` read within
+    1 °C of each other. Their hourly means were 74 to 81 °C at night (19:00 to
+    08:00) and 83 to 91 °C by day: 88 to 91 °C on Friday from 16:00 to 19:00
+    with the office busy, 83 to 86 °C on Saturday morning. The lowest reading
+    was 63 °C, the highest 100 °C (`cpul`, 16 October 18:02). The hourly load
+    averages were 1.2 to 2.3 on 8 cores. When read on 17 October at 14:07 the
+    clocks were at their top (1.8 and 2.0 GHz, `ondemand`); on 16 October at
+    16:40 the big cores were throttled to 1.79 of 2.0 GHz. The CPU zones' trips
+    are 70, 90 and 110 °C; `skin_zone` read 36 to 43 °C against its 50 °C. No
+    fan shows to software as a cooling device (read 17 October 14:07: only CPU
+    idle and frequency). lamp-cb94 read 62 to 67 °C
+    on its zone0 on Saturday morning (Thirteen's soak, #705, 17 October 14:20),
+    with its voice at 38 to 39% of a core; its load average isn't given. On
+    lamp-4ace zone0 is `cpul_thermal_zone` (read 17 October 14:2x), and it read
+    83 to 86 °C that morning, so lamp-4ace ran about 20 °C hotter the same
+    morning (assuming cb94's zone0 is the same zone). Is its fan running, is
+    the heatsink in contact, and what should this load read?
+11. **The SD card's host timed out once since boot** ("re-tuned and timed out",
+    the self-test's `storage` item on 17 October at 13:51). Such stalls reach
+    the audio: on lamp-4ace the voice's exits lined up with the SD/MMC hosts'
+    retunes to the millisecond (#784), and on lamp-cb94 the same timeout came
+    in the same second as the voice's capture worker ending (04:53:53 UTC,
+    #1178). Which SD cards are fitted, and is another card or slot setting
+    worth trying?
 
 ## Parts the design does not list
 

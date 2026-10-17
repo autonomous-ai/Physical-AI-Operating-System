@@ -128,6 +128,20 @@ pub fn online(reports: &BTreeMap<String, Kept>, now: Instant, stale_after: Durat
     }
 }
 
+/// `online` as the probe of the internet ([`crate::reach`]) finds it: a
+/// link down while the internet answers is the link's trouble, not the
+/// lamp's, so the lamp is online, from `reach`. Anything else is as given.
+pub fn with_reach(online: Online, internet_answers: bool) -> Online {
+    if online.online == Some(false) && internet_answers {
+        return Online {
+            online: Some(true),
+            from: "reach".into(),
+            down_for_s: None,
+        };
+    }
+    online
+}
+
 /// Whether a part can be called this: something, on one line, of 48 bytes
 /// at most, with no space before or after it.
 pub fn is_name(name: &str) -> bool {
@@ -939,6 +953,39 @@ mod tests {
                 down_for_s: None,
             }
         );
+    }
+
+    #[test]
+    fn a_link_down_with_the_internet_answering_is_online_from_reach() {
+        let down = Online {
+            online: Some(false),
+            from: "voice".into(),
+            down_for_s: Some(40),
+        };
+        let reached = with_reach(down.clone(), true);
+        assert_eq!(
+            reached,
+            Online {
+                online: Some(true),
+                from: "reach".into(),
+                down_for_s: None,
+            }
+        );
+        reached.check().unwrap();
+        // The internet not answering, a link up, or nobody knowing: as given.
+        assert_eq!(with_reach(down.clone(), false), down);
+        let up = Online {
+            online: Some(true),
+            from: "voice".into(),
+            down_for_s: None,
+        };
+        assert_eq!(with_reach(up.clone(), true), up);
+        let unknown = Online {
+            online: None,
+            from: String::new(),
+            down_for_s: None,
+        };
+        assert_eq!(with_reach(unknown.clone(), true), unknown);
     }
 
     #[test]

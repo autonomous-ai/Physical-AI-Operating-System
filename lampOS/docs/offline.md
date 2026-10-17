@@ -166,6 +166,40 @@ session is told it does not know the time, never to guess
   second. No probe of its own and no new process. Off unless set.
 - Next: the voice's recorded line and Expression's look, from `lamp/online`.
 
+## The relay is not the internet (`--reach-probe`, `LAMP_REACH_PROBE`)
+
+On a product lamp the voice's link goes through the company's relay
+(campaign-api's proxy for Gemini Live, `voice-provider.json`), so the link is
+down whenever the relay is: on 17 Oct from 02:29, about half an hour (the
+sixth's relay log). Following the link alone, the lamp would then say it
+cannot reach the internet, and breathe amber, with the internet fine.
+Decided by the first builder on #830 (17 Oct): `lamp/online` comes from the
+internet, not the relay, and nothing in #830 depends on the relay.
+
+- **`lamp-health serve --online on --reach-probe on`** (`crates/health/src/reach.rs`):
+  while the voice's link is down, and only then, a TCP connection to
+  1.1.1.1:53 and 8.8.8.8:53 at once, either answering is enough, at most
+  every 30 s (`PROBE_EVERY`), the try bounded at 2 s (`PROBE_WITHIN`), on its
+  own thread so the loop never waits; nothing is sent on a connection made.
+  If the internet answers, `lamp/online` is `online: true`, `from: "reach"`
+  (`parts::with_reach`), so Expression's offline face stays off. With the
+  link up again what was found is forgotten, so the next outage asks at
+  once. Refused without `--online on`. Off unless set.
+- **The voice, `LAMP_REACH_PROBE=on`** (with `LAMP_OFFLINE_VOICE=on`): while its
+  link is down it reads the kept `lamp/online` at most once a second, and
+  while that says online from `reach` it is not offline: no offline line,
+  no offline breath (`offline_now`). The backup voice, or the sixth's down
+  line, answers instead. A stale value, or none, leaves the link to decide,
+  as before. Off unless set.
+- Tests: `reach::tests` (a target answering, none answering and asked again
+  only after its time, a target that never answers given up within the
+  bound), `parts::tests::a_link_down_with_the_internet_answering_is_online_from_reach`,
+  the voice's `the_internet_answers_only_when_lamp_online_says_so_from_the_probe`
+  and `offline_only_with_the_switch_and_after_the_links_grace`.
+- Not yet shown on a lamp: the first builder's minute with the Wi-Fi off
+  (offline, the line once), and a minute with only the relay unreachable
+  (online from `reach`, no line).
+
 ## Step 3: the words and the light (`LAMP_OFFLINE_VOICE=on`)
 
 Decided by the first builder on #830 (01:53, 05:44): one switch for the

@@ -3068,6 +3068,12 @@ fn conversation_with_gate(
     let offline_voice = lifetime.continuous()
         && std::env::var(OFFLINE_VOICE_ENVIRONMENT).ok().as_deref() == Some("on");
     let mut outage = Outage::default();
+    // With `LAMP_REACH_PROBE=on`: a link down while the internet answers is
+    // not the home's outage (#830).
+    let mut internet = internet_answers(
+        offline_voice && std::env::var(REACH_PROBE_ENVIRONMENT).ok().as_deref() == Some("on"),
+        lamp_bus::Bus::from_environment(),
+    );
     // Since when the link has been down, for the grace the bus also gives it.
     let mut link_down_since: Option<u64> = None;
     // Since when "I'm back online." is owed, if it is.
@@ -3576,7 +3582,12 @@ fn conversation_with_gate(
             link_down_since.get_or_insert(clock);
             back_owed_since = None;
         }
-        let offline = offline_now(offline_voice, link_down_since, clock);
+        let offline = offline_now(
+            offline_voice,
+            link_down_since,
+            clock,
+            link_down_since.is_some() && internet(clock),
+        );
         let paused = (rig.paused)();
         if paused != was_paused {
             was_paused = paused;
@@ -8010,10 +8021,60 @@ fn commit_offline_input(
 /// `LAMP_OFFLINE_VOICE=on`, and only once the link has been down for the
 /// grace the bus gives it (`lamp/online`), so a session renewing itself is
 /// not an outage. Without the switch, never: every turn is as before.
-fn offline_now(switch: bool, link_down_since: Option<u64>, clock: u64) -> bool {
+fn offline_now(
+    switch: bool,
+    link_down_since: Option<u64>,
+    clock: u64,
+    internet_answers: bool,
+) -> bool {
     switch
+        && !internet_answers
         && link_down_since
             .is_some_and(|since| clock.saturating_sub(since) >= crate::bus_out::LINK_GRACE_US)
+}
+
+/// `on` for the voice to take its link down for no internet only while
+/// `lamp/online` does not say the internet answers (`LAMP_REACH_PROBE`,
+/// #830). With it, a link down because the relay is, while
+/// `lamp-health --reach-probe on` finds the internet answering, gives no
+/// offline line and no offline breath: it is the service's trouble, not
+/// the home's internet, and the backup voice or its down line answers
+/// instead. Off unless set.
+pub const REACH_PROBE_ENVIRONMENT: &str = "LAMP_REACH_PROBE";
+
+/// Whether the kept `lamp/online` says the internet answers though the
+/// voice's link is down: fresh, well formed, online, and from `reach`
+/// (`lamp-health`'s probe). Anything else, a stale value or none, says
+/// nothing, and the link alone decides, as before.
+fn internet_answers_in(message: Option<lamp_bus::Message>) -> bool {
+    message
+        .filter(|message| !message.expired)
+        .and_then(|message| message.parse::<lamp_msgs::Online>().ok())
+        .filter(|online| online.check().is_ok())
+        .is_some_and(|online| online.online == Some(true) && online.from == "reach")
+}
+
+/// Whether the internet answers, asked while the link is down, at most once
+/// a second, never waiting longer than a file read. Without the switch, or
+/// a bus it cannot reach, never.
+type InternetAnswers = Box<dyn FnMut(u64) -> bool>;
+
+fn internet_answers(on: bool, bus: io::Result<lamp_bus::Bus>) -> InternetAnswers {
+    let bus = bus.ok().filter(|_| on);
+    let mut last: Option<(u64, bool)> = None;
+    Box::new(move |clock| {
+        let Some(bus) = bus.as_ref() else {
+            return false;
+        };
+        if let Some((at, answers)) = last
+            && clock.saturating_sub(at) < 1_000_000
+        {
+            return answers;
+        }
+        let answers = internet_answers_in(bus.latest(lamp_msgs::Online::TOPIC).ok().flatten());
+        last = Some((clock, answers));
+        answers
+    })
 }
 
 /// The link is back after an outage in which the lamp said it could not
@@ -9419,6 +9480,52 @@ mod tests {
         assert!(!keeper_pause(Ok(bus.clone()))());
         keeper.publish_json(2, &Pause { paused: true }).unwrap();
         assert!(keeper_pause(Ok(bus.clone()))());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn the_internet_answers_only_when_lamp_online_says_so_from_the_probe() {
+        use lamp_msgs::Online;
+        // Off, or a bus it cannot reach: never.
+        assert!(!internet_answers(true, lamp_bus::Bus::new("not/absolute"))(
+            0
+        ));
+        let root = std::env::temp_dir().join(format!("lamp-voice-reach-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        let bus = lamp_bus::Bus::new(&root).unwrap();
+        assert!(!internet_answers(false, Ok(bus.clone()))(0));
+        // Nothing kept says nothing.
+        assert!(!internet_answers(true, Ok(bus.clone()))(0));
+        let mut health = bus
+            .publisher_declared(Online::TOPIC, &Online::declaration(), "health")
+            .unwrap();
+        let said = |online: Option<bool>, from: &str, down_for_s: Option<u64>| Online {
+            online,
+            from: from.into(),
+            down_for_s,
+        };
+        // Offline from the voice's link, or online from it: not the probe.
+        health
+            .publish_json(1, &said(Some(false), "voice", Some(30)))
+            .unwrap();
+        assert!(!internet_answers(true, Ok(bus.clone()))(0));
+        health
+            .publish_json(2, &said(Some(true), "voice", None))
+            .unwrap();
+        assert!(!internet_answers(true, Ok(bus.clone()))(0));
+        // Online from the probe: the internet answers.
+        health
+            .publish_json(3, &said(Some(true), "reach", None))
+            .unwrap();
+        let mut reader = internet_answers(true, Ok(bus.clone()));
+        assert!(reader(0));
+        // Read at most once a second: a change shows only after it.
+        health
+            .publish_json(4, &said(Some(false), "voice", Some(31)))
+            .unwrap();
+        assert!(reader(999_999));
+        assert!(!reader(1_000_000));
         let _ = fs::remove_dir_all(&root);
     }
 

@@ -151,6 +151,7 @@ impl Rig {
                 board_every: ms(100),
             },
             online: false,
+            reach: None,
             needs: Vec::new(),
         };
         change(&mut options);

@@ -26,7 +26,7 @@ anybody listens.
 
 ## The commands
 
-    lamp-health serve [--bus-root ABSOLUTE_DIR] [--expect NAME]... [--stale-ms N] [--judge-zone BEGINNING]... [--proc DIR] [--sys DIR] [--run DIR] [--disk PATH] [--clock timesync|kernel] [--online on|off] [--needs NAME=PATH]...
+    lamp-health serve [--bus-root ABSOLUTE_DIR] [--expect NAME]... [--stale-ms N] [--judge-zone BEGINNING]... [--proc DIR] [--sys DIR] [--run DIR] [--disk PATH] [--clock timesync|kernel] [--online on|off] [--reach-probe on|off] [--needs NAME=PATH]...
     lamp-health [show] [--bus-root ABSOLUTE_DIR] [--json]
     lamp-health --help
 
@@ -45,6 +45,7 @@ anybody listens.
 | `--disk` | Any path on the disk whose free room is watched | `/` |
 | `--clock` | Who says whether the clock is set: `timesync`, systemd-timesyncd's marker under `--run`; or `kernel`, the kernel's own answer (`adjtimex`, as `timedatectl`'s `NTPSynchronized`), which any time client sets, with the marker still believed first (#830, [offline.md](offline.md)) | `timesync` |
 | `--online` | `on` to publish `lamp/online` too, once each report's time: whether the lamp can reach the internet, from the voice's `link` fact on `diagnostics` (`ready` and `connecting` are online, `down` is not, a voice not reporting or stale is unknown), with its `down_for_s` (#830, [offline.md](offline.md)) | `off` |
+| `--reach-probe` | `on`, with `--online on` only: while the voice's link is down, ask the internet itself (a TCP connection to 1.1.1.1:53 or 8.8.8.8:53, at most every 30 s, each try bounded at 2 s, on its own thread). If it answers, `lamp/online` is online, from `reach`: a relay down with the internet up is the service's trouble, not the home's (#830, [offline.md](offline.md), "The relay is not the internet") | `off` |
 
 Every path is absolute. A wrong option prints the usage and exits with 2.
 A bus that cannot be subscribed to exits with 1 before anything is listened

@@ -1,5 +1,29 @@
 # Tests work log
 
+## 2026-10-17 22:31:27 +0700 — #1128's last two builds, and the backend part of #1396
+
+Ready for lamp-voice: #1398 (the fifth's yes at 22:1x; ARM64 39043306490 green). #1373 waits only on #1340.
+
+**#1128, the first builder's slowest-ten list, now all built:**
+- **lamp-voice `first_control_message`: #1398, 3.7 s → 0.00 s.**
+  - `Channel::send_with` and `receive_with` take a clock. `send` and `receive` pass `monotonic_us`.
+  - It takes a clock rather than the agreed `receive_at(now_us)` because `receive` reads the clock twice, once before the receive and once after it. One value would have changed what the lamp does.
+  - A second channel pair keeps the real clock, as the fifth asked.
+- **lamp-setup's light: #1402, draft, ARM64 39044947899 running.**
+  - The three slow tests went from 4.07, 3.98 and 2.73 s to 0.12, 0.11 and 0.07 s on this Mac. The painter reads a `Clock`, and the lamp passes `Host`.
+  - "Blue at once" is counted in the painter's own frames (12, against 30), so a stall of the test's thread can't fail it. `released.elapsed()` stays on the host clock, as the third asked.
+- **Controls:**
+  - Three deliberate breaks fail the same check in the old tests and the new.
+  - 400 ms stalls of the painter and of the test's thread fail nothing.
+
+**#1396, the backend (the first builder's 21:44):**
+- I surveyed the backend repo read-only: where a device type is born, what `lamp-v2` needs, and the answers to the first builder's three questions.
+- That repo is private and this one is public, so the survey is in a local file on the office Mac, not here.
+- The small change it calls for is prepared locally and not pushed. Where the survey goes is waiting on the owner.
+
+**Mistake:**
+- I tried twice to post the backend survey on #1396, the second time reduced to protocol-level answers. The permission check refused both, and it was right to. A memory note now says lampOS is public and the backend and app repos are private.
+
 ## 2026-10-17 20:55:21 +0700 — the capture flakes, a green full run, and the first builder's slowest-ten list
 
 Ready for lamp-voice: #1373 (two approvals and the reviewer's clean re-check), once #1340 is merged

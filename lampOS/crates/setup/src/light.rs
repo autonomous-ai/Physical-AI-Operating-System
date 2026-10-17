@@ -34,7 +34,7 @@ pub const RETRY: Duration = Duration::from_secs(5);
 /// The longest letting go waits for the ring to be closed.
 pub const RELEASE_WAIT: Duration = Duration::from_secs(2);
 
-/// Where the painter reads the time and waits out a frame: [`Host`] on a
+/// Where the painter reads the time and waits out a frame: [`HostClock`] on a
 /// lamp. A test's clock may run faster, so that a fade takes no time.
 pub trait Clock: Send + 'static {
     fn now(&self) -> Instant;
@@ -42,9 +42,9 @@ pub trait Clock: Send + 'static {
 }
 
 /// The host's clock, the painter's on a lamp.
-pub struct Host;
+pub struct HostClock;
 
-impl Clock for Host {
+impl Clock for HostClock {
     fn now(&self) -> Instant {
         Instant::now()
     }
@@ -209,7 +209,7 @@ impl Light {
         O: FnMut() -> io::Result<SetupRing<S>> + Send + 'static,
         L: Fn(&str) + Send + Sync + 'static,
     {
-        Self::spawn_with_clock(status, open, log, retry, Host)
+        Self::spawn_with_clock(status, open, log, retry, HostClock)
     }
 
     /// [`Light::spawn_with_retry`], painting on `clock` instead of the

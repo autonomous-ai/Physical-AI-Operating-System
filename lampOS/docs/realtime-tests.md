@@ -1327,7 +1327,7 @@ waited out the painter's real fades (`FADE_IN` 1.5 s, `CHANGE` 0.8 s,
 The painter now reads a `Clock` (`now`, and `pause` for a frame) at the places
 it read the host's: the start, each step's time, the retry's due time and
 the frame's sleep. `Light::spawn`, `spawn_if` and `spawn_with_retry` pass
-`Host`, which is `Instant::now` and `thread::sleep`, so the lamp is unchanged;
+`HostClock`, which is `Instant::now` and `thread::sleep`, so the lamp is unchanged;
 `spawn_with_clock` takes another. The three tests give the painter a clock
 whose pause moves it on by exactly the frame and waits a fiftieth of that,
 so the painter's time is its frames however the machine stalls. Each of

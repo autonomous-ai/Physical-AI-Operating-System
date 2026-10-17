@@ -820,7 +820,8 @@ pub struct Tipping {
 }
 
 /// Why the run ended. Only `Cancelled` is an ordinary end. Every other end
-/// but `Refused` leaves torque off on all five, as V1 let the lamp go.
+/// but `Refused` leaves torque off on all five, as V1 let the lamp go,
+/// except `BadTemperature` of the shoulder or the elbow, which holds the arm.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Stop {
@@ -2566,7 +2567,9 @@ pub(crate) fn run_looking(
 /// lamp, as V1 did, after the joints were held where they are (a stuck
 /// joint held at its goal with torque on keeps pushing and heats). Not when
 /// asked to stop, not on a refusal (one for a hot or loaded joint has let
-/// go already), and not under overload, where torque is already off.
+/// go already), and not under overload, where torque is already off. On a
+/// shoulder or an elbow whose temperature cannot be read
+/// (`Stop::BadTemperature`), only the head and the base: the arm is held.
 #[cfg(test)]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn run_alive(
@@ -2609,11 +2612,19 @@ pub(crate) fn run_arbitrated(
     let mut report = run_until_stopped(
         io, runtime, limits, home, standing, looking, news, asked, watch,
     );
-    if !matches!(
-        report.stop,
-        Stop::Cancelled | Stop::Refused { .. } | Stop::Overload { .. }
-    ) {
-        let_go_at_end(&mut Bus::new(io, runtime, None), &mut report);
+    match report.stop {
+        Stop::Cancelled | Stop::Refused { .. } | Stop::Overload { .. } => {}
+        // An arm whose temperature cannot be read is held where it was,
+        // torque on: let go standing, it drops the lamp. Only the head and
+        // the base are let go.
+        Stop::BadTemperature { joint, .. } if ARM.iter().any(|arm| arm.id() == joint) => {
+            let _ = torque_off(
+                &mut Bus::new(io, runtime, None),
+                &mut report,
+                &mut COMMANDED.to_vec(),
+            );
+        }
+        _ => let_go_at_end(&mut Bus::new(io, runtime, None), &mut report),
     }
     report
 }

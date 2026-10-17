@@ -6956,6 +6956,68 @@ fn garbage_with_one_good_read_in_50_still_stops_within_seconds() {
     assert!(reads <= 150, "{reads}");
 }
 
+/// Elbow temperature reads that never settle (150 and 5 by turns) from
+/// `from`: the run ends as unreadable with the arm held, torque on and no
+/// torque off written to it, and the head and the base let go.
+fn assert_arm_held_on_unreadable_elbow(report: &BodyReport, lamp: &Lamp) {
+    assert!(
+        matches!(report.stop, Stop::BadTemperature { joint: 3, .. }),
+        "{report:?}"
+    );
+    assert_eq!(lamp.servos[1].torque, 1);
+    assert_eq!(lamp.servos[2].torque, 1);
+    assert!(
+        !lamp
+            .registers
+            .iter()
+            .any(|(id, address, data)| (*id == 2 || *id == 3) && *address == 40 && data == &[0]),
+        "{:?}",
+        lamp.registers
+    );
+    assert!(
+        [0, 3, 4]
+            .iter()
+            .all(|index| lamp.servos[*index].torque == 0)
+    );
+}
+
+/// The reviewer's 11:50 case on #1270: standing, an elbow unreadable for 50
+/// reads in a row stops the run, but let go it would drop the lamp, so the
+/// arm is held.
+#[test]
+fn a_standing_lamp_whose_elbow_temperature_is_unreadable_stops_holding_the_arm() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(20));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    lamp.flicker = Some((Duration::from_secs(8), 2, by_turns(2_000), 0));
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        Limits::FOLDED,
+        Some(HOME),
+        Some(standing(100, 60)),
+        || Some((Mood::Listening, 100)),
+        |_| {},
+    );
+    assert!(report.stood, "{report:?}");
+    assert!(
+        lamp.servos[1].position > 2_500.0,
+        "{}",
+        lamp.servos[1].position
+    );
+    assert_arm_held_on_unreadable_elbow(&report, &lamp);
+}
+
+/// Folded, the same: the arm is held where it rests.
+#[test]
+fn a_folded_lamp_whose_elbow_temperature_is_unreadable_stops_holding_the_arm() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(10));
+    lamp.flicker = Some((Duration::from_millis(1_500), 2, by_turns(2_000), 0));
+    let news = script(&clock.time);
+    let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
+    assert_arm_held_on_unreadable_elbow(&report, &lamp);
+}
+
 /// A low first read, then the true value rising 5 degrees a second with a
 /// 150 every 20 reads: each glitch is skipped by the settle, not a reason to
 /// start it again, so the true value settles and heat stops it near the

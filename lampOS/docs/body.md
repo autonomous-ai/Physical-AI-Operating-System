@@ -112,7 +112,10 @@ not come down when it is lowered all end with torque off on all five, after
 the hold where there is one. Every way a run ends passes through one place
 (`run_alive`) that does this. It is not done when the body is asked to
 stop, on a refusal to start (one for a hot or loaded joint has let go
-already), or under `--overload release`, where torque is already off.
+already), or under `--overload release`, where torque is already off. A
+shoulder or an elbow whose temperature cannot be read (`Stop::BadTemperature`,
+below) lets go of the head and the base only: the arm is held where it was,
+torque on, since letting go of a standing arm drops the lamp.
 
 A load over its bound for six steps does not by itself end the run. The
 joint gives way: its goal becomes where it is, and nothing is asked of it for
@@ -308,7 +311,12 @@ positions do, naming the joint (`stopped: head_pitch temperature unreadable
 starting the count again, so 49 bad and one good, again and again, still
 ends it within about a second more, where starting again took 44.7 s, and
 one bad read in 27 never adds up (ten simulated minutes at that rate, at
-random, run on). The stop in the report:
+random, run on). The run ends there; for the shoulder or the elbow the arm
+is held, torque on, and only the head and the base are let go, folded or
+standing (`a_standing_lamp_whose_elbow_temperature_is_unreadable_stops_holding_the_arm`,
+`a_folded_lamp_whose_elbow_temperature_is_unreadable_stops_holding_the_arm`);
+for the head or the base the whole lamp is let go, as for any surprise. The
+stop in the report:
 
 ```text
 "stop":{"kind":"bad_temperature","joint":5,"temperature":5,"from":41}

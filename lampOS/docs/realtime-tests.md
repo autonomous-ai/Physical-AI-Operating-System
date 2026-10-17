@@ -1214,6 +1214,28 @@ reported failing, and they are left as they are. `rules`'
 `the_fact_is_kept_on_the_bus_and_a_stalled_bus_never_holds_up_a_session`
 asserts `took < 300 ms` on purpose: there the bound is what it checks.
 
+## The first control message's ages on a clock the test moves (#1128)
+
+`lamp-voice::first_control_message`'s only test (3.7 s, among the slowest
+of the 17 October full run) slept 0.3 s, 1.7 s and 1.7 s so that three
+messages would be that old when read: the first control message is taken
+after 300 ms (its grace), a later one 1.7 s old is refused past the longest
+hold-up (1.5 s), and a first data message gets no grace.
+
+The transport's `Channel` now has `send_with(payload, now)` and
+`receive_with(now)`, which read a clock given to them at the places `send`
+and `receive` read the host's: the send's stamp, and in a receive both the
+look before it (for how long since the last look) and the age after it.
+`send` and `receive` call them with `monotonic_us`, so the lamp reads the
+same clock at the same places. The test moves one clock for both sides by
+exactly what it used to sleep, so the ages and the gaps between looks are as
+before, and it takes no time. A second pair of channels still goes through
+the plain `send` and `receive` on the host's clock (the fifth's ask).
+
+Two deliberate breaks fail it as they fail the old test: `HELD_UP_US` at 2 s
+fails the later message's check, and no first-message grace fails the first
+check.
+
 ## Memory's timed-out mutation is sent before its caller gives up (#1280)
 
 `lamp-memory::voice`'s

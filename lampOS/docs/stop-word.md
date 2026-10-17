@@ -913,8 +913,13 @@ asked.
   written over at its end. Under `reply`: the blocks sent, the pauses its
   words were asked for at (with the raw source, every half-second ask
   among them, `asked_every_ms`), the results, whether a stop phrase was heard,
-  and what each result heard (at most 16, 200 bytes each), with whether
-  it stopped the lamp. Under `stream`, added by the stream's thread as it
+  and what results heard (200 bytes each), each with its number in the
+  reply (`n`, from 1) and whether it stopped the lamp: the reply's **last
+  16 results**, and before them **every result whose words hold a stop
+  phrase**, however early (the first 16 that do), in the order heard. A
+  stop said 9 s into a story fell after the first 16 results the file
+  kept before, so whether it came back could not be read (Fourth and the
+  first builder on #828, 17 October 13:18 and 13:42). Under `stream`, added by the stream's thread as it
   rests: the blocks it took and dropped, how often it was opened again,
   and the last stream's results with and without words, speech starts,
   other messages and how it ended. On lamp-4ace on 17 October the journal

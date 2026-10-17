@@ -367,26 +367,37 @@ fn said(health: &Health, first: Option<&lamp_msgs::HealthItem>) -> String {
         .unwrap_or_else(|| zones_said(&health.message))
 }
 
-/// The kernel's thermal zones by what they measure (El on #1327): the
-/// board's messages name them as the kernel does, which `--json` keeps.
+/// The kernel's thermal zones by what they measure (El and the reviewer on
+/// #1327 and #1337): the board's messages name them as the kernel does,
+/// which `--json` keeps. A name followed by "," or ";", as the processors'
+/// warning writes it, is said the same way.
 fn zones_said(text: &str) -> String {
     let mut said = String::new();
     for word in text.split_inclusive(' ') {
-        let bare = word.trim_end();
-        let plain = match bare {
-            "cpul_thermal_zone" | "cpub_thermal_zone" | "cpu_thermal_zone" => "the processor",
-            "gpu_thermal_zone" => "the graphics chip",
-            "ddr_thermal_zone" => "the memory chips",
-            other if other.ends_with("_thermal_zone") => "the board",
-            _ => {
-                said.push_str(word);
-                continue;
+        let bare = word.trim_end().trim_end_matches([',', ';', ':', '.']);
+        match zone_said(bare) {
+            Some(plain) => {
+                said.push_str(plain);
+                said.push_str(&word[bare.len()..]);
             }
-        };
-        said.push_str(plain);
-        said.push_str(&word[bare.len()..]);
+            None => said.push_str(word),
+        }
     }
     said
+}
+
+/// One zone's name as a person knows it; `None` for a word that is no zone.
+fn zone_said(zone: &str) -> Option<&'static str> {
+    Some(match zone {
+        "cpul_thermal_zone" | "cpub_thermal_zone" | "cpu_thermal_zone" | "cpul_idle_zone"
+        | "cpub_idle_zone" => "the processor",
+        "gpu_thermal_zone" => "the graphics chip",
+        "npu_thermal_zone" => "the AI chip",
+        "ddr_thermal_zone" => "the memory chips",
+        "skin_zone" => "the lamp's case",
+        other if other.ends_with("_zone") => "the board",
+        _ => return None,
+    })
 }
 
 #[cfg(test)]
@@ -686,6 +697,34 @@ mod tests {
             zones_said("ddr_thermal_zone and ve_thermal_zone"),
             "the memory chips and the board"
         );
+        // Every zone lamp-06c1 has (El, read on the lamp), and the
+        // processors' warning as `board.rs` writes it, with a comma.
+        for (zone, said) in [
+            ("cpul_thermal_zone", "the processor"),
+            ("cpub_thermal_zone", "the processor"),
+            ("cpul_idle_zone", "the processor"),
+            ("cpub_idle_zone", "the processor"),
+            ("gpu_thermal_zone", "the graphics chip"),
+            ("npu_thermal_zone", "the AI chip"),
+            ("ddr_thermal_zone", "the memory chips"),
+            ("skin_zone", "the lamp's case"),
+        ] {
+            assert_eq!(
+                zones_said(&format!("{zone} is at 70 °C")),
+                format!("{said} is at 70 °C")
+            );
+        }
+        assert_eq!(
+            zones_said(
+                "the processors are hot: 96 °C at cpub_thermal_zone, 4 below the board's trip at 100"
+            ),
+            "the processors are hot: 96 °C at the processor, 4 below the board's trip at 100"
+        );
+        assert_eq!(
+            zones_said("busiest: cpub_idle_zone; then"),
+            "busiest: the processor; then"
+        );
+        assert_eq!(zones_said("no zone here, at all"), "no zone here, at all");
     }
 
     #[test]

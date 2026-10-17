@@ -18,6 +18,11 @@ use std::fmt;
 #[cfg(target_os = "linux")]
 pub use crate::alsa_device::AlsaCapture;
 
+/// The call a failed open names: ALSA's own, so that a scripted device and
+/// the lamp's report it alike, and a check written against one holds on the
+/// other.
+pub const OPEN_CALL: &str = "snd_pcm_open";
+
 /// The `errno` values the boundaries act on, by name. Two of them exist only
 /// on Linux, where ALSA returns them. Elsewhere they keep their Linux numbers,
 /// so that a scripted device can still produce them.

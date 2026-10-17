@@ -164,10 +164,35 @@ impl Rig {
         Self::start_asking(device_name, busy_opens, recovery, false)
     }
 
+    /// The same, with the microphone's first `gone_opens` opens answered "no
+    /// such device", as a microphone off USB for a moment leaves it.
+    fn start_gone(device_name: &'static str, gone_opens: usize) -> Self {
+        Self::start_failing(
+            device_name,
+            (gone_opens, lamp_audio::device::errno::NODEV),
+            ReferenceRecovery::Off,
+            false,
+        )
+    }
+
     /// The same, with raw blocks asked for or not (`--raw-blocks`, #1047).
     fn start_asking(
         device_name: &'static str,
         busy_opens: usize,
+        recovery: ReferenceRecovery,
+        raw_blocks: bool,
+    ) -> Self {
+        Self::start_failing(
+            device_name,
+            (busy_opens, lamp_audio::device::errno::BUSY),
+            recovery,
+            raw_blocks,
+        )
+    }
+
+    fn start_failing(
+        device_name: &'static str,
+        (failed_opens, errno): (usize, i32),
         recovery: ReferenceRecovery,
         raw_blocks: bool,
     ) -> Self {
@@ -188,8 +213,8 @@ impl Rig {
         let speaker =
             ReferenceChannels::bind(&directory.path, "speaker", speaker_boot, worker_boot).unwrap();
         let device = CaptureControl::register(device_name);
-        for _ in 0..busy_opens {
-            device.fail_next("open", lamp_audio::device::errno::BUSY);
+        for _ in 0..failed_opens {
+            device.fail_next(lamp_audio::device::OPEN_CALL, errno);
         }
         let path = directory.path.clone();
         let worker = std::thread::spawn(move || {
@@ -675,6 +700,28 @@ fn a_microphone_busy_for_a_moment_at_start_is_opened_once_it_is_free() {
     let signal = Signal::new(50);
     let mut rig = Rig::start_busy("scripted busy at start", 3);
     assert!(rig.ready && rig.prepared);
+    rig.stream(&signal, 50);
+    rig.parent.control.send(Control::Stop).unwrap();
+    rig.finish();
+}
+
+/// A microphone off USB for a moment when the worker starts (lamp-4ace,
+/// 2026-10-17, #1178: 4-5 s, twice) is opened once it is back: the worker
+/// tries every 250 ms, prepares it, and the handshake completes, instead of
+/// the run ending and the lamp muting.
+#[test]
+fn a_microphone_gone_for_a_moment_at_start_is_opened_once_it_is_back() {
+    warm_up();
+    let signal = Signal::new(50);
+    let started = Instant::now();
+    let mut rig = Rig::start_gone("scripted gone at start", 3);
+    assert!(rig.ready && rig.prepared);
+    assert!(
+        started.elapsed() >= Duration::from_millis(750),
+        "{:?}",
+        started.elapsed()
+    );
+    assert_eq!(rig.device.counts().0, 1, "opened once it was back");
     rig.stream(&signal, 50);
     rig.parent.control.send(Control::Stop).unwrap();
     rig.finish();

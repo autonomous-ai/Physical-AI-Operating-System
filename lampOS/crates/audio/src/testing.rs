@@ -117,9 +117,9 @@ impl CaptureDevice for ScriptedCapture {
         let control = locked(&CAPTURES)
             .get(name)
             .cloned()
-            .ok_or(DeviceFault::new("open", errno::NOENT))?;
+            .ok_or(DeviceFault::new(crate::device::OPEN_CALL, errno::NOENT))?;
         let device = Self(control);
-        device.failing("open")?;
+        device.failing(crate::device::OPEN_CALL)?;
         let mut script = device.0.script();
         script.opens += 1;
         script.state = DeviceState::Setup;

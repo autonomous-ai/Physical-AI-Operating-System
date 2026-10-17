@@ -290,7 +290,20 @@ Two of the voice's start-up failures, found on lamp-52e6 and lamp-4ace on
   330 ms after the old process had gone, once in three restarts; the power
   cut that morning did the same. The capture worker now tries the open again
   for up to 3 s (`BUSY_AT_START`) and says once that it was busy; any other
-  open failure, or busy for longer, ends the worker as before.
+  open failure, or busy for longer, ends the worker as before. Until
+  2026-10-17 this held only for the scripted microphone: the check looked for
+  a failed call named `open`, the scripted device's name for it, while ALSA
+  names it `snd_pcm_open`, so on a lamp a busy microphone still ended the
+  worker. Both now name it `lamp_audio::device::OPEN_CALL` (ALSA's), and the
+  tests fail with the old name.
+- **The microphone off USB at start.** On lamp-4ace on 2026-10-17 the voice
+  mic fell off USB for 4-5 s, twice (12:29:20 and 12:49:06); the new run's
+  open failed with `snd_pcm_open failed with errno 19`, the run ended and the
+  restart guard muted the lamp (#1178). The capture worker now tries an open
+  that fails with `ENODEV` again every 250 ms for up to 10 s
+  (`GONE_AT_START`), inside the coordinator's 25 s for input to be ready, and
+  says once how long it was gone. Longer, it ends the worker as before. Only
+  the start is covered: a microphone lost mid-run still ends it.
 - **A worker's first control message older than 100 ms.** A worker sends its
   first control message as soon as its peer is there; at start the
   coordinator may read it only after starting its other workers. lamp-4ace

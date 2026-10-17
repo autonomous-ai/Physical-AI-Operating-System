@@ -344,7 +344,26 @@ to 70 that stays, or a steady 150 still stops on heat, about half a second
 later than without the check; one 150 is still dropped. Each settle is in
 the end report, `temperature_settles` (joint, last good, settled; the first
 16), so a stop on a steady 150 says it settled there rather than looking
-like heat that was read. With no good one yet (the first read) a reading is
+like heat that was read. A good read no longer ends a settle in progress: it counts as one of
+the settle's skipped outliers, so a value read by turns with the good one
+still settles. A bad read within 10 degrees of the last good one, both
+under 100 (`TEMPERATURE_FLAP`), is a flap: a register reading two
+plausible values by turns. lamp-4ace's shoulder on 2026-10-17 read about 55
+and 59 to 61 by turns (its settles 4 to 6 apart) and ended at 15:25:38 on
+`BadTemperature` (`temperature 55, from 60`) after 618,587 steps, every
+read under 62: each good read cleared the settle, so the other value never
+settled while the bad reads in a row climbed to 50. A flap is counted in
+`bad_temperatures` and still feeds a settle, but never adds toward
+`BadTemperature`: the joint is judged on the higher of the flap read, the
+good one and the flap's own higher value (the cautious side for heat), and
+the good reads after it are judged on that higher value too until 25 reads
+pass with no flap. The flap read itself holds the heat streak, as a
+replaced read does, so one glitch within 10 is at most 25 hot steps,
+never heat; a flap of 60 and 64 by turns is judged 64 and stops on
+`Temperature`
+(`a_shoulder_flapping_between_55_and_61_runs_20_minutes_judged_at_61`,
+`a_joint_flapping_between_60_and_64_stops_on_heat`). A read over 100 or
+more than 10 from the good one is judged as before. With no good one yet (the first read) a reading is
 taken as it is: one over 100 is counted, and a hot one is read again before
 it is acted on (above). A glitch, or glitches between good reads however
 many, never stop the run: the hot-servo stop needs 50 hot steps in a row,

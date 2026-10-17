@@ -7518,6 +7518,99 @@ fn held_reads_after_a_hot_streak_do_not_add_to_the_arm_heat_streak() {
     assert_eq!(report.temperature_settles, vec![(2, 65, 61)], "{report:?}");
 }
 
+/// lamp-4ace's shoulder on 2026-10-17, which ended at 15:25:38 on
+/// `BadTemperature` after 618,587 steps though every read was under 62: its
+/// register read about 55 and 59 to 61 by turns. Here, a minute at a time,
+/// 60 and 61 with a 55 one read in 66 (its 9,354 bad of 618,587), then 55
+/// with a 59 to 61 one read in 8, which ended it.
+fn flapping_4ace_shoulder(reads: usize, low: u8, high: u8) -> Vec<Option<u8>> {
+    (0..reads)
+        .map(|n| {
+            let minute = (n / 3_000) % 2 == 0;
+            Some(match (minute, n % 66 == 65, n % 8 == 7) {
+                (true, true, _) => low,
+                (true, false, _) => high - u8::from(n % 2 == 0),
+                (false, _, true) => high - (n % 3) as u8,
+                (false, _, false) => low,
+            })
+        })
+        .collect()
+}
+
+/// That shoulder, standing for 20 minutes: never ended as unreadable, and
+/// judged on its higher values, 61.
+#[test]
+fn a_shoulder_flapping_between_55_and_61_runs_20_minutes_judged_at_61() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(1_210));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    lamp.servos[1].temperature = 60;
+    lamp.flicker = Some((
+        Duration::from_millis(7_500),
+        1,
+        flapping_4ace_shoulder(62_000, 55, 61),
+        0,
+    ));
+    let news = spoken_to(&clock.time);
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        Limits::FOLDED,
+        Some(HOME),
+        Some(standing(100, 5)),
+        news,
+        |_| {},
+    );
+    assert_eq!(
+        report.stop,
+        Stop::Cancelled,
+        "{:?} {:?}",
+        report.stop,
+        report.bad_temperatures
+    );
+    assert!(
+        report.stood && report.retreats.is_empty(),
+        "{:?}",
+        report.retreats
+    );
+    assert!(
+        report.arm_peak_temperature[0] >= 61,
+        "{:?}",
+        report.arm_peak_temperature
+    );
+    assert!(
+        report.bad_temperatures[1] > 1_000,
+        "{:?}",
+        report.bad_temperatures
+    );
+}
+
+/// The same flap two degrees over the limit, 60 and 64 by turns, is heat:
+/// judged on 64, it stops on `Temperature`, not as unreadable.
+#[test]
+fn a_joint_flapping_between_60_and_64_stops_on_heat() {
+    let readings = (0..3_000)
+        .map(|n| Some(if n % 2 == 0 { 64 } else { 60 }))
+        .collect();
+    let (report, _) = scripted_pitch(
+        60,
+        Vec::new(),
+        Duration::from_millis(1_500),
+        readings,
+        Duration::from_secs(60),
+    );
+    assert!(
+        matches!(
+            report.stop,
+            Stop::Temperature {
+                joint: 5,
+                temperature: 62..
+            }
+        ),
+        "{report:?}"
+    );
+}
+
 /// Taking hold of an arm joint writes its goal by itself, and that write is
 /// checked as every other arm goal is: an elbow found without torque
 /// outside its window is not given that as its goal.

@@ -851,6 +851,7 @@ fn offline_reply(speech: bool) -> (Controller, Option<Reply>) {
     current.local_only = Some(notices::LocalOnly {
         speech,
         back: false,
+        service: false,
     });
     (owner, Some(current))
 }
@@ -873,6 +874,7 @@ fn back_online_is_its_own_recording_and_does_not_count_as_the_outages_line() {
     back.as_mut().unwrap().local_only = Some(notices::LocalOnly {
         speech: true,
         back: true,
+        service: false,
     });
     select_failure_notice_in(&catalog, &mut back, &None, &mut outage, &mut trace).unwrap();
     assert!(selected(&back, lamp_audio::notice::NoticeKind::BackOnline));
@@ -882,6 +884,7 @@ fn back_online_is_its_own_recording_and_does_not_count_as_the_outages_line() {
     silent.as_mut().unwrap().local_only = Some(notices::LocalOnly {
         speech: true,
         back: true,
+        service: false,
     });
     select_failure_notice_in(
         &FailureNotices::synthetic(),
@@ -1055,4 +1058,114 @@ fn with_the_probe_the_first_seconds_of_an_outage_wait_for_its_verdict() {
     ));
     // The wait leaves room for the probe: grace, its 2 s bound, two reports.
     assert!(REACH_WAIT_US >= grace + 2_000_000 + 2 * 1_000_000);
+}
+
+/// #830 (C): the voice service alone down, the internet answering, is its
+/// own outage only with the switch and past the link's grace, and never at
+/// the same moment as the internet's: the probe's verdict decides which.
+#[test]
+fn the_service_alone_down_is_its_own_outage_on_the_probes_verdict() {
+    let grace = crate::bus_out::LINK_GRACE_US;
+    let since = 1_000;
+    assert!(!service_down_now(
+        false,
+        Some(since),
+        since + grace,
+        Some(Some(true))
+    ));
+    assert!(!service_down_now(
+        true,
+        None,
+        since + grace,
+        Some(Some(true))
+    ));
+    assert!(!service_down_now(
+        true,
+        Some(since),
+        since + grace - 1,
+        Some(Some(true))
+    ));
+    assert!(service_down_now(
+        true,
+        Some(since),
+        since + grace,
+        Some(Some(true))
+    ));
+    for verdict in [None, Some(None), Some(Some(false))] {
+        assert!(
+            !service_down_now(true, Some(since), since + 60_000_000, verdict),
+            "{verdict:?}"
+        );
+    }
+    // Never both: whatever the verdict and the moment, one outage at a time.
+    for verdict in [None, Some(None), Some(Some(false)), Some(Some(true))] {
+        for at in (0..=30_000_000).step_by(500_000) {
+            assert!(
+                !(offline_now(true, Some(since), since + at, verdict)
+                    && service_down_now(true, Some(since), since + at, verdict)),
+                "{verdict:?} {at}"
+            );
+        }
+    }
+}
+
+/// #830 (C): a local-only turn taken while only the service is down says the
+/// service's line, once an outage and only for speech, and the outage
+/// remembers it was the service's, so no "back online" follows it. The
+/// internet's local-only turn still says the offline line.
+#[test]
+fn the_service_line_is_said_once_and_is_not_the_internets() {
+    let catalog = FailureNotices::synthetic_offline();
+    let mut outage = Outage::default();
+    let mut trace = SessionState::default();
+    let service = |reply: &mut Option<Reply>| {
+        reply.as_mut().unwrap().local_only.as_mut().unwrap().service = true;
+    };
+    let (_owner, mut cough) = offline_reply(false);
+    service(&mut cough);
+    select_failure_notice_in(&catalog, &mut cough, &None, &mut outage, &mut trace).unwrap();
+    assert!(matches!(
+        cough.as_ref().unwrap().notice,
+        NoticeDelivery::Unselected
+    ));
+    let (mut owner, mut first) = offline_reply(true);
+    service(&mut first);
+    select_failure_notice_in(&catalog, &mut first, &None, &mut outage, &mut trace).unwrap();
+    assert!(selected(
+        &first,
+        lamp_audio::notice::NoticeKind::VoiceServiceUnreachable
+    ));
+    speaker_took(&mut owner, &mut first);
+    outage.note_delivery(&first);
+    assert!(outage.said && outage.service);
+    let (_owner, mut second) = offline_reply(true);
+    service(&mut second);
+    select_failure_notice_in(&catalog, &mut second, &None, &mut outage, &mut trace).unwrap();
+    assert!(matches!(
+        second.as_ref().unwrap().notice,
+        NoticeDelivery::Unselected
+    ));
+    // The internet's outage: its own line, and "back online" may follow.
+    let mut internet = Outage::default();
+    let (mut owner, mut offline) = offline_reply(true);
+    select_failure_notice_in(&catalog, &mut offline, &None, &mut internet, &mut trace).unwrap();
+    assert!(selected_offline(&offline));
+    speaker_took(&mut owner, &mut offline);
+    internet.note_delivery(&offline);
+    assert!(internet.said && !internet.service);
+    // Without its recording the service's turn is silent, as every notice is.
+    let (_owner, mut silent) = offline_reply(true);
+    service(&mut silent);
+    select_failure_notice_in(
+        &FailureNotices::synthetic(),
+        &mut silent,
+        &None,
+        &mut Outage::default(),
+        &mut trace,
+    )
+    .unwrap();
+    assert!(matches!(
+        silent.as_ref().unwrap().notice,
+        NoticeDelivery::Skipped(_)
+    ));
 }

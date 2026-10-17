@@ -48,6 +48,9 @@ pub enum NoticeKind {
     /// The internet is back, said only if the lamp said it could not reach
     /// it (#830).
     BackOnline,
+    /// The internet answers but the voice service does not (a relay
+    /// outage), and nothing else can answer (#830, `LAMP_SERVICE_DOWN_LINE`).
+    VoiceServiceUnreachable,
 }
 
 /// Who may hear it.

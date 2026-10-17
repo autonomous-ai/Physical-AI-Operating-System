@@ -14,6 +14,10 @@ pub(super) struct FailureNotices {
     offline: std::result::Result<Arc<Recording>, Missing>,
     /// It can again: said only if `offline` was.
     back_online: std::result::Result<Arc<Recording>, Missing>,
+    /// The internet answers but the voice service does not, and nothing
+    /// else can answer (#830, `LAMP_SERVICE_DOWN_LINE=on`): said once an
+    /// outage, by a local-only turn, in place of `offline`.
+    service_down: std::result::Result<Arc<Recording>, Missing>,
     language: Option<String>,
 }
 pub(super) struct Recording {
@@ -49,6 +53,7 @@ impl FailureNotices {
             selected: get(NoticeKind::TurnLost),
             offline: get(NoticeKind::ProviderUnavailable),
             back_online: get(NoticeKind::BackOnline),
+            service_down: get(NoticeKind::VoiceServiceUnreachable),
             language: Some(options.language().to_owned()),
         }
     }
@@ -57,6 +62,7 @@ impl FailureNotices {
             selected: Err(Missing::NoDirectory),
             offline: Err(Missing::NoDirectory),
             back_online: Err(Missing::NoDirectory),
+            service_down: Err(Missing::NoDirectory),
             language: None,
         }
     }
@@ -77,6 +83,7 @@ impl FailureNotices {
             };
             capability["offline"] = state(&self.offline);
             capability["back_online"] = state(&self.back_online);
+            capability["service_down"] = state(&self.service_down);
         }
         capability
     }
@@ -88,10 +95,13 @@ impl FailureNotices {
 /// the start. `speech`: what was heard was speech, not a sound let through
 /// (a cough must not make the lamp apologise).
 /// `back`: the turn the lamp takes for itself to say it is back online.
+/// `service`: taken while the internet answers but the voice service does
+/// not (`LAMP_SERVICE_DOWN_LINE=on`), so its line is the service's.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) struct LocalOnly {
     pub(super) speech: bool,
     pub(super) back: bool,
+    pub(super) service: bool,
 }
 
 /// What one outage has said: the offline line once, and "back online" only
@@ -99,6 +109,9 @@ pub(super) struct LocalOnly {
 #[derive(Debug, Default)]
 pub(super) struct Outage {
     pub(super) said: bool,
+    /// What was said was the service's line, not the internet's: no "back
+    /// online" follows it, since the internet never left.
+    pub(super) service: bool,
 }
 
 impl Outage {
@@ -110,15 +123,16 @@ impl Outage {
         let Some(current) = reply.as_ref() else {
             return;
         };
-        let offline_line = current.local_only.is_some_and(|local| !local.back);
+        let offline_line = current.local_only.filter(|local| !local.back);
         let delivered = match &current.notice {
             NoticeDelivery::Selected { retired_at_us, .. } => {
                 current.playback.is_some() || retired_at_us.is_some()
             }
             _ => false,
         };
-        if offline_line && delivered {
+        if let Some(local) = offline_line.filter(|_| delivered) {
             self.said = true;
+            self.service = local.service;
         }
     }
 }
@@ -412,6 +426,7 @@ pub(super) fn select_failure_notice_in(
     let selected = match current.local_only {
         None => &catalog.selected,
         Some(local) if local.back => &catalog.back_online,
+        Some(local) if local.speech && !outage.said && local.service => &catalog.service_down,
         Some(local) if local.speech && !outage.said => &catalog.offline,
         Some(_) => return Ok(()),
     };
@@ -455,6 +470,7 @@ impl FailureNotices {
         };
         catalog.offline = recording(NoticeKind::ProviderUnavailable, 123);
         catalog.back_online = recording(NoticeKind::BackOnline, 77);
+        catalog.service_down = recording(NoticeKind::VoiceServiceUnreachable, 55);
         catalog
     }
 
@@ -479,6 +495,7 @@ impl FailureNotices {
             })),
             offline: Err(Missing::NotProvisioned),
             back_online: Err(Missing::NotProvisioned),
+            service_down: Err(Missing::NotProvisioned),
             language: Some("en-US".into()),
         }
     }

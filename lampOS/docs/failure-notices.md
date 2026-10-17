@@ -55,7 +55,7 @@ No wording or voice has been approved.
 
 | Field | Rule |
 |---|---|
-| `kind` | `provider_unavailable`, `turn_lost`, `service_refused` or `back_online` (#830) |
+| `kind` | `provider_unavailable`, `turn_lost`, `service_refused`, `back_online` (#830) or `voice_service_unreachable` (#830, `LAMP_SERVICE_DOWN_LINE`) |
 | `language` | A BCP 47 tag, matched exactly. `en` does not satisfy `en-US` |
 | `transcript` | The words in the recording, 1 to 240 bytes, no control characters. Kept for records and review; never sent anywhere to be spoken |
 | `voice`, `voice_revision` | What produced the recording, 1 to 64 bytes each |
@@ -177,6 +177,35 @@ answered first, a new outage, or the minute passing let it go unsaid. Both
 recordings are reported in `failure_notice_capability` (`offline`,
 `back_online`). The other-language rule needs speech-to-text and does not apply
 with no internet; only the local sound rule does.
+
+## Service down: the internet answers, the voice service doesn't (#830)
+
+With `LAMP_SERVICE_DOWN_LINE=on`, beside `LAMP_OFFLINE_VOICE=on` and
+`LAMP_REACH_PROBE=on`, a link down past its 5 s grace while
+`lamp-health --reach-probe on` finds the internet answering (a relay outage),
+and nothing else able to answer (no second route answering), is its own
+outage (`service_down_now`). Speech heard then is admitted as a local-only
+turn exactly as offline speech is, with the same breath, instead of being
+dropped without a word (`accepted_without_cloud`). It says the
+`voice_service_unreachable` recording once an outage, only for speech, by the
+same "said once the speaker took some" rule; other tries get the breath
+alone. No "back online" follows it: the internet never left
+(`Outage::service`). Proposed words, for the owner to approve: "Sorry, I
+can't reach my voice service right now. I'll be back soon." With no
+recording the turn is `Skipped` and silent. Reported in
+`failure_notice_capability` as `service_down`. Off unless set.
+
+**Ship the recording only with a voice that knows the kind.** The manifest
+is read whole: a `lamp-voice` from before this kind, given a manifest that
+lists `voice_service_unreachable`, refuses every notice (`InvalidManifest`),
+the offline line included. `back_online` was the same. So a manifest with
+the new kind goes onto a lamp only with, or after, the build that knows it.
+
+**Unlike offline, the internet is up here.** With
+`LAMP_STOP_WORDS=heard-always` and a second route that is set but not
+answering, speech over the service line's playback can reach the second
+voice's speech-to-text, as speech over any of the lamp's speech can; that is
+inside heard-always's own scope.
 
 ## Verified, and not
 

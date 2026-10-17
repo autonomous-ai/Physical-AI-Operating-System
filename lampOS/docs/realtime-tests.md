@@ -1146,8 +1146,10 @@ Its caller, `DaysClient::run`, was given 50 ms, and it checks that bound
 before it writes the request. A client held up before writing gave up
 without sending, or after marking the write uncertain but before the line
 went out, so nothing was held and nothing was ever answered. A 400 ms sleep
-at the top of `run_for` fails it every time (at `voice.rs:403`: with nothing
-sent, nothing is uncertain).
+in `run_for` right after `let started = Instant::now()` fails it every time
+(at `voice.rs:403` on the base: with nothing sent, nothing is uncertain).
+Before that line it passes with 50 ms too, since the deadline then starts
+after the stall (the reviewer, #1286).
 
 The caller's deadline is now 1 s, the test's own bound, not one the lamp
 runs with (its tools allow up to `ASK_DEADLINE`, 1.5 s). The server's hold

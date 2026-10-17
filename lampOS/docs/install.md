@@ -485,6 +485,60 @@ The product units and settings are carried inside the program
 (`include_str!` of `deploy/product/`), so they are those of the commit the
 program was built from; the binaries are the channel's newest build.
 
+## Checking a lamp runs the product's units (`lamp-update check-units`)
+
+After an install (Sunday's B8 on #806), whether the owner tests what
+customers get: does the lamp run exactly `deploy/product/`'s units?
+
+```sh
+# on the lamp, as root, so no file it can't read is left out:
+sudo systemctl cat 'lamp-*.service' 'lamp-*.timer' 'lampos*' > units.txt
+# anywhere, with a lamp-update built from the commit installed:
+lamp-update check-units --cat units.txt
+# or against a checkout's deploy/product/ at another commit:
+lamp-update check-units --cat units.txt --product lampOS/deploy/product
+```
+
+- **Each product unit** is `same`, `missing on the lamp`, or `differs` with
+  each differing line, `-` the product's and `+` the lamp's. Install writes
+  every unit whole into `/etc/systemd/system/`, with no `@…@` placeholder
+  (`install::tests::no_product_unit_names_a_lamp`), so units are compared
+  byte for byte, comments included: a changed comment is a file that isn't
+  the product's.
+- **Every drop-in** (a file under a `.d/` folder) is said with its text: on a
+  product lamp each one is a finding. After the office extras go back, the
+  check must name `office.conf` and nothing else.
+- **Every lamp unit the product has no file for** is said (`not in the
+  product`), and a product unit read from anywhere but
+  `/etc/systemd/system/` (`not where install puts it`).
+- **A masked unit** (`# Unit NAME is masked.`) is a finding too.
+- It ends with **0** when everything is `same` and nothing else is found,
+  **1** when not, and **2** for a wrong option or a file it cannot read, so a
+  script tells a bad input from a lamp that differs.
+- `systemctl cat` puts `# PATH` before each file, on the first line or after
+  an empty line. A line counts as one only there, only for a path not
+  printed before, and only when it is `# `, an absolute path with no space
+  and a unit's or drop-in's suffix. So a unit's own comment that begins with
+  a path (`# /etc/lampOS/body/lamp.env as …`), or a unit that begins with its
+  own path line (lamp-4ace's `lamp-skills.service`), is read as text and
+  compared whole (the reviewer on #1346).
+- `systemctl cat` itself **exits 1 here every time**: `'lampos*'` also
+  matches the implicit `lampos.slice`, the two slices' parent, which has no
+  file, and it says `No files found for lampos.slice.` on stderr. Save only
+  stdout (`>`), and don't run it under `set -e`. Saved with `2>&1`, the line
+  is read as that notice and nothing more.
+- A glob matches only units systemd has loaded: a product unit on disk but
+  neither enabled nor pulled in reads `missing on the lamp`. Every product
+  unit hangs off `lampos.target` today, so a `missing` is a unit install
+  didn't write or systemd never loaded (Twelve on #1346).
+- **On lamp-75c9 on 17 October** (installed 16 Oct, read under the lock,
+  checked against `lamp-voice` at the check's commit): 19 units the same; the
+  two self-test units missing (added since); `lamp-controls`, `lamp-health`,
+  `lamp-policy`, `lamp-tasks` and `lamp-voice` differing by what merged
+  since (`--touch`, `LAMP_PERSON_NAME`, `--progress --push-wait`, the
+  processors' rule, the key's comment); and `lamp-cmedia-speaker.service`,
+  that lamp's own, not in the product. Exit 1, as it should be.
+
 ## What was not shown
 
 - Harness at boot (step 9) was run by hand on lamp-75c9 (the home image) on

@@ -472,7 +472,9 @@ What is not done, and why:
    `LAMP_LIGHT_REQUESTS=on`: a skill asks on `light/request` and never
    touches the person's light, which comes back by itself when the claim
    lapses ([ring-choreography.md](ring-choreography.md#the-lamps-own-light)).
-   The body's is next.
+   The body's is built behind `lamp-body --arbitration on`: a gesture or a
+   move on the mood socket says its `source` and `priority`
+   ([body.md](body.md#who-may-ask-over-whom-940)).
 3. **The eyes publish `camera/image`** (a file and when it was taken), so a
    skill can look.
 4. **The body plays move files** from a skill, within its own speed and

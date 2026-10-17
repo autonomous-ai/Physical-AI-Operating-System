@@ -8126,3 +8126,225 @@ fn a_resting_arm_goal_more_than_a_step_away_is_refused_not_eased_toward() {
         .collect();
     assert_eq!(elbow, [2_049]);
 }
+
+/// Under `Limits::arbitration` (#940) or not, a lamp that stands at once
+/// and is spoken to throughout, asked for each gesture at its moment and
+/// priority. What was said of each gesture, and each step: when, the
+/// gesture being made, the head's goals and the arm's.
+fn arbitrated_run(
+    arbitration: bool,
+    asks: Vec<(Duration, &'static Clip, Priority)>,
+    seconds: u64,
+) -> (BodyReport, Vec<(&'static str, &'static str)>, Vec<Step>) {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(seconds));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    let limits = Limits {
+        arbitration,
+        ..gesture_limits()
+    };
+    let time = clock.time.clone();
+    let seen_at = clock.time.clone();
+    let mut asks = VecDeque::from(asks);
+    let (mut fates, mut seen) = (Vec::new(), Vec::new());
+    let report = run_arbitrated(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some(HOME),
+        Some(standing(100, 60)),
+        None,
+        || Some((Mood::Speaking, 60)),
+        move || match asks.front() {
+            Some((at, clip, by)) if time.get() >= *at => {
+                let asked = Asked {
+                    gesture: Some(*clip),
+                    ..Asked::default()
+                };
+                let by = *by;
+                asks.pop_front();
+                (asked, by)
+            }
+            _ => (Asked::default(), Priority::Conversation),
+        },
+        |glimpse| {
+            fates.extend(glimpse.gesture_fate);
+            seen.push((
+                seen_at.get(),
+                glimpse.gesture,
+                glimpse.goals,
+                glimpse.arm_goals,
+            ));
+        },
+    );
+    (report, fates, seen)
+}
+
+const PRIORITIES: [Priority; 5] = [
+    Priority::Idle,
+    Priority::Skill,
+    Priority::Conversation,
+    Priority::Safety,
+    Priority::Person,
+];
+
+/// Every pair: a nod asked while a stretch plays ends it when asked
+/// higher and plays, and is dropped, naming who holds the body, when
+/// asked as high or lower. Without the switch, whoever asks, it is
+/// dropped as before.
+#[test]
+fn a_gesture_asked_higher_ends_the_one_playing_and_one_asked_no_higher_is_dropped() {
+    let secs = Duration::from_secs;
+    for holder in PRIORITIES {
+        for asker in PRIORITIES {
+            let asks = vec![
+                (secs(8), &crate::clips::STRETCHING, holder),
+                (secs(10), &crate::clips::NOD, asker),
+            ];
+            let (report, fates, _) = arbitrated_run(true, asks, 12);
+            assert_eq!(report.stop, Stop::Cancelled, "{holder:?} {asker:?}");
+            if asker > holder {
+                assert_eq!(
+                    fates,
+                    [
+                        ("stretching", "taken: it plays"),
+                        ("stretching", asker.ended()),
+                        ("nod", "taken: it plays"),
+                    ],
+                    "{holder:?} {asker:?}"
+                );
+                assert_eq!(report.gestures, 2);
+            } else {
+                assert_eq!(
+                    fates,
+                    [("stretching", "taken: it plays"), ("nod", holder.busy())],
+                    "{holder:?} {asker:?}"
+                );
+                assert_eq!(report.gestures, 1);
+            }
+        }
+    }
+    let asks = vec![
+        (secs(8), &crate::clips::STRETCHING, Priority::Skill),
+        (secs(10), &crate::clips::NOD, Priority::Person),
+    ];
+    let (_, fates, _) = arbitrated_run(false, asks, 12);
+    assert_eq!(
+        fates,
+        [
+            ("stretching", "taken: it plays"),
+            ("nod", "dropped: another gesture plays"),
+        ]
+    );
+}
+
+/// A skill's move asked while a conversation's gesture waits for the lamp
+/// to stand does not take its place; one asked higher would.
+#[test]
+fn a_skill_asked_while_a_conversation_gesture_waits_is_dropped() {
+    let ms = Duration::from_millis;
+    let asks = vec![
+        (ms(500), &crate::clips::NOD, Priority::Conversation),
+        (ms(1_500), &crate::clips::STRETCHING, Priority::Skill),
+    ];
+    let (report, fates, _) = arbitrated_run(true, asks.clone(), 10);
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(
+        fates,
+        [
+            ("stretching", "dropped: busy, conversation"),
+            ("nod", "taken: it plays"),
+        ]
+    );
+    let (_, fates, _) = arbitrated_run(false, asks, 10);
+    assert_eq!(
+        fates,
+        [
+            ("nod", "dropped: another was asked after it"),
+            ("stretching", "taken: it plays"),
+        ]
+    );
+}
+
+/// A skill's stretch ended by the conversation's nod at its widest eases
+/// out at the gesture's own step, under the arm's 50 counts a step and
+/// with nothing refused at the wire, and the nod begins once it has.
+#[test]
+fn a_skill_move_ended_for_a_conversation_gesture_eases_out_and_then_it_plays() {
+    let secs = Duration::from_secs;
+    let asks = vec![
+        (secs(8), &crate::clips::STRETCHING, Priority::Skill),
+        (
+            Duration::from_millis(11_200),
+            &crate::clips::NOD,
+            Priority::Conversation,
+        ),
+    ];
+    let (report, fates, seen) = arbitrated_run(true, asks, 16);
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.gestures, 2);
+    assert!(
+        fates.contains(&("stretching", "ended: by conversation")),
+        "{fates:?}"
+    );
+    let ended = seen
+        .iter()
+        .position(|step| step.0 >= Duration::from_millis(11_200))
+        .unwrap();
+    let nod = seen.iter().position(|step| step.1 == Some("nod")).unwrap();
+    // The stretch had the arm far out: easing it back took a while, with
+    // no gesture made meanwhile.
+    assert!(nod - ended >= 5, "{ended} {nod}");
+    assert!(seen[ended..nod].iter().all(|step| step.1.is_none()));
+    for pair in seen[ended - 1..].windows(2) {
+        let (before, after) = (&pair[0], &pair[1]);
+        for joint in 0..3 {
+            assert!(after.2[joint].abs_diff(before.2[joint]) <= 50, "{pair:?}");
+        }
+        for joint in 0..2 {
+            assert!(after.3[joint].abs_diff(before.3[joint]) <= 50, "{pair:?}");
+        }
+    }
+}
+
+/// A skill's move asked while a hand holds the lamp is dropped, naming
+/// the hand.
+#[test]
+fn a_skill_move_asked_while_a_hand_holds_the_lamp_is_dropped_by_the_hand() {
+    let ms = Duration::from_millis;
+    let (mut lamp, mut clock) = folded(Duration::from_secs(8));
+    lamp.hand = Some((ms(1_500), ms(4_500), YAW, f32::from(HOME[2]) + 40.0));
+    lamp.strains = vec![(ms(1_500), ms(4_500), YAW, 120)];
+    let held = Rc::new(Cell::new(false));
+    let told = held.clone();
+    let mut asked = false;
+    let mut fates = Vec::new();
+    let report = run_arbitrated(
+        &mut lamp,
+        &mut clock,
+        Limits {
+            arbitration: true,
+            ..giving_way(GiveWay::Return)
+        },
+        Some(HOME),
+        Some(standing(100, 5)),
+        None,
+        || Some((Mood::Resting, 0)),
+        move || {
+            let due = !asked && held.get();
+            asked |= due;
+            let asked = Asked {
+                gesture: due.then_some(&crate::clips::STRETCHING),
+                ..Asked::default()
+            };
+            (asked, Priority::Skill)
+        },
+        |glimpse| {
+            told.set(glimpse.hand);
+            fates.extend(glimpse.gesture_fate);
+        },
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.gestures, 0);
+    assert_eq!(fates, [("stretching", "dropped: held by a hand")]);
+}

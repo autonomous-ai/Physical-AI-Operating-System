@@ -151,6 +151,7 @@ fn start(request: u64) -> ProviderInput {
         continues_cut_off: false,
         over_the_lamp: false,
         after_stop: false,
+        follows_on: false,
     }
 }
 fn audio(request: u64, sequence: u64) -> ProviderInput {
@@ -1170,6 +1171,7 @@ async fn a_request_going_on_from_one_given_up_begins_with_its_words() {
         continues_cut_off: true,
         over_the_lamp: false,
         after_stop: false,
+        follows_on: false,
     });
     engine.submit(audio(2, 1));
     engine.submit(end(2));
@@ -1203,6 +1205,7 @@ async fn a_request_going_on_takes_only_the_words_of_the_one_just_before_it_in_it
         continues_cut_off,
         over_the_lamp: false,
         after_stop: false,
+        follows_on: false,
     };
     let script = Arc::new(Script {
         heard: Mutex::new(
@@ -1269,6 +1272,7 @@ async fn the_first_request_after_a_stop_is_told_of_it_beside_its_words() {
         continues_cut_off: false,
         over_the_lamp: false,
         after_stop: true,
+        follows_on: false,
     });
     engine.submit(audio(1, 1));
     engine.submit(end(1));
@@ -1304,6 +1308,7 @@ async fn a_stop_whose_request_is_never_asked_is_told_with_the_next_one() {
         continues_cut_off: false,
         over_the_lamp: false,
         after_stop,
+        follows_on: false,
     };
     let stopped = Message::system(crate::provider_worker::STOPPED_NOTE);
     for (next_session, told) in [(1, true), (2, false)] {
@@ -1342,6 +1347,7 @@ async fn a_stop_goes_with_a_request_going_on_and_never_past_two_minutes() {
         continues_cut_off,
         over_the_lamp: false,
         after_stop,
+        follows_on: false,
     };
     let stopped = Message::system(crate::provider_worker::STOPPED_NOTE);
     let answered = || vec![text("Sure."), Ok(ChatEvent::Done)];
@@ -1461,6 +1467,7 @@ async fn a_request_going_on_names_the_one_begun_before_it_in_its_session() {
         continues_cut_off: false,
         over_the_lamp: false,
         after_stop: false,
+        follows_on: false,
     };
     let script = Arc::new(Script {
         heard: Mutex::new(

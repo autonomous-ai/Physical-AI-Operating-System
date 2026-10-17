@@ -134,6 +134,7 @@ fn run_with_notice_policy(
                     continues_cut_off: false,
                     over_the_lamp: false,
                     after_stop: false,
+                    follows_on: false,
                 })
                 .unwrap();
         }

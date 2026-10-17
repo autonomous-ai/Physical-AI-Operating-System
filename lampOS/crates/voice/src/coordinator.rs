@@ -3295,6 +3295,11 @@ fn conversation_with_gate(
         None
     };
     let mut last_turn_us = monotonic_us();
+    // When the lamp's own words last finished playing, and whether a line
+    // begun soon after may follow on from them (`LAMP_FOLLOWS_ON=on`, #829,
+    // the first builder at 09:01 on 17 October).
+    let mut lamp_words_ended_us: Option<u64> = None;
+    let follows_on_switch = crate::follows_on::on();
     // The first five minutes with a new person, led by the lamp
     // (`docs/onboarding.md`). Off unless `LAMP_ONBOARDING=on`.
     let mut onboarding = if lifetime.continuous() {
@@ -5271,6 +5276,12 @@ fn conversation_with_gate(
                             snapshot.microphone_generation(),
                         )
                     });
+                    let follows_on = crate::follows_on::due(
+                        follows_on_switch,
+                        reply.is_some(),
+                        lamp_words_ended_us,
+                        accepted.candidate.trigger_read_at_us,
+                    );
                     snapshot = commit_admitted_input(
                         owner,
                         reply,
@@ -5281,6 +5292,7 @@ fn conversation_with_gate(
                         continues,
                         took_over,
                         stop_untold.take_for(provider_session, monotonic_us()),
+                        follows_on,
                         rig.playout_start,
                         trace,
                         |state| rig.publish(state),
@@ -5858,6 +5870,9 @@ fn conversation_with_gate(
             && current.settled(&speaker_pending)
         {
             let turn = current.owner.turn();
+            if current.had_audio {
+                lamp_words_ended_us = Some(monotonic_us());
+            }
             owner.complete_turn(now(), current.owner)?;
             trace.receipts.completed(current.owner)?;
             snapshot = owner.snapshot(now())?;
@@ -7953,6 +7968,8 @@ fn commit_admitted_input(
     // The Stop this request tells of, when it is the first after one
     // (#829): when it came, and the session it cut.
     after_stop: Option<(u64, u64)>,
+    // Begun soon after the lamp's words finished (`crate::follows_on`).
+    follows_on: bool,
     playout_start: PlayoutStart,
     trace: &mut SessionState,
     mut publish: impl FnMut(Snapshot) -> io::Result<()>,
@@ -7983,6 +8000,9 @@ fn commit_admitted_input(
     if after_stop.is_some() {
         admitted["after_stop"] = json!(true);
     }
+    if follows_on {
+        admitted["follows_on"] = json!(true);
+    }
     record(trace, admitted)?;
     provider_queue.push_back(ProviderInput::Start {
         session: provider_session,
@@ -7997,6 +8017,9 @@ fn commit_admitted_input(
         // The first request after a hand or the head stopped the lamp: the
         // model is told so (#829, 16:33).
         after_stop: after_stop.is_some(),
+        // Begun soon after the lamp's words finished: the model is told it
+        // may follow on (`LAMP_FOLLOWS_ON=on`, #829, 09:01).
+        follows_on,
     });
     let mut current = Reply {
         owner: turn,
@@ -8321,6 +8344,7 @@ fn continue_after_early_end(
         // Nothing of the answer given up was played.
         over_the_lamp: false,
         after_stop: false,
+        follows_on: false,
     });
     let mut current = Reply {
         owner: turn,
@@ -9732,6 +9756,7 @@ mod tests {
                 continues_cut_off: false,
                 over_the_lamp: false,
                 after_stop: false,
+                follows_on: false,
             })
             .unwrap();
         request.confirm_start(1).unwrap();
@@ -11035,6 +11060,7 @@ mod tests {
             continues_cut_off: false,
             over_the_lamp: false,
             after_stop: false,
+            follows_on: false,
         }
     }
 

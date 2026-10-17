@@ -758,6 +758,7 @@ mod tests {
             continues_cut_off: false,
             over_the_lamp: false,
             after_stop: false,
+            follows_on: false,
         }
     }
 

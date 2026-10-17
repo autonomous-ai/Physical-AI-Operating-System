@@ -186,6 +186,59 @@ id is not read back. Forgetting still drops every thread. With nobody ever
 known everything is the room's and nothing here changes
 (`thread::tests::with_nobody_ever_known_nothing_changes`).
 
+## A line soon after the lamp's words (`LAMP_FOLLOWS_ON`)
+
+Off unless `LAMP_FOLLOWS_ON=on` in the voice's environment (#829, the
+first builder at 09:01 on 17 October 2026).
+
+On lamp-4ace at 08:58, in a quiet room with one person, "Hey Lamp, what is
+your favourite season?" was answered. Then "And what do you like about
+it?", said 12 s after the answer, was heard right and sent to Gemini, which
+left it unanswered ("got no answer in 4009 ms; closed as unanswered"). A
+follow-up about 3 s after an answer had been answered.
+
+- **Nothing in the code treated 3 s and 12 s apart.** The model got the
+  line's sound and nothing beside it.
+  - The name note needs the name heard.
+  - The room and session facts are not told while a conversation is going
+    on, which is 45 s from the answer's start (`GOING_ON_FOR`, above).
+- **The character file leaves it to the model.** It gives a line to the
+  lamp only when it is called, or when "you said something to them a moment
+  ago, and this follows on from it", and "when you really cannot tell, stay
+  silent". At 12 s the model kept quiet. Its reasons aren't in the journal,
+  so this part is inferred.
+
+With the switch, the coordinator marks the Start of a line whose speech
+began within 20 s (`follows_on::WITHIN_US`) of the lamp's own words
+finishing playing, and not over them (`follows_on: true`, and
+`"follows_on": true` in the session trace's `input_admitted`).
+- **The time** is the reply's own end in the coordinator, as its last
+  sound plays. It isn't when the worker handed the sound on, which runs
+  ahead by the queued audio.
+- **The provider worker** then gives the model `follows_on::NOTE` beside
+  the line, unless the room is busy: "(For you to know, not to answer: you
+  said something a moment ago, so what you hear now may follow on from it.)"
+- **The note says only what the lamp did,** in the character file's own
+  words. Whether the line follows on is still the model's to judge, so talk
+  that doesn't follow on stays unanswered.
+- **The second route** takes the Start and adds no note.
+
+Not yet played. The lamp check is the first builder's scene `s-0857` with
+the switch on and off.
+
+Tests:
+- `follows_on::tests::a_line_begun_within_twenty_seconds_of_the_lamps_words_may_follow_on`:
+  12 s, 19 s and 20 s do; 21 s doesn't; nor does a line over the lamp, one
+  with the lamp never having spoken, or any without the switch.
+- `coordinator::tests::turn_taking::a_request_begun_soon_after_the_lamps_words_says_so_in_its_start`:
+  the Start and the trace.
+- `provider_worker::tests::a_request_begun_soon_after_the_lamp_spoke_is_told_it_may_follow_on`:
+  through the worker's loop. Told in a room not known to be busy; not in a
+  busy room, nor without the Start's mark.
+
+Not exercised: the coordinator's loop taking the reply's end and judging a
+new line by it, the two lines in `conversation_with_gate`.
+
 ## What it keeps to itself
 
 By itself the thread lives in the provider worker's memory and nowhere

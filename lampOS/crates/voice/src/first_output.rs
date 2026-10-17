@@ -604,8 +604,21 @@ mod tests {
         // Generous, only so that a regression fails rather than hangs.
         open.recv_timeout(std::time::Duration::from_secs(30))
             .expect("open waited for the program to be read");
-        // The program's bytes come, and the writer goes on.
-        std::fs::write(&program, b"a build").unwrap();
+        // The program's bytes come, and the writer goes on. Opening the FIFO
+        // to write waits for the writer's read, so a writer that never read
+        // the program would hold this too: bounded the same way (Tests on
+        // #1334).
+        let (written, write) = std::sync::mpsc::channel();
+        {
+            let program = program.clone();
+            std::thread::spawn(move || {
+                std::fs::write(&program, b"a build").unwrap();
+                written.send(()).unwrap();
+            });
+        }
+        write
+            .recv_timeout(std::time::Duration::from_secs(30))
+            .expect("the writer never read the program");
         let log = opening.join().unwrap().unwrap();
         let path = log.path().to_owned();
         drop(log);

@@ -4,6 +4,41 @@
 
 Newest first. Times from `date` (+07). 00:12 to 01:40: the review agents stopped at a usage limit.
 
+- 21:09 merged #1382 (the short hub line names the C-Media as speaker/room mic)
+- 21:08 merged #1366 (lamp-air reads 0x7FFF CO2 as not known, decodes filler and starts a sensor whose name fails, as guards; on the first builder's 20:44 lamp run)
+- 21:02 #1378 reviewed at c8e21a520: code right, but the first builder's 20:41 narrowing (a) with its test isn't in yet; the second's P2 (colleagues 45-180 s after the news answered) holds; CHANGES
+- 21:00 #1387 reviewed at d582cc9a0: drop-in and tests right; P3 (30M is ~4 h of lamp-4ace's journal); merges on the eighth's lamp-75c9 run
+- 20:54 opened an issue for the Expression sleep_name journal flake (stale input on a loaded runner); re-ran #1381's ARM64 once
+- 20:50 #1382 moved to cd405640f: my P3 taken (the wrapped line is checked as published); merge on green ARM64
+- 20:49 #1366 moved to 1c2317540: comments and docs only (the cause not reproduced; the start branch not exercised); the first builder's 20:44 lamp-4ace run shows 0x7FFF read as unknown and "#1366 still earns its place"; merge on green ARM64
+- 20:47 merged #1383 (lamp-4ace's air fault: not reproduced at 400 kHz or with an idle sensor; docs only)
+- 20:45 merged #1352 (with LAMP_WAIT_KEEPS_ANSWER=words a lone Stop before the answer stops it and is never asked of the model; off unless set)
+- 20:45 merged #1368 (the product sets I2C bus 0 to 100 kHz at each start, the sensor's own limit; on the first builder's 20:2x lamp run)
+- 20:42 #1380 reviewed at e1c83503d: code ready, 3 P3s (skills keep a fixed offset across summer time; a lamp set up earlier keeps schedule's old zone); for the first builder (product clock, the third has no lamp)
+- 20:40 #1382 reviewed at 931dd358b: no blocking finding (the short hub line names speaker/room mic; my #1356 P3); merge on green ARM64
+- 20:38 merged #1377 (lamp-tasks' tests read the next status in 100 ms slices; tests only)
+- 20:37 the first builder's 20:2x lamp-4ace check: #1368 works (the clock write is real); #1366's start path not yet exercised; #1374 not exercised (no lamp reads the base). #1366 moved to cd98d0344 (docs and log line per #1379)
+- 20:36 #1377 and #1381 reviewed: no finding / one P3 (the 1.5 s pose's margin), tests only; merge on green ARM64
+- 20:31 #1373 re-checked at 43ff71322: P2 fixed (the fake's lease counts in its own steps), no finding; merges after #1340
+- 20:28 #1376 re-checked at bdb14ebb8: all fixed (no warn before the first reading; a truly unreadable switch still warns after 1 s); for the first builder (no lamp)
+- 20:25 merged #1379 (lamp-4ace's air sensor: not shown to be the bus speed; a sensor left not measuring is likelier; docs only)
+- 20:05 #1366 moved to 7eef040bd: a doc-comment move only (P3); still waits on the first builder's call (fixture or lamp run)
+- 20:03 #1373 reviewed at fd1d663ec: P2 (the fake body still times its lease on the real clock, so a check that never renews passes all 10 head tests); conflicts in realtime-tests.md; waits on #1340
+- 19:59 #1367 re-checked at a6946f7f8: P2 fixed (the voice uses lamp-gemini's tag check; a refused hint is dropped), off unless set; waits on the first builder's call on the body's edit history
+- 19:58 #1376 reviewed at b6aa7132b: P2 (each wait opens with a false warn "until the privacy switch can be read" before the first reading) + 2 P3s; reports only, msgs gains a constant; then for the first builder (no lamp)
+- 19:57 #1368 moved to 9254ff533: docs only (the last two P3s folded); still for the first builder
+- 19:53 #1366 re-checked at 838018906: P2 fixed (plain decode first; 0 wrong in 2.7M fuzzed reads); for the first builder (lamp-air on every lamp, the tenth has no lamp; the fixture may be enough)
+- 19:49 #1368 re-checked at 7294804d0: P2 fixed, ARM64 green; for the first builder (real hardware, no lamp run; 6-step lamp-4ace check posted)
+- 19:49 #1374 moved to 445cee468: the P3s folded in (a comment and the doc; the code unchanged); still for the first builder
+- 19:40 #1374 reviewed at ca123b013: code right (a reset is still caught each sample); for the first builder (only lamp-4ace's strip shows it, the tenth has no lamp)
+- 19:37 merged #1375 (lamp-4ace's hardware record after the 17 Oct visit: a second fan, the air sensor's fault was the bus speed, a button is read; docs only)
+- 19:31 #1367 reviewed at 752abd87d: P2 (a 1-character subtag passes the voice's check but fails lamp-gemini's, so the voice doesn't start) + 3 P3s; the body was fixed at 19:26, the old text stays in its edit history (first builder's call)
+- 19:28 merged #1364 (lamp-body exit-report prints the body's last exit report as plain lines; Monday's build)
+- 19:24 #1366 reviewed at 92eaa9894: P2 (every answer goes through the filler decode, so with no filler a real 0xff can be skipped and a wrong CO2 read with good CRCs; use plain words() first); decode with filler is sound
+- 19:21 #1368 reviewed at 1413ff19e: P2 (lamp-voice-eval's PARTS must name lamp-air-clock; ARM64 red on it) + P3s; then for the first builder. #1372: overlay right, 3 P3s; for the first builder (image not built or booted)
+- 19:17 #1364 re-checked at ca1f3faa2: P2 fixed (a cut-short newest report is named, not replaced); merge on green ARM64
+- 19:17 #1367: the body names a person (the 18:12 rule); flagged for the first builder with the two #705 comments that also have it; review started
+- 19:12 #1370 reviewed at a3910c6f4: right (RemainAfterExit=no so the level is set again on the card's return), 2 P3s; merges on a lamp run (replug on lamp-06c1) or the first builder's yes
 - 18:53 merged #1356 (the self-test and lamp-health say a whole USB hub dropping as one line; Monday's build)
 - 18:52 merged #1363 (the product voice starts after the image's speaker level is set, without Wants; Monday's build)
 - 18:44 #1364 reviewed at b4aef3f64: P2 (an unparsable newest report is skipped silently, so an older run prints as "the last"; pre-#1236 reports give no report) + 2 P3s; off the motion path

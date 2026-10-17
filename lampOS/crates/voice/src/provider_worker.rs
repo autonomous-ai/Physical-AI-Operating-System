@@ -427,6 +427,13 @@ pub enum ProviderInput {
         /// room is busy. Left off the wire when false.
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         follows_on: bool,
+        /// The line began while the lamp's own answer could be heard: its
+        /// reply had sound or was playing, not only in hand. With
+        /// `LAMP_CUT_INS_NOT_TALK=on`, left unanswered it isn't counted
+        /// toward a busy room (`crate::room_told`, #828). Left off the wire
+        /// when false.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        over_the_lamps_voice: bool,
     },
     Audio {
         request: u64,
@@ -3001,13 +3008,17 @@ fn forward_origin(
             // not a request the session failed to answer, and is not talk.
             // A reminder attempt has no heard input at all. It must neither
             // change the room nor renew the session as unanswered speech.
-            let mut over_the_lamp = false;
-            let said = heard_input
-                && crate::room_told::room().lock().map_or(true, |mut room| {
-                    over_the_lamp = room.kept_out_over_the_lamp(lineage.request.get());
-                    room.unanswered(lineage.request.get(), monotonic_us())
-                });
-            if over_the_lamp {
+            // What it was is the room's own answer, so the line says what
+            // was counted (the reviewer on #1291).
+            let left = heard_input.then(|| {
+                crate::room_told::room()
+                    .lock()
+                    .map_or(crate::room_told::Left::Talk, |mut room| {
+                        room.left_unanswered(lineage.request.get(), monotonic_us())
+                    })
+            });
+            let said = left == Some(crate::room_told::Left::Talk);
+            if left == Some(crate::room_told::Left::OverTheLamp) {
                 eprintln!(
                     "lamp-voice provider: request {}, said over the lamp's reply, got no answer in {} ms; closed, connection kept, and not counted toward a busy room",
                     lineage.request.get(),
@@ -3858,6 +3869,7 @@ impl InputHandoff {
                 continues,
                 continues_cut_off,
                 over_the_lamp,
+                over_the_lamps_voice,
                 after_stop,
                 follows_on,
                 ..
@@ -3877,9 +3889,9 @@ impl InputHandoff {
                 }
                 if over_the_lamp {
                     self.over_the_lamp = Some(request.get());
-                    if let Ok(mut room) = crate::room_told::room().lock() {
-                        room.began_over_the_lamp(request.get());
-                    }
+                }
+                if over_the_lamps_voice && let Ok(mut room) = crate::room_told::room().lock() {
+                    room.began_over_the_lamp(request.get());
                 }
                 if let Some(voices) = self.voices.as_mut() {
                     voices.began(request.get(), !over_the_lamp);
@@ -4836,6 +4848,7 @@ mod tests {
             over_the_lamp: false,
             after_stop: false,
             follows_on: false,
+            over_the_lamps_voice: false,
         }
     }
 
@@ -4855,6 +4868,7 @@ mod tests {
                 over_the_lamp: false,
                 after_stop: false,
                 follows_on: false,
+                over_the_lamps_voice: false,
             }
         ));
         for field in ["request", "session", "privacy_generation"] {
@@ -4878,6 +4892,7 @@ mod tests {
             over_the_lamp: false,
             after_stop: false,
             follows_on: false,
+            over_the_lamps_voice: false,
         };
         // Without `LAMP_CUT_KEEPS_NAME` the coordinator never sets it, and
         // the line on the worker's socket is the one it always was.
@@ -4910,6 +4925,7 @@ mod tests {
             over_the_lamp: false,
             after_stop: false,
             follows_on: false,
+            over_the_lamps_voice: false,
         };
         assert_eq!(
             serde_json::to_string(&plain).unwrap(),
@@ -4924,6 +4940,7 @@ mod tests {
             over_the_lamp: false,
             after_stop: false,
             follows_on: false,
+            over_the_lamps_voice: false,
         };
         let written = serde_json::to_value(&cut_off).unwrap();
         assert_eq!(written["continues_cut_off"], true);
@@ -4943,6 +4960,7 @@ mod tests {
             over_the_lamp: false,
             after_stop: true,
             follows_on: false,
+            over_the_lamps_voice: false,
         };
         assert_eq!(serde_json::to_value(&stopped).unwrap()["after_stop"], true);
         let old =
@@ -5136,6 +5154,7 @@ mod tests {
                         over_the_lamp: false,
                         after_stop: false,
                         follows_on: false,
+                        over_the_lamps_voice: false,
                     },
                     NOW,
                     &sink
@@ -5256,6 +5275,7 @@ mod tests {
                                 over_the_lamp: false,
                                 after_stop: false,
                                 follows_on: false,
+                                over_the_lamps_voice: false,
                             })?;
                         }
                         Ok(control)
@@ -5317,6 +5337,7 @@ mod tests {
                     over_the_lamp: false,
                     after_stop: false,
                     follows_on: false,
+                    over_the_lamps_voice: false,
                 })
                 .unwrap();
             assert_eq!(rig.tick(NOW).unwrap(), ControlDrain::Empty);
@@ -5391,6 +5412,7 @@ mod tests {
                                     over_the_lamp: false,
                                     after_stop: false,
                                     follows_on: false,
+                                    over_the_lamps_voice: false,
                                 },
                                 ProviderInput::Audio {
                                     request: new.turn(),
@@ -5535,6 +5557,7 @@ mod tests {
                     over_the_lamp: false,
                     after_stop: false,
                     follows_on: false,
+                    over_the_lamps_voice: false,
                 })
                 .unwrap();
             rig.parent
@@ -5639,6 +5662,7 @@ mod tests {
                 over_the_lamp: false,
                 after_stop: false,
                 follows_on: false,
+                over_the_lamps_voice: false,
             })
             .unwrap();
         let error = rig.tick(NOW).unwrap_err();
@@ -5765,6 +5789,7 @@ mod tests {
                 over_the_lamp: false,
                 after_stop: false,
                 follows_on: false,
+                over_the_lamps_voice: false,
             },
             ProviderInput::Audio {
                 request: next.turn(),
@@ -6556,6 +6581,7 @@ mod tests {
         continues_cut_off: bool,
         over_the_lamp: bool,
         follows_on: bool,
+        over_the_lamps_voice: bool,
     }
 
     struct LiveRig {
@@ -6895,6 +6921,7 @@ mod tests {
                 continues_cut_off,
                 over_the_lamp,
                 follows_on,
+                over_the_lamps_voice,
             }: StartSays,
         ) -> u64 {
             let input = if interruption {
@@ -6917,6 +6944,7 @@ mod tests {
                     over_the_lamp,
                     after_stop,
                     follows_on,
+                    over_the_lamps_voice,
                 })
                 .unwrap();
             self.parent
@@ -7660,13 +7688,15 @@ mod tests {
         rig.stop().await;
     }
 
-    /// #828: a request whose Start says it began over the lamp's reply is
-    /// marked so in the room, with `--cut-ins-not-talk` (the room's
-    /// switch), so that left unanswered it is not counted toward a busy
-    /// room; a request begun after the lamp finished is not. The flag is
-    /// taken right after `--room-facts`, by both workers.
+    /// #828: a request whose Start says it began while the lamp's answer
+    /// could be heard is marked so in the room, with `--cut-ins-not-talk`
+    /// (the room's switch), so that left unanswered it is not counted toward
+    /// a busy room. One begun with a reply only in hand, the lamp silent,
+    /// is not (the reviewer on #1291), nor is one begun after the lamp
+    /// finished. The flag is taken right after `--room-facts`, by both
+    /// workers.
     #[tokio::test]
-    async fn a_request_begun_over_the_lamp_is_kept_out_of_the_busy_count_with_the_switch() {
+    async fn a_request_begun_over_the_lamps_voice_is_kept_out_of_the_busy_count_with_the_switch() {
         let dir = std::path::Path::new("/run/lamp-voice");
         let flags = [
             crate::room_told::FLAG,
@@ -7680,33 +7710,55 @@ mod tests {
         assert!(files.cut_ins_not_talk);
         let (_, _, files, _) = parse_flags(dir, &flags[..1]).unwrap();
         assert!(!files.cut_ins_not_talk);
-        let old = std::mem::take(&mut *crate::room_told::room().lock().unwrap());
+        // Puts the process-wide room back when dropped, a failed assertion
+        // included.
+        struct PutBack(Option<crate::room_told::RoomTold>);
+        impl Drop for PutBack {
+            fn drop(&mut self) {
+                if let Some(old) = self.0.take() {
+                    *crate::room_told::room()
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner) = old;
+                }
+            }
+        }
+        let _put_back = PutBack(Some(std::mem::take(
+            &mut *crate::room_told::room().lock().unwrap(),
+        )));
         crate::room_told::room()
             .lock()
             .unwrap()
             .leave_cut_ins_out(true);
-        let mut rig = LiveRig::start_with(quick_policy(), Options::reporting(Reporting::Typed));
-        let mut dial = rig.ready().await;
-        let after = rig
-            .speak_as(&mut dial, false, true, false, false, false)
-            .await;
-        assert!(
-            !crate::room_told::room()
-                .lock()
-                .unwrap()
-                .kept_out_over_the_lamp(after)
-        );
-        let over = rig
-            .speak_as(&mut dial, true, false, false, false, true)
-            .await;
-        assert!(
+        let marked = |request: u64| {
             crate::room_told::room()
                 .lock()
                 .unwrap()
-                .kept_out_over_the_lamp(over)
-        );
-        rig.stop().await;
-        *crate::room_told::room().lock().unwrap() = old;
+                .kept_out_over_the_lamp(request)
+        };
+        // A line after the lamp finished, then one begun over a reply: only
+        // in hand, the lamp silent, or with the lamp's answer heard.
+        for (voice, marks) in [(false, false), (true, true)] {
+            let mut rig = LiveRig::start_with(quick_policy(), Options::reporting(Reporting::Typed));
+            let mut dial = rig.ready().await;
+            let after = rig
+                .speak_as(&mut dial, false, true, StartSays::default())
+                .await;
+            assert!(!marked(after));
+            let over = rig
+                .speak_as(
+                    &mut dial,
+                    true,
+                    false,
+                    StartSays {
+                        over_the_lamp: true,
+                        over_the_lamps_voice: voice,
+                        ..StartSays::default()
+                    },
+                )
+                .await;
+            assert_eq!(marked(over), marks, "heard {voice}");
+            rig.stop().await;
+        }
     }
 
     /// The reviewer on #1173: a request begun over the lamp's own answer
@@ -8632,6 +8684,7 @@ mod tests {
             over_the_lamp: false,
             after_stop: false,
             follows_on: false,
+            over_the_lamps_voice: false,
         };
 
         first.service.send(resumable()).await;
@@ -8713,6 +8766,7 @@ mod tests {
                     over_the_lamp: false,
                     after_stop: false,
                     follows_on: false,
+                    over_the_lamps_voice: false,
                 },
                 NOW,
                 &provider,
@@ -9190,6 +9244,7 @@ mod tests {
                 over_the_lamp: false,
                 after_stop: false,
                 follows_on: false,
+                over_the_lamps_voice: false,
             })
             .unwrap();
         assert!(
@@ -9523,6 +9578,7 @@ mod tests {
                     over_the_lamp: false,
                     after_stop: false,
                     follows_on: false,
+                    over_the_lamps_voice: false,
                 },
                 NOW,
                 &provider,
@@ -9598,6 +9654,7 @@ mod tests {
                 over_the_lamp: false,
                 after_stop: false,
                 follows_on: false,
+                over_the_lamps_voice: false,
             })
             .unwrap();
         rig.parent
@@ -9800,6 +9857,7 @@ mod tests {
                 over_the_lamp: false,
                 after_stop: false,
                 follows_on: false,
+                over_the_lamps_voice: false,
             })
             .unwrap();
         let message = rig.exit().await.0.unwrap_err().to_string();
@@ -10344,6 +10402,7 @@ mod tests {
                 over_the_lamp: false,
                 after_stop: false,
                 follows_on: false,
+                over_the_lamps_voice: false,
             })
             .unwrap();
         rig.parent
@@ -10851,6 +10910,7 @@ mod tests {
                 over_the_lamp: false,
                 after_stop: false,
                 follows_on: false,
+                over_the_lamps_voice: false,
             },
             ProviderInput::Audio {
                 request: next,
@@ -10985,6 +11045,7 @@ mod tests {
                 over_the_lamp: false,
                 after_stop: false,
                 follows_on: false,
+                over_the_lamps_voice: false,
             })
             .unwrap();
         assert!(matches!(
@@ -11175,6 +11236,7 @@ mod tests {
                         over_the_lamp: false,
                         after_stop: false,
                         follows_on: false,
+                        over_the_lamps_voice: false,
                     })
                     .unwrap();
                 loop {

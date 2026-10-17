@@ -136,6 +136,7 @@ fn run_with_notice_policy(
                     over_the_lamp: false,
                     after_stop: false,
                     follows_on: false,
+                    over_the_lamps_voice: false,
                 })
                 .unwrap();
         }

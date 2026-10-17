@@ -759,6 +759,7 @@ mod tests {
             over_the_lamp: false,
             after_stop: false,
             follows_on: false,
+            over_the_lamps_voice: false,
         }
     }
 

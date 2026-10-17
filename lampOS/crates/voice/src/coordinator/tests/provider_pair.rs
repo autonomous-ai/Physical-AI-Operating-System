@@ -245,6 +245,7 @@ impl Paired {
             over_the_lamp: false,
             after_stop: false,
             follows_on: false,
+            over_the_lamps_voice: false,
         });
         self.queue.push_back(ProviderInput::Audio {
             request,
@@ -795,6 +796,7 @@ mod continuation_or_discard {
                 over_the_lamp: false,
                 after_stop: false,
                 follows_on: false,
+                over_the_lamps_voice: false,
             });
             self.publish();
             self.flush(selected);
@@ -1605,6 +1607,7 @@ mod duplex_through_the_worker {
                 over_the_lamp: false,
                 after_stop: false,
                 follows_on: false,
+                over_the_lamps_voice: false,
             },
             ProviderInput::Audio {
                 request: old,

@@ -823,6 +823,7 @@ async fn voice_line(
             over_the_lamp,
             after_stop: false,
             follows_on: false,
+            over_the_lamps_voice: false,
         })
         .unwrap();
     // Each block sent once the socket takes it, the coordinator's lease

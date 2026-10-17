@@ -6986,7 +6986,8 @@ fn a_true_value_settles_through_glitches_after_a_low_first_read() {
 }
 
 /// One glitch on the first read is read again before it is acted on: a
-/// first read of 150 and then 45 starts as usual, nothing let go.
+/// first read of 150 and then 45 twice, agreeing, starts as usual, nothing
+/// let go.
 #[test]
 fn a_hot_first_read_that_does_not_repeat_starts_as_usual() {
     let (mut lamp, mut clock) = folded(Duration::from_secs(4));
@@ -6994,12 +6995,12 @@ fn a_hot_first_read_that_does_not_repeat_starts_as_usual() {
     let news = script(&clock.time);
     let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
     assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
-    assert_eq!(report.hot_rereads, vec![[45; 5]]);
+    assert_eq!(report.hot_rereads, vec![[45; 5]; 2]);
     assert!(report.moved, "{report:?}");
 }
 
-/// Heat that repeats on every read again is acted on as before: refused,
-/// and the whole lamp let go.
+/// Heat that repeats on the read again is acted on as before: refused, and
+/// the whole lamp let go.
 #[test]
 fn a_hot_first_read_that_repeats_is_refused_as_before() {
     let (mut lamp, mut clock) = folded(Duration::from_secs(4));
@@ -7010,8 +7011,95 @@ fn a_hot_first_read_that_repeats_is_refused_as_before() {
         matches!(&report.stop, Stop::Refused { why } if why.contains("70 already")),
         "{report:?}"
     );
-    assert_eq!(report.hot_rereads.len(), 3);
+    assert_eq!(report.hot_rereads, vec![[45, 45, 45, 45, 70]]);
     assert!(let_go_of_the_whole_lamp(&lamp), "{:?}", lamp.registers);
+}
+
+/// A real heat found on the first read is not let in by one low glitch on
+/// a read again: the head pitch truly at 70 reads 70, 5, 70, 70. Only the
+/// last two agree, hot, so it is refused with nothing moved.
+#[test]
+fn a_hot_first_read_with_one_low_glitch_read_again_is_still_refused() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(4));
+    lamp.servos[PITCH].temperature = 70;
+    lamp.flicker = Some((Duration::ZERO, PITCH, vec![Some(70), Some(5)], 0));
+    let news = script(&clock.time);
+    let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
+    assert!(
+        matches!(&report.stop, Stop::Refused { why } if why.contains("70 already")),
+        "{report:?}"
+    );
+    assert_eq!(report.hot_rereads.len(), 3, "{report:?}");
+    assert_eq!(report.goal_writes, 0, "{report:?}");
+    assert!(!report.moved, "{report:?}");
+}
+
+/// A folded lamp's arm is not judged on heat at the start, so a warm
+/// shoulder is not read again: folded, the shoulder at 65 starts as usual.
+#[test]
+fn a_folded_lamps_warm_shoulder_is_not_read_again() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(4));
+    lamp.servos[1].temperature = 65;
+    let news = script(&clock.time);
+    let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.hot_rereads.is_empty(), "{report:?}");
+    assert!(report.moved, "{report:?}");
+}
+
+/// A replaced read holds the heat streak, neither adding to it nor
+/// resetting it: 30 hot reads at a true 62, one 65 let in, then 24 reads at
+/// a true 61 replaced by 65 until they settle. Counted as hot, the streak
+/// would reach 55 and stop on heat.
+fn hot_streak_then_held_reads() -> Vec<Option<u8>> {
+    let mut readings = vec![Some(62); 30];
+    readings.push(Some(65));
+    readings.extend([Some(61); 24]);
+    readings
+}
+
+/// The hold on the head: the streak of 30 then the 24 held reads never
+/// reach 50 hot steps.
+#[test]
+fn held_reads_after_a_hot_streak_do_not_add_to_the_head_heat_streak() {
+    let (report, _) = scripted_pitch(
+        61,
+        Vec::new(),
+        Duration::from_millis(1_500),
+        hot_streak_then_held_reads(),
+        Duration::from_secs(4),
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.temperature_settles, vec![(5, 65, 61)], "{report:?}");
+}
+
+/// The hold on a standing arm: the same reads on the shoulder of a lamp
+/// that has stood up never make it sit down for heat.
+#[test]
+fn held_reads_after_a_hot_streak_do_not_add_to_the_arm_heat_streak() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(10));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    lamp.servos[1].temperature = 61;
+    lamp.flicker = Some((
+        Duration::from_millis(7_500),
+        1,
+        hot_streak_then_held_reads(),
+        0,
+    ));
+    let news = spoken_to(&clock.time);
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        Limits::FOLDED,
+        Some(HOME),
+        Some(standing(100, 5)),
+        news,
+        |_| {},
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.stood && report.retreats.is_empty(), "{report:?}");
+    assert_eq!(report.temperature_settles, vec![(2, 65, 61)], "{report:?}");
 }
 
 /// Taking hold of an arm joint writes its goal by itself, and that write is

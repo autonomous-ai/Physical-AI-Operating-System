@@ -44,11 +44,17 @@ run on a lamp.
   left held it would push on and be refused at every start until a power cut
   (base yaw on lamp-52e6, 2026-10-16: load 212, 65 °C, refused at every
   restart). A joint found at 62 or warmer is first read again, up to three
-  times and before anything is written, and only heat that repeats on every
-  read is acted on: one glitch on the first read would otherwise let go of a
-  lamp found standing, and it falls. The reads again are in the end report
-  (`hot_rereads`, per joint). Heat on all four reads is let go as before,
-  where the lamp stands, arm up or not. A first temperature over 100 is judged the
+  times and before anything is written, until two reads in a row agree
+  within 3 degrees (`TEMPERATURE_JUMP`): one glitch on the first read would
+  otherwise let go of a lamp found standing, and it falls. Only the joints
+  judged here are read for it: the three it commands, and the shoulder and
+  the elbow of a lamp given `--stand` (a folded lamp's warm arm is not read
+  again). Two reads that agree cool start as usual (150, then 45 and 45);
+  two that agree hot are acted on with the hot one, and reads that never
+  agree with the last hot one, so one low glitch on a read again does not let a real heat in
+  (70, then 5, 70 and 70 is refused with nothing moved). The reads again are
+  in the end report (`hot_rereads`, per joint). Heat that is acted on is let
+  go as before, where the lamp stands, arm up or not. A first temperature over 100 is judged the
   same way: there is no good reading yet to judge it by
   (`Bus::judge_temperatures`).
 - With `--torque on` (off unless given) it first takes hold of a joint it
@@ -276,7 +282,10 @@ neither adding nor resetting (`Bus::temperature_held`). Before this hold, a
 replaced read carried the last good value into the streak: one read of 63
 let in at a true 60, then the register at 59, made 50 hot steps of one hot
 read and let the whole lamp go (the seventh's re-check of #1236, 2026-10-17
-08:37). A bad value settles, and becomes the good one, once half of
+08:37). The 25-read settle below now covers that case by itself, but the
+hold still matters when real hot reads lead into a glitch: 30 hot reads at
+a true 62, a 65 let in, then 24 replaced reads at a true 61 would reach 55
+hot steps without it, on the head as on a standing arm. A bad value settles, and becomes the good one, once half of
 `temperature_steps` (25) reads each agree within 2 degrees
 (`TEMPERATURE_SETTLE`) with the last that agreed, skipping up to 5 outliers
 among them (`TEMPERATURE_SETTLE_SKIPS`: 25 of 30): a glitch is skipped, not

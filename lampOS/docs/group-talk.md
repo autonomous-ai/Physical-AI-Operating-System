@@ -202,8 +202,12 @@ everything `on` does, and:
   the second voice's, as the stop words use it (`RelayEars::for_waits`).
   One takes 0.6 to 0.8 s to connect. It rests once no sound may wait and
   none is in hand, so a long answer keeps no idle stream open to the relay
-  (`words_awaited`, the seventh's P3). It closes with a Stop, the mute or
-  the microphone's privacy.
+  (`words_awaited`, the seventh's P3). It closes with a Stop, the mute, a
+  capture gap or the microphone's privacy, beside the stop words' stream.
+  Those `close` calls in the loop are driven by no test, as the stop
+  words' aren't; `WaitWords::close` itself is
+  (`closing_drops_the_sound_and_the_stream`). With privacy on, a sound in
+  hand is dropped only by that call (the seventh's re-check).
 - a waited sound's audio goes to it from its first kept block (its
   pre-roll), each block once, while it waits.
 - its words are asked for once it has been quiet for 100 ms
@@ -255,6 +259,10 @@ What it costs:
   laugh or acknowledge;
 - a short "Yes." or "Okay." meant as an answer in the gap is let go, as
   with `on`;
+- the lists of what asks nothing are English: with the speech-to-text in
+  another language, a lone "Dạ." or "Ừ." counts as a word and takes the
+  turn (the seventh's re-check). A lamp set to another language needs its
+  own lists before `words` is turned on there;
 - a sound with a pause of more than 100 ms in it is judged by its words
   before the pause: "Uh, … no" is let go, as with `on`;
 - with no words back, a sound `on` lets go as quiet at its 1 s mark is let

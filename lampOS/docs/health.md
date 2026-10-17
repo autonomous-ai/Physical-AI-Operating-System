@@ -168,7 +168,7 @@ no speaker, ring colours or head move) leaves the fail standing (the
 reviewer on #1243). Each time the health is worked out it gets one more
 item, `selftest` (`SelfTests::item`, `parts::mark_selftest`):
 
-- **A part still failed:** `error`, `failed: PART (REASON), …` for each,
+- **A part still failed:** `error`, `N parts failing: PART (REASON), …` for each, each part by the name a person knows it by (`storage` is "the SD card", `air` "the air sensor", `parts::part_known_as`),
   in the order they first failed, with each one's newest reason. The lamp
   is then `error` too, with that as its message.
 - **None failed:** `ok`, `passed`, or `passed; N not checked` for the newest
@@ -291,32 +291,46 @@ passive point will still go between the two.
 
 ## What `show` prints
 
-This is the program's own output on the development Mac, with `serve`
-reading a board made of files, the reports sent by hand with `lamp-bus
-pub`, `--expect actions` and a stale time of two seconds:
+Written for the lamp's owner (the first builder on #705, 17 Oct 15:08),
+from the same reports as the program's tests: each part by the name a
+person knows it by, `--expect actions`, a stale time of two seconds:
 
     The lamp is not well: voice: the link to the service is down
 
-      error  voice   the link to the service is down                                     0.0 s ago
-      warn   board   cpul_thermal_zone is at 66 °C: the board slows itself down from 70  0.4 s ago
-      stale  eyes    not heard from for 2 s                                              2.7 s ago
-      ok     memory                                                                      0.0 s ago
-      never reported: actions
+      error  voice     the link to the service is down
+      warn   computer  cpul_thermal_zone is at 66 °C: the board slows itself down from 70
+      stale  camera    not heard from for 2 s                                              2.7 s ago
+      ok     memory
+      not running: volume and light commands
 
-    board  hottest 66 °C (cpul_thermal_zone)  load 0.31  memory 44% used  disk 14% free  up 2 d 10 h
-    written 0.4 s ago; the board's numbers 4.8 s ago
+    computer  hottest 66 °C (cpul_thermal_zone)  load 0.31  memory 44% used  disk 14% free  up 2 d 10 h
 
 The first line is the lamp's level and message: `The lamp is well.`,
 `The lamp has a warning: ...`, `The lamp is not well: ...` for an error,
-`Not all of the lamp is reporting: ...` for stale. Then every part, worst
-first, with how long before the health was written it last reported. Then
-the board's numbers: the hottest zone, the load for each processor, memory,
-disk, uptime, and the Wi-Fi signal and `clock set` or `clock not set` where
-the board could be asked.
+`Not all of the lamp is reporting: ...` for stale, its part named as
+below. Then every part, worst first and, within a level, by its name.
+Then the board's numbers, as `computer`: the hottest zone, the load for
+each processor, memory, disk, uptime, and the Wi-Fi signal and `clock set`
+or `clock not set` where the board could be asked.
 
-What is shown is a picture of one moment. The last line says how old it
-is, and the ages above it are as they were then, not as they are now: a
-health that had nothing new to say is up to five seconds old.
+**Names.** Each part is shown by the name a person knows it by
+(`show::known_as`): body is "arm and head", eyes "camera", ears "room
+microphone", name "hearing its name", controls "button and touch",
+expression "light and moods", air "air sensor", schedule "reminders",
+actions "volume and light commands", policy "when to speak", board
+"computer", selftest "self-test", tasks "handing work over". A part not in
+that list keeps its own name. `--json` keeps the programs' names.
+
+**Ages.** A part's age is shown only where it matters, beside a part that
+is `stale`. A last line, "written … ago", says how old the picture is only
+once it is over five seconds old (`show::OLD`); a value over fifteen is no
+longer read at all.
+
+**A user who may not read the bus.** `/run/lampos-bus` is `2770 root
+lampos`, so a person's own login cannot read it. `show` then says "Can't
+read the lamp's health as this user: run `sudo lamp-health show`." and
+ends with 3. On lamp-75c9 on 17 Oct it said instead that nobody reported
+the lamp's health, while `lamp-health serve` ran.
 
 With no health to read it prints:
 

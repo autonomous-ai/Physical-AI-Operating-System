@@ -27,6 +27,34 @@ pub const STATUS_USAGE: u8 = 64;
 
 /// What is said when the bus keeps no health.
 pub const NOBODY: &str = "Nobody is reporting the lamp's health: lamp-health serve is not running, or the bus is somewhere else.";
+/// What is said when this user may not read the bus: the health may well
+/// be there (on lamp-75c9 on 17 Oct, `orangepi` was told nobody reported
+/// it, while `lamp-health serve` ran).
+pub const DENIED: &str = "Can't read the lamp's health as this user: run `sudo lamp-health show`.";
+
+/// The name a person knows each part by, beside the program's (the first
+/// builder on #705, 17 Oct 15:08). A part not here is shown as it names
+/// itself. `--json` keeps the program's names.
+pub fn known_as(name: &str) -> &str {
+    match name {
+        "voice" => "voice",
+        "body" => "arm and head",
+        "eyes" => "camera",
+        "ears" => "room microphone",
+        "name" => "hearing its name",
+        "controls" => "button and touch",
+        "expression" => "light and moods",
+        "air" => "air sensor",
+        "schedule" => "reminders",
+        "memory" => "memory",
+        "actions" => "volume and light commands",
+        "policy" => "when to speak",
+        "board" => "computer",
+        "selftest" => "self-test",
+        "tasks" => "handing work over",
+        other => other,
+    }
+}
 
 /// A value the bus keeps, and how long ago it was written.
 #[derive(Clone, Debug, PartialEq)]
@@ -42,6 +70,8 @@ pub struct Look {
     pub board: Option<Kept<BoardState>>,
     /// What was there and could not be made sense of, in words.
     pub troubles: Vec<String>,
+    /// This user may not read the bus.
+    pub denied: bool,
 }
 
 fn kept<T: DeserializeOwned>(
@@ -49,11 +79,13 @@ fn kept<T: DeserializeOwned>(
     topic: &str,
     check: impl Fn(&T) -> Result<(), Invalid>,
     troubles: &mut Vec<String>,
+    denied: &mut bool,
 ) -> Option<Kept<T>> {
     let message = match bus.latest(topic) {
         Ok(Some(message)) => message,
         Ok(None) => return None,
         Err(error) => {
+            *denied |= error.kind() == std::io::ErrorKind::PermissionDenied;
             troubles.push(format!("{topic} cannot be read: {error}"));
             return None;
         }
@@ -84,11 +116,24 @@ fn kept<T: DeserializeOwned>(
 
 /// Read the two kept values from `bus`.
 pub fn look(bus: &Bus) -> Look {
-    let mut troubles = Vec::new();
+    let (mut troubles, mut denied) = (Vec::new(), false);
     Look {
-        health: kept(bus, Health::TOPIC, Health::check, &mut troubles),
-        board: kept(bus, BoardState::TOPIC, BoardState::check, &mut troubles),
+        health: kept(
+            bus,
+            Health::TOPIC,
+            Health::check,
+            &mut troubles,
+            &mut denied,
+        ),
+        board: kept(
+            bus,
+            BoardState::TOPIC,
+            BoardState::check,
+            &mut troubles,
+            &mut denied,
+        ),
         troubles,
+        denied,
     }
 }
 
@@ -158,7 +203,7 @@ fn percent(fraction: f32) -> String {
 
 /// The board's numbers on one line.
 fn board_line(board: &BoardState) -> String {
-    let mut line = String::from("board");
+    let mut line = String::from(known_as("board"));
     // The hottest sensor; of two as hot, the first by name.
     let hottest = board
         .temperature_c
@@ -176,7 +221,7 @@ fn board_line(board: &BoardState) -> String {
         span(board.uptime_s)
     );
     if let Some(dbm) = board.wifi_dbm {
-        let _ = write!(line, "  wifi {dbm} dBm");
+        let _ = write!(line, "  Wi-Fi {dbm} dBm");
     }
     match board.clock_synced {
         Some(true) => line.push_str("  clock set"),
@@ -191,12 +236,15 @@ fn board_line(board: &BoardState) -> String {
 pub fn text(look: &Look, root: &Path) -> String {
     let mut out = String::new();
     match &look.health {
+        None if look.denied => {
+            let _ = writeln!(out, "{DENIED}");
+        }
         None => {
             let _ = writeln!(out, "{NOBODY}");
             let _ = writeln!(out, "Looked in {}.", root.display());
         }
         Some(Kept { value: health, .. }) => {
-            let message = plain(&health.message);
+            let message = plain(&said(health));
             let _ = match health.level {
                 Level::Ok => writeln!(out, "The lamp is well."),
                 Level::Warn => writeln!(out, "The lamp has a warning: {message}"),
@@ -209,24 +257,40 @@ pub fn text(look: &Look, root: &Path) -> String {
             let wide = |texts: &mut dyn Iterator<Item = &str>| {
                 texts.map(|text| text.chars().count()).max().unwrap_or(0)
             };
-            let names = wide(&mut health.items.iter().map(|item| item.name.as_str()));
+            let names = wide(&mut health.items.iter().map(|item| known_as(&item.name)));
             let messages = wide(&mut health.items.iter().map(|item| item.message.as_str()));
-            for item in &health.items {
-                let _ = writeln!(
-                    out,
-                    "  {:<5}  {:<names$}  {:<messages$}  {}",
-                    item.level.as_str(),
-                    plain(&item.name),
-                    plain(&item.message),
-                    ago(Duration::from_millis(item.age_ms)),
-                );
+            // Worst first, as `lamp-health` sent them, and within a level by
+            // the name shown, so the owner finds a part where it should be.
+            let mut items: Vec<&lamp_msgs::HealthItem> = health.items.iter().collect();
+            items.sort_by(|a, b| {
+                b.level
+                    .rank()
+                    .cmp(&a.level.rank())
+                    .then_with(|| known_as(&a.name).cmp(known_as(&b.name)))
+            });
+            for item in items {
+                // How long ago only where it matters: a part not heard from.
+                let line = if item.level == Level::Stale {
+                    format!(
+                        "  {:<5}  {:<names$}  {:<messages$}  {}",
+                        item.level.as_str(),
+                        plain(known_as(&item.name)),
+                        plain(&item.message),
+                        ago(Duration::from_millis(item.age_ms)),
+                    )
+                } else {
+                    format!(
+                        "  {:<5}  {:<names$}  {}",
+                        item.level.as_str(),
+                        plain(known_as(&item.name)),
+                        plain(&item.message),
+                    )
+                };
+                let _ = writeln!(out, "{}", line.trim_end());
             }
             if !health.missing.is_empty() {
-                let _ = writeln!(
-                    out,
-                    "  never reported: {}",
-                    plain(&health.missing.join(", "))
-                );
+                let missing: Vec<&str> = health.missing.iter().map(|name| known_as(name)).collect();
+                let _ = writeln!(out, "  not running: {}", plain(&missing.join(", ")));
             }
         }
     }
@@ -238,13 +302,18 @@ pub fn text(look: &Look, root: &Path) -> String {
             let _ = writeln!(out, "{}", board_line(&board.value));
         }
         None if look.health.is_some() => {
-            let _ = writeln!(out, "board  no numbers: nobody is publishing board/state");
+            let _ = writeln!(
+                out,
+                "{}  no numbers: nobody is publishing board/state",
+                known_as("board")
+            );
         }
         None => {}
     }
-    // How old the picture is: the ages above are as they were then.
+    // How old the picture is, only when it is old enough to matter.
+    let old = |kept: Duration| kept > OLD;
     match (&look.health, &look.board) {
-        (Some(health), Some(board)) => {
+        (Some(health), Some(board)) if old(health.age) || old(board.age) => {
             let _ = writeln!(
                 out,
                 "written {}; the board's numbers {}",
@@ -252,17 +321,37 @@ pub fn text(look: &Look, root: &Path) -> String {
                 ago(board.age)
             );
         }
-        (Some(kept), None) => {
+        (Some(kept), None) if old(kept.age) => {
             let _ = writeln!(out, "written {}", ago(kept.age));
         }
-        (None, Some(kept)) => {
+        (None, Some(kept)) if old(kept.age) => {
             let _ = writeln!(out, "the board's numbers written {}", ago(kept.age));
         }
-        (None, None) => {}
+        _ => {}
     }
     // The caller ends the last line.
     out.truncate(out.trim_end().len());
     out
+}
+
+/// A picture older than this says how old it is.
+pub const OLD: Duration = Duration::from_secs(5);
+
+/// The lamp's message with its part named as a person knows it:
+/// `selftest: …` is said `self-test: …`.
+fn said(health: &Health) -> String {
+    health
+        .items
+        .iter()
+        .map(|item| item.name.as_str())
+        .chain(health.missing.iter().map(String::as_str))
+        .find_map(|name| {
+            health
+                .message
+                .strip_prefix(&format!("{name}: "))
+                .map(|rest| format!("{}: {rest}", known_as(name)))
+        })
+        .unwrap_or_else(|| health.message.clone())
 }
 
 #[cfg(test)]
@@ -320,6 +409,7 @@ mod tests {
                 age: Duration::from_millis(1_240),
             }),
             troubles: Vec::new(),
+            denied: false,
         }
     }
 
@@ -350,14 +440,13 @@ mod tests {
             text(&look, Path::new(ROOT)),
             "The lamp is not well: voice: the link to the service is down\n\
              \n\
-             \x20 error  voice   the link to the service is down  0.3 s ago\n\
-             \x20 warn   body    yaw is hot                       0.4 s ago\n\
-             \x20 stale  eyes    not heard from for 7 s           7.3 s ago\n\
-             \x20 ok     memory                                   0.6 s ago\n\
-             \x20 never reported: actions, ring\n\
+             \x20 error  voice         the link to the service is down\n\
+             \x20 warn   arm and head  yaw is hot\n\
+             \x20 stale  camera        not heard from for 7 s           7.3 s ago\n\
+             \x20 ok     memory\n\
+             \x20 not running: volume and light commands, ring\n\
              \n\
-             board  hottest 66 °C (cpub_thermal_zone)  load 0.31  memory 44% used  disk 13% free  up 2 d 10 h\n\
-             written 4.3 s ago; the board's numbers 1.2 s ago"
+             computer  hottest 66 °C (cpub_thermal_zone)  load 0.31  memory 44% used  disk 13% free  up 2 d 10 h"
         );
         assert_eq!(status(&look), STATUS_ERROR);
     }
@@ -369,19 +458,19 @@ mod tests {
             (
                 Level::Warn,
                 "body: yaw is hot",
-                "The lamp has a warning: body: yaw is hot",
+                "The lamp has a warning: arm and head: yaw is hot",
                 1,
             ),
             (
                 Level::Error,
                 "body: yaw is hot",
-                "The lamp is not well: body: yaw is hot",
+                "The lamp is not well: arm and head: yaw is hot",
                 2,
             ),
             (
                 Level::Stale,
                 "body: yaw is hot",
-                "Not all of the lamp is reporting: body: yaw is hot",
+                "Not all of the lamp is reporting: arm and head: yaw is hot",
                 3,
             ),
         ] {
@@ -399,9 +488,7 @@ mod tests {
             assert_eq!(status(&look), ends, "{level:?}");
             // No numbers of the board: said, and the lamp's health stands.
             assert!(
-                shown.ends_with(
-                    "\n\nboard  no numbers: nobody is publishing board/state\nwritten 4.3 s ago"
-                ),
+                shown.ends_with("\n\ncomputer  no numbers: nobody is publishing board/state"),
                 "{shown}"
             );
         }
@@ -418,16 +505,18 @@ mod tests {
         assert_eq!(status(&look), STATUS_STALE);
         assert!(
             text(&look, Path::new(ROOT)).starts_with(
-                "Not all of the lamp is reporting: actions: has never reported\n\n\
-                 \x20 ok     board    0.1 s ago\n\
-                 \x20 never reported: actions\n"
+                "Not all of the lamp is reporting: volume and light commands: has never reported\n\n\
+                 \x20 ok     computer\n\
+                 \x20 not running: volume and light commands\n"
             ),
             "{}",
             text(&look, Path::new(ROOT))
         );
         // A lamp with no parts at all is well, and says so in one line.
         let look = seen(Some(health(Level::Ok, "", Vec::new(), &[])), None);
-        assert!(text(&look, Path::new(ROOT)).starts_with("The lamp is well.\n\nboard  no numbers"));
+        assert!(
+            text(&look, Path::new(ROOT)).starts_with("The lamp is well.\n\ncomputer  no numbers")
+        );
     }
 
     #[test]
@@ -447,13 +536,73 @@ mod tests {
         assert!(shown.starts_with(NOBODY), "{shown}");
         assert!(
             shown.ends_with(
-                "Looked in /run/lampos-bus.\n\nboard  hottest 66 °C (cpub_thermal_zone)  \
-                 load 0.31  memory 44% used  disk 13% free  up 2 d 10 h\n\
-                 the board's numbers written 1.2 s ago"
+                "Looked in /run/lampos-bus.\n\ncomputer  hottest 66 °C (cpub_thermal_zone)  \
+                 load 0.31  memory 44% used  disk 13% free  up 2 d 10 h"
             ),
             "{shown}"
         );
         assert_eq!(status(&look), STATUS_STALE);
+    }
+
+    /// On lamp-75c9 on 17 Oct, run as `orangepi`, it said nobody reported
+    /// the lamp's health while `lamp-health serve` ran: the user could not
+    /// read the bus. It says so, and how to read it.
+    #[test]
+    fn a_user_who_may_not_read_the_bus_is_told_to_use_sudo_not_that_nobody_reports() {
+        let mut look = seen(None, None);
+        look.denied = true;
+        assert_eq!(text(&look, Path::new(ROOT)), DENIED);
+        assert_eq!(status(&look), STATUS_STALE);
+        let root = std::env::temp_dir().join(format!("lamp-health-denied-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join(Health::TOPIC)).unwrap();
+        std::fs::write(root.join(Health::TOPIC).join("latest"), b"x").unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(
+            root.join(Health::TOPIC),
+            std::fs::Permissions::from_mode(0o000),
+        )
+        .unwrap();
+        let bus = Bus::new(&root).unwrap();
+        let read = super::look(&bus);
+        std::fs::set_permissions(
+            root.join(Health::TOPIC),
+            std::fs::Permissions::from_mode(0o755),
+        )
+        .unwrap();
+        let _ = std::fs::remove_dir_all(&root);
+        // Root reads anything: only an ordinary user is denied.
+        if read.troubles.iter().any(|t| t.contains("denied")) {
+            assert!(read.denied, "{:?}", read.troubles);
+            assert_eq!(text(&read, Path::new(ROOT)), DENIED);
+        }
+    }
+
+    /// The owner reads each part by the name they know it by; a part not
+    /// in the table keeps its own; the lamp's own message names its part
+    /// the same way.
+    #[test]
+    fn each_part_is_named_as_a_person_knows_it() {
+        assert_eq!(known_as("actions"), "volume and light commands");
+        assert_eq!(known_as("selftest"), "self-test");
+        assert_eq!(known_as("keeper"), "keeper");
+        let look = seen(
+            Some(health(
+                Level::Error,
+                "selftest: 1 part failing: the air sensor (no reading)",
+                vec![item(
+                    Level::Error,
+                    "selftest",
+                    "1 part failing: the air sensor (no reading)",
+                    100,
+                )],
+                &[],
+            )),
+            None,
+        );
+        assert!(text(&look, Path::new(ROOT)).starts_with(
+            "The lamp is not well: self-test: 1 part failing: the air sensor (no reading)\n"
+        ));
     }
 
     #[test]
@@ -463,8 +612,8 @@ mod tests {
         state.clock_synced = Some(true);
         assert_eq!(
             board_line(&state),
-            "board  hottest 66 °C (cpub_thermal_zone)  load 0.31  memory 44% used  disk 13% free  \
-             up 2 d 10 h  wifi -56 dBm  clock set"
+            "computer  hottest 66 °C (cpub_thermal_zone)  load 0.31  memory 44% used  disk 13% free  \
+             up 2 d 10 h  Wi-Fi -56 dBm  clock set"
         );
         state.clock_synced = Some(false);
         state.wifi_dbm = None;
@@ -472,7 +621,7 @@ mod tests {
         state.uptime_s = 59;
         assert_eq!(
             board_line(&state),
-            "board  load 0.31  memory 44% used  disk 13% free  up 59 s  clock not set"
+            "computer  load 0.31  memory 44% used  disk 13% free  up 59 s  clock not set"
         );
     }
 
@@ -513,8 +662,11 @@ mod tests {
         );
         let shown = text(&look, Path::new(ROOT));
         assert!(!shown.contains(['\u{1b}', '\r']), "{shown:?}");
-        assert_eq!(shown.lines().count(), 7, "{shown:?}");
-        assert!(shown.contains("  warn   bo [2Jdy  yaw is hot  0.1 s ago\n"));
+        assert_eq!(shown.lines().count(), 6, "{shown:?}");
+        assert!(
+            shown.contains("  warn   bo [2Jdy  yaw is hot\n"),
+            "{shown:?}"
+        );
     }
 
     #[test]

@@ -916,7 +916,11 @@ asked.
   and what results heard (200 bytes each), each with its number in the
   reply (`n`, from 1) and whether it stopped the lamp: the reply's **last
   16 results**, and before them **every result whose words hold a stop
-  phrase**, however early (the first 16 that do), in the order heard. A
+  phrase**, however early (the first 16 that do), in the order heard.
+  Those are judged on the words alone, so the lamp's own "stop" or "wait"
+  heard back through the canceller pins a place too: a story with 16 of
+  its own early on can push a person's later stop out of the pinned ones,
+  though not out of the last 16 (Second on #1306). A
   stop said 9 s into a story fell after the first 16 results the file
   kept before, so whether it came back could not be read (Fourth and the
   first builder on #828, 17 October 13:18 and 13:42). Under `stream`, added by the stream's thread as it

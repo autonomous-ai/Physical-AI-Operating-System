@@ -158,11 +158,17 @@ struct History {
     samples: [i16; HISTORY],
     /// Samples ever written.
     total: u64,
+    /// One past the newest sample that was not zero: every sample from here
+    /// on is zero. Zero if none ever was.
+    sounded: u64,
 }
 impl History {
     fn push(&mut self, sample: i16) {
         self.samples[(self.total as usize) & (HISTORY - 1)] = sample;
         self.total += 1;
+        if sample != 0 {
+            self.sounded = self.total;
+        }
     }
     /// The sample with absolute index `index`, which must still be held.
     fn at(&self, index: u64) -> i64 {
@@ -238,6 +244,12 @@ pub struct EchoObserver {
     sweep: i64,
     /// Which rivals of the held alignment are fitted next.
     rival: i64,
+    /// Skip the search while the render it would read is all zeros
+    /// ([`EchoObserver::skip_while_render_silent`]).
+    skip_silent: bool,
+    /// Blocks it skipped.
+    #[cfg(test)]
+    skipped: u32,
     latest: Option<EchoEvidence>,
     /// The held alignment's age when the render at it is silent this block
     /// ([`EchoEvidence::silent_at_echo`]).
@@ -285,6 +297,7 @@ impl EchoObserver {
             render: History {
                 samples: [0; HISTORY],
                 total: 0,
+                sounded: 0,
             },
             raw: Window {
                 samples: [0; WINDOW],
@@ -299,13 +312,31 @@ impl EchoObserver {
             alignment: None,
             sweep: 0,
             rival: 0,
+            skip_silent: false,
+            #[cfg(test)]
+            skipped: 0,
             latest: None,
             silent_at: None,
         }
     }
-    /// Forget everything. Call wherever the echo canceller is reset.
+    /// Forget everything but [`Self::skip_while_render_silent`]. Call
+    /// wherever the echo canceller is reset.
     pub fn reset(&mut self) {
+        let skip_silent = self.skip_silent;
         *self = Self::new();
+        self.skip_silent = skip_silent;
+    }
+
+    /// While every render sample any alignment would read is zero (the
+    /// speaker given silence), the search finds nothing whatever the
+    /// microphone hears: the render under every alignment is below
+    /// [`SILENT_RMS`]. With this on, it is not run then, and the evidence is
+    /// the same: no echo, the held alignment's age in `silent_at_echo`, and
+    /// the search's place moved on as the search would have. A room loud
+    /// enough to search (a fan, an office) otherwise costs a search every
+    /// block while the lamp says nothing. Off by default.
+    pub fn skip_while_render_silent(&mut self, on: bool) {
+        self.skip_silent = on;
     }
     /// The evidence of the most recent capture block, if any since reset.
     pub fn latest(&self) -> Option<EchoEvidence> {
@@ -563,6 +594,27 @@ impl EchoObserver {
                 self.sweep = 0;
             }
         }
+        if self.skip_silent
+            && self.render.sounded as i64 <= self.captured as i64 - WINDOW as i64 + low
+        {
+            // Nothing the search reads is the lamp's: what it would find.
+            if raw_energy >= SILENT_ENERGY {
+                self.sweep = match self.candidate(low, newest, self.sweep + SWEEP) {
+                    Some(_) => self.sweep + SWEEP,
+                    None => 0,
+                };
+                self.rival = (self.rival + RIVALS) % (2 * RIVAL_REACH / RIVAL_STEP);
+            }
+            self.silent_at = self
+                .alignment
+                .as_ref()
+                .map(|alignment| alignment.age_blocks);
+            #[cfg(test)]
+            {
+                self.skipped += 1;
+            }
+            return None;
+        }
         let mut fitted = None;
         // A silent capture matches nothing and must not unseat an alignment.
         if raw_energy >= SILENT_ENERGY {
@@ -701,5 +753,92 @@ impl EchoObserver {
             residual_playback_floor,
             alignment_age_blocks: age_blocks,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn noise(seed: u64, index: u64) -> f64 {
+        let mut x = index.wrapping_add(seed.wrapping_mul(0x9e37_79b9_7f4a_7c15));
+        x = (x ^ (x >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+        x = (x ^ (x >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+        ((x ^ (x >> 31)) >> 11) as f64 / (1u64 << 53) as f64 * 2.0 - 1.0
+    }
+
+    /// The lamp's voice at `seconds`: it speaks from 0.5 s to 1.5 s and from
+    /// 4 s to 4.5 s, and gives the speaker zeros otherwise.
+    fn lamp(seconds: f64) -> f64 {
+        let speaking = (0.5..1.5).contains(&seconds) || (4.0..4.5).contains(&seconds);
+        if !speaking {
+            return 0.0;
+        }
+        let index = (seconds * 4_000.0) as u64;
+        8_000.0 * noise(1, index) * (0.4 + 0.6 * (seconds * 19.0).sin().abs())
+    }
+
+    /// The same scene through an observer that skips and one that does not:
+    /// its echo 110 ms late, a quiet room, a loud one (a fan) from 1.5 s to
+    /// 4 s with someone speaking in it from 2 s to 2.6 s, then quiet again.
+    /// Every block's evidence, and where each search has got, are the same,
+    /// and the skipping one skipped the loud silence.
+    #[test]
+    fn skipping_while_the_render_is_silent_changes_no_evidence() {
+        let mut searching = EchoObserver::new();
+        let mut skipping = EchoObserver::new();
+        skipping.skip_while_render_silent(true);
+        let mut matched = 0;
+        let mut skipped = 0;
+        for block in 0..600u64 {
+            let render: RenderBlock = std::array::from_fn(|index| {
+                lamp((block * RENDER_SAMPLES as u64 + index as u64) as f64 / 24_000.0) as i16
+            });
+            let capture: CaptureBlock = std::array::from_fn(|index| {
+                let sample = block * CAPTURE_SAMPLES as u64 + index as u64;
+                let seconds = sample as f64 / 16_000.0;
+                let room = if (1.5..4.0).contains(&seconds) {
+                    1_600.0
+                } else {
+                    4.0
+                };
+                let talker = if (2.0..2.6).contains(&seconds) {
+                    3_000.0
+                } else {
+                    0.0
+                };
+                (-0.5 * lamp(seconds - 0.11)
+                    + room * noise(2, sample)
+                    + talker * noise(3, sample / 2))
+                .round() as i16
+            });
+            if block == 300 {
+                // A reset keeps the switch.
+                skipped += skipping.skipped;
+                searching.reset();
+                skipping.reset();
+            }
+            searching.render(&render);
+            skipping.render(&render);
+            let expected = searching.capture(&capture, &capture);
+            assert_eq!(
+                skipping.capture(&capture, &capture),
+                expected,
+                "block {block}"
+            );
+            assert_eq!(
+                (skipping.sweep, skipping.rival, skipping.echo_delay()),
+                (searching.sweep, searching.rival, searching.echo_delay()),
+                "block {block}"
+            );
+            matched += usize::from(expected.echo.is_some());
+        }
+        assert!(skipping.skip_silent);
+        assert!(matched > 50, "the echo was matched {matched} times");
+        // The silences, each less the render's 520 ms reach (none after the
+        // reset, or before the lamp first spoke): 324 of 600 blocks.
+        skipped += skipping.skipped;
+        assert_eq!(skipped, 324);
+        assert_eq!(searching.skipped, 0);
     }
 }

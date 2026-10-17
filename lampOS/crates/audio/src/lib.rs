@@ -165,6 +165,12 @@ impl EchoProcessor {
         Ok(clean)
     }
 
+    /// Skip the echo evidence's search while the speaker has been given only
+    /// silence ([`evidence::EchoObserver::skip_while_render_silent`]).
+    pub fn skip_evidence_while_render_silent(&mut self, on: bool) {
+        self.observer.skip_while_render_silent(on);
+    }
+
     /// What the render explains of the capture block just processed, before
     /// and after cancellation. `None` until a capture has run since the last
     /// reset. These are measurements for an admission decision made

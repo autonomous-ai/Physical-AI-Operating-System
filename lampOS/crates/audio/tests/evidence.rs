@@ -539,3 +539,42 @@ fn a_pause_in_a_reply_is_said_to_be_silent_at_the_echo() {
     let matched_blocks = speaking.iter().filter(|block| block.echo.is_some()).count();
     assert!(matched_blocks > 90, "{matched_blocks}");
 }
+
+/// What a capture block costs while the speaker is silent and the room is
+/// loud enough to search (a fan, an office: -26 dBFS), with the search and
+/// with it skipped: `cargo test --release -p lamp-audio --test evidence
+/// measure_a_silent_render_block -- --ignored --nocapture`.
+#[test]
+#[ignore]
+fn measure_a_silent_render_block() {
+    const BLOCKS: u32 = 3_000;
+    let silent = [0i16; RENDER_SAMPLES];
+    let room = |block: u32| -> CaptureBlock {
+        std::array::from_fn(|index| {
+            float_to_pcm(0.05 * noise(7, u64::from(block) * CAPTURE_SAMPLES as u64 + index as u64))
+        })
+    };
+    for skip in [false, true] {
+        let mut observer = EchoObserver::new();
+        observer.skip_while_render_silent(skip);
+        let started = std::time::Instant::now();
+        for block in 0..BLOCKS {
+            observer.render(&silent);
+            let raw = room(block);
+            observer.capture(&raw, &raw);
+        }
+        let observing = started.elapsed() / BLOCKS;
+        let mut processor = EchoProcessor::new(false);
+        processor.skip_evidence_while_render_silent(skip);
+        let started = std::time::Instant::now();
+        for block in 0..BLOCKS {
+            processor.render(&silent).unwrap();
+            processor.capture(&room(block), 0).unwrap();
+        }
+        let whole = started.elapsed() / BLOCKS;
+        println!(
+            "skipped {skip}: a 10 ms block takes the evidence {observing:?}, \
+             the canceller and the evidence {whole:?}"
+        );
+    }
+}

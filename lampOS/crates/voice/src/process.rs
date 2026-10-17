@@ -725,6 +725,10 @@ fn worker_command(
             role,
             var(crate::local_time::KERNEL_CLOCK_ENVIRONMENT).as_deref(),
         ))
+        .envs(quiet_evidence_worker_environment(
+            role,
+            var(crate::quiet_pace::EVIDENCE_ENVIRONMENT).as_deref(),
+        ))
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::inherit());
@@ -762,6 +766,15 @@ fn kernel_clock_worker_environment(
 ) -> Option<(&'static str, &'static str)> {
     (matches!(role, "provider" | "second") && value == Some(std::ffi::OsStr::new("on")))
         .then_some((crate::local_time::KERNEL_CLOCK_ENVIRONMENT, "on"))
+}
+
+// The echo evidence's skip (#705), to the one worker that runs it: capture.
+fn quiet_evidence_worker_environment(
+    role: &str,
+    value: Option<&std::ffi::OsStr>,
+) -> Option<(&'static str, &'static str)> {
+    (role == "capture" && value == Some(std::ffi::OsStr::new("on")))
+        .then_some((crate::quiet_pace::EVIDENCE_ENVIRONMENT, "on"))
 }
 
 #[cfg(test)]
@@ -804,6 +817,12 @@ mod tests {
                         kernel_clock_worker_environment,
                         "LAMP_KERNEL_CLOCK",
                         ["provider", "second"].as_slice(),
+                    ),
+                    // The echo evidence's skip, the capture worker's.
+                    (
+                        quiet_evidence_worker_environment,
+                        "LAMP_QUIET_EVIDENCE",
+                        ["capture"].as_slice(),
                     ),
                 ] {
                     // Observe an actual child's environment without changing this
@@ -848,6 +867,7 @@ mod tests {
                 "LAMP_MEMORY_DAYS",
                 crate::rules::ENVIRONMENT,
                 crate::local_time::KERNEL_CLOCK_ENVIRONMENT,
+                crate::quiet_pace::EVIDENCE_ENVIRONMENT,
             ]
             .contains(&name)
             .then(|| std::ffi::OsString::from("on"))
@@ -866,7 +886,7 @@ mod tests {
                 "second",
                 vec!["LAMP_KERNEL_CLOCK=on", "LAMP_MEMORY_DAYS=on"],
             ),
-            ("capture", vec![]),
+            ("capture", vec!["LAMP_QUIET_EVIDENCE=on"]),
         ] {
             let status = worker_command(&script, &home.path, role, (boot, boot), &[], on)
                 .status()
@@ -876,7 +896,11 @@ mod tests {
                 std::fs::read_to_string(home.path.join(format!("env-{role}.txt"))).unwrap();
             let mut got: Vec<&str> = written
                 .lines()
-                .filter(|line| line.starts_with("LAMP_MEMORY") || line.starts_with("LAMP_KERNEL"))
+                .filter(|line| {
+                    ["LAMP_MEMORY", "LAMP_KERNEL", "LAMP_QUIET"]
+                        .iter()
+                        .any(|prefix| line.starts_with(prefix))
+                })
                 .collect();
             got.sort_unstable();
             assert_eq!(got, expected, "{role}");
@@ -887,7 +911,9 @@ mod tests {
         assert!(status.success());
         let written = std::fs::read_to_string(home.path.join("env-provider.txt")).unwrap();
         assert!(
-            !written.contains("LAMP_MEMORY") && !written.contains("LAMP_KERNEL"),
+            !written.contains("LAMP_MEMORY")
+                && !written.contains("LAMP_KERNEL")
+                && !written.contains("LAMP_QUIET"),
             "{written}"
         );
     }

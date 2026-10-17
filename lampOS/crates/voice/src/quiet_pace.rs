@@ -13,6 +13,17 @@
 use std::time::Duration;
 
 pub const ENVIRONMENT: &str = "LAMP_QUIET_PACE";
+/// With `on`, the capture worker skips the echo evidence's search while the
+/// speaker has been given only silence for its whole reach (520 ms): a
+/// search that then cannot find anything, which a room loud enough to search
+/// (a fan, an office) otherwise runs every 10 ms. The evidence is the same
+/// (`lamp_audio::evidence::EchoObserver::skip_while_render_silent`).
+pub const EVIDENCE_ENVIRONMENT: &str = "LAMP_QUIET_EVIDENCE";
+
+/// Whether this worker skips the evidence's search, read once.
+pub fn evidence_skipped() -> bool {
+    std::env::var_os(EVIDENCE_ENVIRONMENT).as_deref() == Some(std::ffi::OsStr::new("on"))
+}
 /// The pace whenever something is going on, and always without the switch.
 pub const BUSY: Duration = Duration::from_millis(2);
 /// The pace while nothing is.

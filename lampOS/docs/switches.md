@@ -36,15 +36,15 @@ added, turned on or removed.
 
 ## The count
 
-89 switches:
+98 switches:
 
-| | Voice: hearing, turns, ring | Voice: tasks, memory, schedule, skills, looks | Other parts | All |
-|---|---|---|---|---|
-| On already, or right at its default | 12 | 9 | 16 | **37** |
-| **Proposed to turn on now** | 1 | 2 | 0 | **3** |
-| Off until its named lamp check | 20 | 12 | 5 | **37** |
-| Stays off (diagnostic, turned down, or not needed) | 5 | 1 | 3 | **9** |
-| A setting, not a behaviour | 1 | 2 | 0 | **3** |
+| | Voice: hearing, turns, ring | Voice: tasks, memory, schedule, skills, looks | Voice: its own flags | Other parts | All |
+|---|---|---|---|---|---|
+| On already, or right at its default | 12 | 9 | 7 | 16 | **44** |
+| **Proposed to turn on now** | 1 | 2 | 0 | 0 | **3** |
+| Off until its named lamp check | 20 | 12 | 0 | 5 | **37** |
+| Stays off (diagnostic, turned down, or not needed) | 5 | 1 | 2 | 3 | **11** |
+| A setting, not a behaviour | 1 | 2 | 0 | 0 | **3** |
 
 **The three proposed to turn on now**, each with a recorded lamp-4ace result:
 - `LAMP_SPOKEN_TO=on`: shown on lamp-4ace 16 Oct 04:38 (the budget line
@@ -132,10 +132,30 @@ motion, since lamp-4ace's motors stay still until Monday: `LAMP_STAFF_NOTE`
 | LAMP_TASKS_TARGET | alias string; default `office`. The tasks target alias | — | — | commit c2ac775f5 (direct) | none named; tasks.md "Who gets the work" suggests `office-claude` beside LAMP_TASKS_WHO | unset (`office`) | A per-lamp target name, not a behaviour; only needed when targets.json names differ |
 | LAMP_TASKS_TOLD | file path; default /var/lib/lampOS/voice/tasks-told. Record of task news already told | — | — | commit 55e92e3d8 (direct) | none named | unset (default path) | A storage location, not a behaviour switch (tasks.md, setup.md) |
 | LAMP_TASKS_WHO | `on` only; off. The person may name Claude Code, Codex or OpenCode | — | — | #769 | tasks.md "Who gets the work" played run; shown on lamp-4ace 15 Oct with TASKS_ASKED (name read back, yes required) | on | tasks.md: shown on lamp-4ace 15 Oct and kept on from 21:30; nothing starts without a heard yes |
-| LAMP_TASK_NEWS | `skill`; otherwise as before. Finished/stopped/asking news waits up to 10 s for a skill's ask | — | — | #1038 | #1038: lamp-tasks --progress, LAMP_SAY, Task news skill folder; news said once via the skill; no record shown | off until #1038's task-news-through-the-skill check is played | Needs the Task news skill (#1042) on the lamp; the 10 s is #1038's most likely wrong |
-| LAMP_TASK_NEWS_AT_PAUSE | `on`; off. News at the first 1 s pause instead of after 15 s quiet | — | — | #1161 | lamp-4ace: talk while a task runs; news at first ~1 s pause, 3 s after the lamp's words, under 20 s; not shown | off until #1161's lamp-4ace check | #1161 names rule 8 (news landing between two people talking) as most likely wrong; no lamp result recorded |
+| LAMP_TASK_NEWS | `skill`; otherwise as before. Finished/stopped/asking news waits up to 10 s for a skill's ask | — | — | #1038 | #1038: lamp-tasks --progress, LAMP_SAY, Task news skill folder; news said once via the skill; no record shown | off until #1038's task-news-through-the-skill check is played, after #1237 and #1042 send `task` | Needs the Task news skill (#1042); until a news ask names its task (#1237), a look or dim can go with the wrong task when two settle together (the Second) |
+| LAMP_TASK_NEWS_AT_PAUSE | `on`; off. News at the first 1 s pause instead of after 15 s quiet | — | — | #1161 | lamp-4ace: talk while a task runs; news at first ~1 s pause, 3 s after the lamp's words, under 20 s; not shown | off until #1161's lamp-4ace check, which also covers #1217, #1223 and #1231 (one play: news at the first 1 s pause; `since_turn_ms` about 3,000 after an unanswered reply; two tasks within a minute told in one turn) | #1161 names rule 8 (news landing between two people talking) as most likely wrong; no lamp result recorded |
 | LAMP_TOOLS | `on` only; off. Model may call not_for_me instead of speaking | on | on | commit 995240456 (direct) | none named | on (already) | On in both units since the function-call routing landed (tools.md) |
 | LAMP_TOOL_LEAD_IN | `on` only; off. Says the read-back/start of answer before an agent-task call | — | — | #810 | lamp-4ace: provider-check --tool-turns with/without, then played hand-over and `turn-times`; 16 Oct 00:03 run failed (since mended), not re-shown | off until the #799 turn-times measurement on lamp-4ace | tools.md: 16 Oct run lost all functions (description over 1,024 B); #799 stays open until measured |
+
+## The voice's own flags (`lamp-voice serve`)
+
+`lamp-voice`'s command line in its unit, beside its environment. Here the code's
+default and the units often differ: both units already pass the lamp's choice, so
+"make it the code default" is the proposal (the first builder's 07:30: a switch
+that passes becomes the default in code). Missing from the first version of this
+page; the Second's 08:0x on #1238.
+
+| Switch | Values and default | lamp-4ace (repo unit) | Product unit | Added by | Lamp check it named | Proposed product default | Why (one line) |
+|---|---|---|---|---|---|---|---|
+| `--turn-taking` | `vad-only` (default) / `v1-baseline` / `duplex`. `duplex`: a person heard over the lamp makes it yield | duplex | duplex | commit 32c279d4c (direct, 13 Oct) | Runs on lamp-4ace in every scene since 13 Oct (duplex-listening.md) | duplex (already); make it the code default | Both units pass it; `vad-only` is the experiment's first form |
+| `--endpoint` | `silence` (default) / `smart-turn` / `smart-turn-fast`. The end-of-turn model judges each pause | smart-turn-fast | smart-turn-fast | commit 32c279d4c (direct, 13 Oct) | endpoint-pilot.md: the fast model's verdict in 148 ms on lamp-4ace, before the silence window ends the turn | smart-turn-fast (already); make it the code default | Both units pass it; without the model every pause is the window's |
+| `--noise-suppression` | `on` (default) / `off`. The capture's software noise suppression | off | off | commit 32c279d4c (direct, 13 Oct) | Off on lamp-4ace since the voice came in | off (already); make it the code default | Both units turn it off; the code default disagrees with every lamp |
+| `--reference-clock` | `fixed` (default) / `capture`. The echo reference follows the two USB clocks' difference | capture | capture | commit 32c279d4c (direct, 13 Oct) | Runs on lamp-4ace since 13 Oct | capture (already); make it the code default | `fixed` is a margin a long session uses up (options.rs) |
+| `--reference-recovery` | `off` (default) / `bounded`. Re-centres a reference whose margin was used up | off | off | commit 32c279d4c (direct, 13 Oct) | none recorded on a lamp for `bounded` | off (already) | Both units and the code agree |
+| `--echo-reference` | `as-given` (default) / `steady`. A reference that follows the microphone's clock | — | — | commit 8a494575f (direct, 14 Oct) | Five of lamp-4ace's recordings: two better, two worse, one held; no lamp run (the Second) | off (`as-given`) | Its own doc calls it "an experiment, and never a default" (options.rs, steady-reference.md) |
+| `--provider-continuation` | `off` (default) / `kept-start`. A next request's start kept back while an answer may still come | kept-start | kept-start | commit 32c279d4c (direct, 13 Oct) | Runs on lamp-4ace since 13 Oct | kept-start (already); make it the code default | Both units pass it; `--early-end-ms` and the cut-off note need it |
+| `--controls-stop` | flag; off. A hand on the button or the head stops the lamp's speech | set | set | commit 5f9914314 (direct, 14 Oct) | On lamp-4ace since 14 Oct (controls.md) | on (already) | Both units pass it; a stop by hand is the lamp's quickest control |
+| `--early-end-ms` | 100–1000 ms with `kept-start`; off. Sends the end early after that much quiet, plays only when sure | — | — | commit af9ff59c5 (direct, 14 Oct) | Played on lamp-4ace at 200 ms: worse, so switched off (the Second's work log, row 19) | off | The end-of-turn model (`--endpoint smart-turn-fast`) took its place |
 
 ## The other parts: body, eyes, expression, tasks and controls
 
@@ -202,6 +222,7 @@ Gaps between the docs, the units and the code, for whoever owns each:
   `--wake`, `--rest-glance` and `--look-at-name` are off unless asked for, while
   the code defaults them on; the units' comments say the Policy's gate "is not
   built yet (#939)" while `docs/skills.md` describes it built (#958).
+- **Five of the voice's own flags default in code to what no lamp runs** (`--turn-taking`, `--endpoint`, `--noise-suppression`, `--reference-clock` and `--provider-continuation`): both units pass the lamp's choice, so a lamp started without the unit's line gets the experiment's first form.
 - **A product body's motion flags are partly per lamp:** `BODY_POSES` in a
   lamp's `/etc/lampOS/body/lamp.env` can carry flags, and lamp-06c1's passes
   `--torque on`.

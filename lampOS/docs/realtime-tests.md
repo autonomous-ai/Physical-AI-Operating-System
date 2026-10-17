@@ -995,3 +995,27 @@ under the mix,
 6.4 s against 2.5 s alone. No test, assertion or bound changed. They left
 the group, in all three filtersets, on 2026-10-17. The group keeps 10
 tests: `capture_hold_worker` (5), these two and three named single tests.
+
+## A stopped fixture's exit waited for as an event (#1232)
+
+`coordinator::tests::service_mute`'s
+`active_physical_mute_cancels_owned_reply_then_reaps_without_completion` and
+`repeated_verified_mute_cycles_keep_one_logger_and_never_open_audio_while_waiting`
+failed in the reviewer's full one-thread run under load (#1223): "privacy
+worker did not stop within 300 ms". The cooperative fixture's child (`cat`)
+exits only when the test's peer closes its input after seeing Stop, and those
+peers ran on their own threads. A stopped worker has 300 ms to exit
+(`Worker::shutdown`, and the coordinator's shared cleanup grace), so a peer
+thread the host did not run in time left a live child that was force-killed.
+A 400 ms sleep in the peers' Stop handling failed both every time.
+
+The exit is now waited for as an event, on the thread doing the stopping.
+`active_mute` runs stepped (ready fixtures, the owner made in the scope); its
+peers are read in the scope's pump, and on Stop the pump closes the child's
+input and waits for its exit, bounded by the scope's watchdog, so the
+coordinator's cleanup finds it gone. The service-privacy mock gives
+`Worker::shutdown` a `cfg(test)` stop hook (`Worker::on_stop`) that does the
+same right after Stop is sent; a cleanup of its own (`service_privacy_controls`)
+still has the peer close the input on Stop, as before. The 300 ms bounds and
+every assertion are unchanged, and a Stop that is never sent still fails. With
+the 400 ms sleep in place, all six `service_mute` tests pass.

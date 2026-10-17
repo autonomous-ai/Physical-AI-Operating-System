@@ -90,7 +90,8 @@ use crate::service_privacy::{
     tests::{Script, mock},
 };
 use std::{
-    cell::Cell,
+    cell::{Cell, RefCell},
+    rc::Rc,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -98,61 +99,114 @@ use std::{
     thread,
 };
 
+/// A fixture worker's side read on the stepped clock in [`active_mute`]: the
+/// privacy peer says once, at the first authority, that the switch is muted
+/// (stale when `invalid`).
+struct MutePeer {
+    channels: WorkerChannels,
+    input: Option<std::process::ChildStdin>,
+    pid: u32,
+    privacy: bool,
+    sent: bool,
+    denied: bool,
+    stopped: bool,
+}
+
+impl MutePeer {
+    fn read(&mut self, invalid: bool, deadline: Instant) -> io::Result<()> {
+        if self.stopped {
+            return Ok(());
+        }
+        while let Some(message) = self.channels.control.receive::<Control>().unwrap() {
+            match message {
+                Control::Authority { snapshot } => {
+                    self.denied |= snapshot.microphone_permission() == Permission::Denied;
+                    if self.privacy && !self.sent {
+                        let acquired_at_us = if invalid {
+                            monotonic_us() - crate::privacy::PRIVACY_FRESH_US
+                        } else {
+                            monotonic_us()
+                        };
+                        self.channels
+                            .control
+                            .send(WorkerEvent::Privacy {
+                                acquired_at_us,
+                                muted: true,
+                            })
+                            .unwrap();
+                        self.sent = true;
+                    }
+                }
+                Control::Stop => {
+                    self.stopped = true;
+                    // The child exits once its input closes, and its exit is
+                    // waited for here, bounded by the scope's own watchdog,
+                    // so the cleanup that follows finds it gone.
+                    drop(self.input.take());
+                    let bound = crate::scenario_clock::host_deadline().unwrap_or(deadline);
+                    return crate::scenario_clock::wait_child_exited(self.pid, bound);
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+}
+
 fn active_mute(trace: &mut SessionState, invalid: bool) -> Result<()> {
     let directory = SessionDirectory::create().unwrap();
+    // The stepped clock cannot rely on the scheduler running each child
+    // before logical time advances: its fixture's echo proves it ready.
     let (speaker, speaker_peer, speaker_input) =
-        Worker::cooperative_fixture(&directory.path, "speaker");
+        Worker::cooperative_ready_fixture(&directory.path, "speaker");
     let (capture, capture_peer, capture_input) =
-        Worker::cooperative_fixture(&directory.path, "capture");
+        Worker::cooperative_ready_fixture(&directory.path, "capture");
     let (provider, provider_peer, provider_input) =
-        Worker::cooperative_fixture(&directory.path, "provider");
+        Worker::cooperative_ready_fixture(&directory.path, "provider");
     let (privacy, privacy_peer, privacy_input) =
-        Worker::cooperative_fixture(&directory.path, "privacy");
-    let peers = [
-        (speaker_peer, speaker_input, false),
-        (capture_peer, capture_input, false),
-        (provider_peer, provider_input, false),
-        (privacy_peer, privacy_input, true),
-    ]
-    .map(|(mut channels, input, privacy)| {
-        thread::spawn(move || {
-            let mut sent = false;
-            let mut denied = false;
-            let deadline = Instant::now() + Duration::from_secs(3);
-            loop {
-                match channels.control.receive::<Control>().unwrap() {
-                    Some(Control::Authority { snapshot }) => {
-                        denied |= snapshot.microphone_permission() == Permission::Denied;
-                        if privacy && !sent {
-                            channels
-                                .control
-                                .send(if invalid {
-                                    WorkerEvent::Privacy {
-                                        acquired_at_us: monotonic_us()
-                                            - crate::privacy::PRIVACY_FRESH_US,
-                                        muted: true,
-                                    }
-                                } else {
-                                    WorkerEvent::Privacy {
-                                        acquired_at_us: monotonic_us(),
-                                        muted: true,
-                                    }
-                                })
-                                .unwrap();
-                            sent = true;
-                        }
-                    }
-                    Some(Control::Stop) => break,
-                    Some(_) => {}
-                    None => {}
-                }
-                assert!(Instant::now() < deadline);
-                thread::sleep(Duration::from_millis(1));
-            }
-            drop(input);
-            (denied, channels)
+        Worker::cooperative_ready_fixture(&directory.path, "privacy");
+    let pids = [&speaker, &capture, &provider, &privacy].map(|worker| worker.fixture_pid());
+    // Stepped from here, the owner made inside: each peer is read on this
+    // thread before each step, as its thread read it on the host clock, and
+    // a Stop closes its child's input and waits for its exit there. On the
+    // host clock a starved peer thread could miss the 300 ms in which a
+    // stopped worker must exit (#1232).
+    let clock = crate::scenario_clock::Scope::enter(Duration::from_secs(10)).unwrap();
+    let peers = Rc::new(RefCell::new(
+        [
+            (speaker_peer, speaker_input, false),
+            (capture_peer, capture_input, false),
+            (provider_peer, provider_input, false),
+            (privacy_peer, privacy_input, true),
+        ]
+        .into_iter()
+        .zip(pids)
+        .map(|((channels, input, privacy), pid)| MutePeer {
+            channels,
+            input: Some(input),
+            pid,
+            privacy,
+            sent: false,
+            denied: false,
+            stopped: false,
         })
-    });
+        .collect::<Vec<_>>(),
+    ));
+    let pumped = Rc::clone(&peers);
+    clock
+        .set_pump(move |phase| {
+            // A real child's exit is not simulated: one deadline bounds the
+            // children a step stops, and shutdown brings its own.
+            let deadline = match phase {
+                crate::scenario_clock::Phase::Run => Instant::now() + Duration::from_millis(300),
+                crate::scenario_clock::Phase::Shutdown { deadline } => deadline,
+            };
+            for peer in pumped.borrow_mut().iter_mut() {
+                peer.read(invalid, deadline)?;
+            }
+            Ok(())
+        })
+        .unwrap();
     let mut rig = Rig {
         second: None,
         microphone: crate::options::Microphone::Mic2,
@@ -212,8 +266,9 @@ fn active_mute(trace: &mut SessionState, invalid: bool) -> Result<()> {
     let mut guard = BoundaryGuard::new(snapshot.boot(), now());
     guard.install(now(), snapshot).unwrap();
     assert!(guard.check(now(), permit, OutputKind::Speech).is_err());
-    for peer in peers {
-        assert!(peer.join().unwrap().0);
+    for peer in peers.take() {
+        assert!(peer.stopped, "mock peer did not receive Stop");
+        assert!(peer.denied);
     }
     for worker in [
         &mut rig.capture,
@@ -224,6 +279,7 @@ fn active_mute(trace: &mut SessionState, invalid: bool) -> Result<()> {
         assert!(worker.try_exit().unwrap().is_some());
     }
     drop(rig);
+    drop(clock);
     fs::remove_dir(&directory.path).unwrap();
     result
 }

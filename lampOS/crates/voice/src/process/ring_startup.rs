@@ -159,6 +159,8 @@ impl Worker {
                 role: "ring".into(),
                 diagnostic_start: None,
                 ring_resources: Some(resources),
+                #[cfg(test)]
+                on_stop: None,
             }));
             worker
                 .as_mut()

@@ -330,7 +330,18 @@ pub(crate) mod tests {
         muted_seen: Arc<AtomicBool>,
         slide: Option<Arc<AtomicBool>>,
     ) -> (Worker, thread::JoinHandle<Peer>) {
-        let (worker, mut peer, input) = Worker::cooperative_fixture(directory, "privacy");
+        let (mut worker, mut peer, input) = Worker::cooperative_fixture(directory, "privacy");
+        // `Worker::shutdown`'s Stop ends the child at once, and its exit is
+        // waited for there, not on this peer's thread, which a busy host may
+        // not run within the 300 ms a stopped worker has (#1232). A cleanup
+        // of its own still has the peer end it on Stop, as before.
+        let input = Arc::new(std::sync::Mutex::new(Some(input)));
+        let pid = worker.fixture_pid();
+        let ended = Arc::clone(&input);
+        worker.on_stop(move || {
+            drop(ended.lock().unwrap().take());
+            crate::scenario_clock::wait_child_exited(pid, Instant::now() + Duration::from_secs(5))
+        });
         let task = thread::spawn(move || {
             let mut ticks = 0usize;
             let mut heartbeats = 0;
@@ -339,7 +350,7 @@ pub(crate) mod tests {
                 for _ in 0..16 {
                     match peer.control.receive::<Control>().unwrap() {
                         Some(Control::Stop) => {
-                            drop(input);
+                            drop(input.lock().unwrap().take());
                             return Peer {
                                 channels: peer,
                                 received_stop: true,

@@ -3039,9 +3039,10 @@ fn the_dance_late(
                 .iter()
                 .all(|joint| *joint == 0.0)
             {
-                // The stand-in body keeps saying its joints, so each read
-                // returns at once: bounded by the run's deadline instead, so
-                // a clip that never begins fails here and does not hang.
+                // The stand-in body says its joints every 100 ms, so each
+                // read returns within that and its 5 s never applies: bounded
+                // by the run's deadline instead, so a clip that never begins
+                // fails here and does not hang.
                 assert!(
                     Instant::now() < deadline,
                     "the clip never began on body/joint_states"

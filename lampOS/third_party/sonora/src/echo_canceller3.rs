@@ -486,7 +486,7 @@ impl EchoCanceller3 {
     pub(crate) fn process_capture(
         &mut self,
         capture: &mut AudioBuffer,
-        linear_output: Option<&mut AudioBuffer>,
+        mut linear_output: Option<&mut AudioBuffer>,
         level_change: bool,
     ) {
         debug_assert_eq!(self.num_bands, capture.num_bands());
@@ -530,6 +530,14 @@ impl EchoCanceller3 {
                 aec_reference_is_downmixed_stereo,
                 sub_frame_idx,
             );
+            // In C++ the linear sub-frame view points into `linear_output`;
+            // here it is an owned copy, so write it out (lampOS patch).
+            if let (Some(linear), Some(view)) = (
+                linear_output.as_deref_mut(),
+                self.linear_output_sub_frame_view.as_ref(),
+            ) {
+                write_sub_frame_to_audio_buffer(view, sub_frame_idx, linear);
+            }
         }
 
         // Process any remaining block from the capture blocker.

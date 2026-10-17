@@ -71,6 +71,9 @@ struct Submodules {
 struct CaptureState {
     capture_audio: Option<AudioBuffer>,
     capture_fullband_audio: Option<AudioBuffer>,
+    /// AEC3's linear output for the last capture frame, when exported
+    /// (lampOS patch).
+    linear_aec_output: Option<AudioBuffer>,
     capture_output_used: bool,
     capture_output_used_last_frame: bool,
     echo_path_gain_change: bool,
@@ -90,6 +93,7 @@ impl Default for CaptureState {
         Self {
             capture_audio: None,
             capture_fullband_audio: None,
+            linear_aec_output: None,
             capture_output_used: true,
             capture_output_used_last_frame: true,
             echo_path_gain_change: false,
@@ -218,8 +222,15 @@ impl AudioProcessingImpl {
 
     /// Applies a new configuration, selectively reinitializing submodules.
     pub(crate) fn apply_config(&mut self, config: Config) {
-        let aec_config_changed =
-            self.config.echo_canceller.is_some() != config.echo_canceller.is_some();
+        // lampOS patch: exporting the linear output is set up with AEC3.
+        let export = |c: &Config| {
+            c.echo_canceller
+                .as_ref()
+                .map(|ec| ec.export_linear_aec_output)
+        };
+        let aec_config_changed = self.config.echo_canceller.is_some()
+            != config.echo_canceller.is_some()
+            || export(&self.config) != export(&config);
 
         let agc2_config_changed = self.config.gain_controller2 != config.gain_controller2;
 
@@ -292,6 +303,12 @@ impl AudioProcessingImpl {
     /// Returns current processing statistics.
     pub(crate) fn get_statistics(&self) -> &AudioProcessingStats {
         &self.capture.stats
+    }
+
+    /// AEC3's linear output for the last capture frame, in FloatS16 scale,
+    /// when it is exported (lampOS patch).
+    pub(crate) fn linear_aec_output(&self) -> Option<&AudioBuffer> {
+        self.capture.linear_aec_output.as_ref()
     }
 
     /// Sets the applied input volume (e.g. from the OS mixer).
@@ -595,7 +612,8 @@ impl AudioProcessingImpl {
             }
             let echo_path_gain_change = self.capture.echo_path_gain_change;
             let capture_buffer = self.capture.capture_audio.as_mut().unwrap();
-            ec.process_capture(capture_buffer, None, echo_path_gain_change);
+            let linear_output = self.capture.linear_aec_output.as_mut();
+            ec.process_capture(capture_buffer, linear_output, echo_path_gain_change);
         }
 
         // Phase 7b: NS analysis on linear AEC output (if configured).
@@ -1268,6 +1286,7 @@ impl AudioProcessingImpl {
 
     fn initialize_echo_controller(&mut self) {
         self.submodules.echo_controller = None;
+        self.capture.linear_aec_output = None;
 
         let Some(ec) = &self.config.echo_canceller else {
             return;
@@ -1279,7 +1298,21 @@ impl AudioProcessingImpl {
 
         let mut config = EchoCanceller3Config::default();
         config.echo_removal_control.transparent_mode = ec.transparent_mode;
-        let multichannel_config = Some(EchoCanceller3Config::create_default_multichannel_config());
+        let mut multichannel_config = EchoCanceller3Config::create_default_multichannel_config();
+        // lampOS patch: AEC3 requires both configs to agree on this.
+        config.filter.export_linear_aec_output = ec.export_linear_aec_output;
+        multichannel_config.filter.export_linear_aec_output = ec.export_linear_aec_output;
+        let multichannel_config = Some(multichannel_config);
+        if ec.export_linear_aec_output {
+            // The linear output is the lowest split band: 16 kHz.
+            self.capture.linear_aec_output = Some(AudioBuffer::new(
+                BAND_SPLIT_RATE,
+                num_capture_channels,
+                BAND_SPLIT_RATE,
+                num_capture_channels,
+                BAND_SPLIT_RATE,
+            ));
+        }
 
         self.submodules.echo_controller = Some(EchoCanceller3::new(
             config,

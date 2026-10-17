@@ -182,6 +182,12 @@ pub struct EchoCanceller {
     /// and reduces suppression. The HMM variant uses Bayesian inference and
     /// is generally more responsive than the counter-based Legacy mode.
     pub transparent_mode: TransparentModeType,
+    /// Keep AEC3's linear output for
+    /// [`AudioProcessing::linear_aec_output`](crate::AudioProcessing::linear_aec_output)
+    /// (default: false). It sets AEC3's `filter.export_linear_aec_output`.
+    /// Exporting it does not change the processed capture signal.
+    /// (lampOS patch; see PATCH.md.)
+    pub export_linear_aec_output: bool,
 }
 
 impl Default for EchoCanceller {
@@ -189,6 +195,7 @@ impl Default for EchoCanceller {
         Self {
             enforce_high_pass_filtering: true,
             transparent_mode: TransparentModeType::default(),
+            export_linear_aec_output: false,
         }
     }
 }

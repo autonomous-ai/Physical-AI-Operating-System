@@ -248,7 +248,7 @@ pub struct StopWords {
     /// [`COUNTS_ENVIRONMENT`]: where this reply's counts go at its end, and
     /// what it heard so far, each with whether it stopped the lamp.
     counts: Option<std::path::PathBuf>,
-    heard: Vec<(String, bool)>,
+    heard: Vec<Kept>,
     /// With `always`: the words are also asked for every
     /// [`CADENCE_BLOCKS`] sent ([`Self::with_cadence`]), and the blocks
     /// sent since they last were.
@@ -394,7 +394,8 @@ impl StopWords {
                 self.stopped = true;
                 eprintln!("lamp-voice: stop words: a stop phrase was heard over the lamp's voice");
             }
-            if self.counts.is_some() && self.heard.len() < MOST_HEARD {
+            if self.counts.is_some() {
+                let says_stop = stop_phrase(&heard);
                 let mut text = heard;
                 if text.len() > HEARD_BYTES {
                     let mut end = HEARD_BYTES;
@@ -403,7 +404,15 @@ impl StopWords {
                     }
                     text.truncate(end);
                 }
-                self.heard.push((text, stops));
+                keep_heard(
+                    &mut self.heard,
+                    Kept {
+                        n: self.results,
+                        text,
+                        stopped: stops,
+                        says_stop,
+                    },
+                );
             }
         }
         if !replying && !self.rested {
@@ -428,8 +437,8 @@ impl StopWords {
                     "asked_every_ms": self.cadence.then_some(u64::from(CADENCE_BLOCKS) * 10),
                     "results": self.results,
                     "stop_heard": self.stop_heard,
-                    "heard": self.heard.iter().map(|(text, stopped)| {
-                        serde_json::json!({"text": text, "stopped_the_lamp": stopped})
+                    "heard": self.heard.iter().map(|kept| {
+                        serde_json::json!({"n": kept.n, "text": kept.text, "stopped_the_lamp": kept.stopped})
                     }).collect::<Vec<_>>(),
                 },
             });
@@ -860,8 +869,41 @@ fn counts_path() -> Option<std::path::PathBuf> {
         .filter(|path| path.is_absolute())
 }
 
-/// What a reply heard, at most this many results of it.
+/// What a reply heard: its last this many results, and as many again of
+/// the earliest whose words hold a stop phrase, however early (Fourth and
+/// the first builder on #828, 17 Oct 13:18 and 13:42): a cut-in 9 s into a
+/// story fell after the first 16, so whether its stop came back could not
+/// be read.
 const MOST_HEARD: usize = 16;
+
+/// One result kept for the counts: its number in the reply (from 1), its
+/// words, whether it stopped the lamp, and whether its words hold a stop
+/// phrase.
+#[derive(Clone, Debug, PartialEq)]
+struct Kept {
+    n: usize,
+    text: String,
+    stopped: bool,
+    says_stop: bool,
+}
+
+/// Adds `result` and lets go of what is no longer kept: a result is kept
+/// while it is among the last [`MOST_HEARD`], or while its words hold a
+/// stop phrase and it is one of the first [`MOST_HEARD`] that do. In the
+/// order heard.
+fn keep_heard(kept: &mut Vec<Kept>, result: Kept) {
+    let newest = result.n;
+    kept.push(result);
+    let mut stops = 0;
+    kept.retain(|each| {
+        let recent = newest - each.n < MOST_HEARD;
+        let pinned = each.says_stop && {
+            stops += 1;
+            stops <= MOST_HEARD
+        };
+        recent || pinned
+    });
+}
 /// Each result's words, at most this many bytes of them.
 const HEARD_BYTES: usize = 200;
 
@@ -1503,7 +1545,7 @@ mod tests {
         assert_eq!(written["reply"]["stop_heard"], true, "{written}");
         assert_eq!(
             written["reply"]["heard"],
-            serde_json::json!([{"text": "Stop.", "stopped_the_lamp": true}])
+            serde_json::json!([{"n": 1, "text": "Stop.", "stopped_the_lamp": true}])
         );
         assert!(script.lock().unwrap().told.contains(&"rest".to_owned()));
         // Without a path, nothing is kept or written.
@@ -1543,9 +1585,98 @@ mod tests {
         assert_eq!(written["reply"]["stop_heard"], true, "{written}");
         assert_eq!(
             written["reply"]["heard"],
-            serde_json::json!([{"text": "Stop.", "stopped_the_lamp": true}])
+            serde_json::json!([{"n": 1, "text": "Stop.", "stopped_the_lamp": true}])
         );
         assert!(script.lock().unwrap().told.contains(&"rest".to_owned()));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    /// Fourth and the first builder on #828 (17 Oct 13:18, 13:42): a
+    /// stop said 9 s into a story came after the first 16 results, so the
+    /// counts could not show it. They keep the last 16, and every earlier
+    /// result whose words hold a stop phrase, each with its number.
+    #[test]
+    fn the_counts_keep_the_last_results_and_every_stop_said_however_early() {
+        let mut kept = Vec::new();
+        for n in 1..=40usize {
+            let says_stop = n == 5 || n == 30;
+            keep_heard(
+                &mut kept,
+                Kept {
+                    n,
+                    text: if says_stop {
+                        "Stop.".into()
+                    } else {
+                        format!("once upon a time {n}")
+                    },
+                    stopped: n == 30,
+                    says_stop,
+                },
+            );
+        }
+        let numbers: Vec<usize> = kept.iter().map(|k| k.n).collect();
+        let mut wanted = vec![5];
+        wanted.extend(25..=40);
+        assert_eq!(numbers, wanted);
+        assert!(kept.iter().find(|k| k.n == 30).unwrap().stopped);
+        // A stream that says stop over and over keeps at most 16 of the
+        // earliest beside the last 16.
+        let mut kept = Vec::new();
+        for n in 1..=100usize {
+            keep_heard(
+                &mut kept,
+                Kept {
+                    n,
+                    text: "stop".into(),
+                    stopped: false,
+                    says_stop: true,
+                },
+            );
+        }
+        assert_eq!(kept.len(), 2 * MOST_HEARD);
+        assert_eq!(kept.first().unwrap().n, 1);
+        assert_eq!(kept.last().unwrap().n, 100);
+    }
+
+    /// Through the stream: twenty results of the lamp's story, a stop said
+    /// as the sixth, and the file keeps it with its number.
+    #[test]
+    fn a_stop_said_before_the_last_sixteen_is_still_in_the_file() {
+        let dir =
+            std::env::temp_dir().join(format!("lamp-voice-stop-early-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("stop-words.json");
+        let script = Arc::new(Mutex::new(Script::default()));
+        let mut words =
+            StopWords::always_counted(Box::new(Scripted(Arc::clone(&script))), Some(path.clone()));
+        let mut at = 0u64;
+        for _ in 0..30 {
+            at += 10_000;
+            words.heard_speech(true);
+            words.block(true, true, false, None, None, at, &block(1));
+        }
+        for n in 1..=24 {
+            script.lock().unwrap().words = Some(if n == 6 {
+                "Wait, stop.".into()
+            } else {
+                format!("the fox ran {n}")
+            });
+            at += 10_000;
+            words.block(true, true, false, None, None, at, &block(1));
+        }
+        at += 10_000;
+        words.block(false, false, false, None, None, at, &block(1));
+        let written: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        let heard = written["reply"]["heard"].as_array().unwrap();
+        let numbers: Vec<u64> = heard.iter().map(|h| h["n"].as_u64().unwrap()).collect();
+        assert_eq!(numbers[0], 6, "{written}");
+        assert_eq!(heard[0]["text"], "Wait, stop.");
+        assert_eq!(numbers.len(), 17, "{written}");
+        assert_eq!(
+            *numbers.last().unwrap(),
+            written["reply"]["results"].as_u64().unwrap()
+        );
         std::fs::remove_dir_all(dir).unwrap();
     }
 

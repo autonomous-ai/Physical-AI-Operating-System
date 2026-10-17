@@ -525,7 +525,9 @@ this room" until someone asks to be recognised.
   `LAMP_EYES_WHO_SOCKET` names the socket):
   - The model has two functions, `remember_my_face` and `forget_my_face`,
     each with the name. They are called only when the person asks.
-  - The hello for someone known is by name.
+  - The hello for someone known is by name. With no known face, it is by
+    the name typed at setup, when `LAMP_PERSON_NAME` gives one
+    ([speaking-first.md](speaking-first.md), #806).
   - What a known person says is told their name once a session ("The person
     at the lamp now is Minh: you know their face.").
   - With a memory, what a known person asks it to keep and what they say

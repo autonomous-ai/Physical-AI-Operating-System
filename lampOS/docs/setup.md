@@ -93,7 +93,7 @@ What lamp-4ace's units read today (`deploy/lamp-4ace/`):
 | The voice's service | `/etc/lampOS/voice/provider.json`, which names a credential file | The user's key, in that file and in the Policy's `/etc/lampOS/policy/jev.key` (#806, 16:13); `provider.json` comes with `install`. |
 | Update trust | `/etc/lampOS/update/key.pub` | Nothing: a trust root belongs in the image, not on a page anyone near the lamp can open. |
 | Time zone | Schedule takes `--zone Asia/Ho_Chi_Minh`; Memory, Expression and the policy take `--utc-offset-minutes 420` | `/etc/localtime` and `/etc/timezone`. Memory, Expression and the policy take `--zone system` (#820), which follows the file across daylight saving and takes up the zone setup writes without a restart; their units still pass the offset until First switches them. |
-| The person's name | Not read by any part yet | A private file the voice gives the model with its instruction. |
+| The person's name | Read by the voice with `LAMP_PERSON_NAME` (the product unit sets it, #806): told to the model after its character, and the hello's name when no face is known (`crates/voice/src/person.rs`) | A private file, one line: `/etc/lampOS/person/name`. |
 
 ## The person's data, which reset wipes
 

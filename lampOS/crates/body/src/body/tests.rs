@@ -8156,3 +8156,90 @@ fn a_skill_move_asked_while_a_hand_holds_the_lamp_is_dropped_by_the_hand() {
     assert_eq!(report.gestures, 0);
     assert_eq!(fates, [("stretching", "dropped: held by a hand")]);
 }
+
+/// A slump in the middle of an ease back (`Limits::arbitration`) ends it
+/// with everything else: taken up two minutes later, the lamp rises with
+/// no gesture's offsets left in its goals (reviewer's 09:46 on #1239: the
+/// head jumped 24 and 22 counts, the shoulder 24, 21 and 20).
+#[test]
+fn a_slump_during_an_ease_back_leaves_no_offset_after_the_take_up() {
+    let ms = Duration::from_millis;
+    let (mut lamp, mut clock) = folded(Duration::from_secs(136));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    lamp.may_take_hold = true;
+    // The elbow at 820 from 8.7 s: it lets go 1.5 s on, inside the ease.
+    lamp.strains = vec![(ms(8_700), ms(10_400), 2, 820)];
+    let limits = Limits {
+        arbitration: true,
+        overload_release: true,
+        ..gesture_limits()
+    };
+    let time = clock.time.clone();
+    let seen_at = clock.time.clone();
+    let mut asks = VecDeque::from([
+        (ms(8_000), Priority::Skill),
+        (ms(9_950), Priority::Conversation),
+    ]);
+    let (mut fates, mut seen, mut limp) = (Vec::new(), Vec::<Step>::new(), Vec::new());
+    let report = run_arbitrated(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some(HOME),
+        Some(standing(100, 60)),
+        None,
+        || Some((Mood::Speaking, 60)),
+        move || match asks.front() {
+            Some((at, by)) if time.get() >= *at => {
+                let by = *by;
+                asks.pop_front();
+                let asked = Asked {
+                    gesture: Some(&crate::clips::NOD),
+                    ..Asked::default()
+                };
+                (asked, by)
+            }
+            _ => (Asked::default(), Priority::Conversation),
+        },
+        |glimpse| {
+            fates.extend(glimpse.gesture_fate);
+            limp.push(glimpse.limp);
+            seen.push((
+                seen_at.get(),
+                glimpse.gesture,
+                glimpse.goals,
+                glimpse.arm_goals,
+            ));
+        },
+    );
+    assert_eq!(report.released.len(), 1, "{report:?}");
+    assert!(
+        fates.contains(&("nod", "ended: by conversation")),
+        "{fates:?}"
+    );
+    // It let go inside the 0.7 s ease, and was taken up two minutes on.
+    let let_go = limp.iter().position(|limp| *limp).unwrap();
+    let taken_up = let_go + limp[let_go..].iter().position(|limp| !*limp).unwrap();
+    assert!(
+        (ms(9_950)..ms(10_650)).contains(&seen[let_go].0),
+        "{:?}",
+        seen[let_go].0
+    );
+    let after: Vec<_> = seen[taken_up..].iter().collect();
+    assert!(after.len() > 100);
+    let mut most = [0u16; 5];
+    for pair in after.windows(2) {
+        let (before, now) = (pair[0], pair[1]);
+        let changes = (0..3)
+            .map(|joint| now.2[joint].abs_diff(before.2[joint]))
+            .chain((0..2).map(|joint| now.3[joint].abs_diff(before.3[joint])));
+        for (most, change) in most.iter_mut().zip(changes) {
+            *most = (*most).max(change);
+        }
+    }
+    // The head and the shoulder rise smoothly; the elbow takes one step of
+    // some 30 counts as it is taken hold of, as it does with no gesture
+    // before the slump at all.
+    assert!(most[..4].iter().all(|most| *most <= 12), "{most:?}");
+}

@@ -4906,6 +4906,9 @@ fn run_on<P: PortIo, R: Runtime>(
             arm_rests = stand <= 0.0;
             (playing, pending, idle_due) = (None, None, None);
             (gesture_now, gesture_cooling) = ([0.0; 5], 0);
+            // An ease back the slump cut short ends with it, or it would
+            // replay the old gesture's offsets on the lamp just taken up.
+            (easing_out, yielding, gesture_moved) = (None, false, [0.0; 5]);
             (gaze, look, faces_running) = (looking.map(Gaze::new), [0.0; 2], 0);
             (heard, awake_until) = (None, None);
             started = bus.runtime.now();

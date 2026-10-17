@@ -1010,6 +1010,36 @@ fn run_policy_with_peers(
     mode: PeerMode,
     lamp: Lamp,
 ) -> Session {
+    run_policy_with_peers_held(
+        turn_taking,
+        seconds,
+        script,
+        endpoint,
+        reply,
+        mute_at,
+        mode,
+        lamp,
+        None,
+    )
+}
+
+/// What a stepped scenario waits for on the host before each step: an event
+/// of a real process that logical time must not run past.
+type Hold = Box<dyn FnMut() -> io::Result<()>>;
+
+/// As [`run_policy_with_peers`]; when stepped, `hold` runs before each step.
+#[allow(clippy::too_many_arguments)]
+fn run_policy_with_peers_held(
+    turn_taking: TurnTaking,
+    seconds: u64,
+    script: Script,
+    endpoint: EndpointRig,
+    reply: Option<ProviderReply>,
+    mute_at: Option<u64>,
+    mode: PeerMode,
+    lamp: Lamp,
+    mut hold: Option<Hold>,
+) -> Session {
     let fixture_privacy = mode.fixture_privacy();
     if fixture_privacy.is_some() {
         require_real_process_clock();
@@ -1062,6 +1092,9 @@ fn run_policy_with_peers(
         let mut steps = steps.map(|step| (true, step));
         scope
             .set_pump(move |_| {
+                if let Some(hold) = hold.as_mut() {
+                    hold()?;
+                }
                 for (open, step) in &mut steps {
                     if *open {
                         *open = step()?;
@@ -1377,13 +1410,59 @@ fn hung_worker_never_delays_capture_endpoint_or_session_end() {
             QUIET
         }
     }
-    let session = run_process_with_privacy_tolerance(
+    let endpoint = scripted_process(&[ready()], "exec sleep 60", limits);
+    // Stepped, the conversation's own time is logical; the worker's
+    // supervisor, its 700 ms hang detection, its backoff and its respawn stay
+    // real. Logical time waits for them, in their real order: the loop gives
+    // up on the request at its own 500 ms result timeout; at the hang bound
+    // after the request went out, logical time holds until the supervisor has
+    // found the hang (Recovering, which the loop's next pass records), and
+    // then until it has respawned the worker. A busy host only makes the
+    // wait longer (#823).
+    let monitor = endpoint.monitor.as_ref().expect("real endpoint").clone();
+    let hang = limits.hang;
+    let mut stage = 0;
+    let mut requested = None;
+    let hold: Hold = Box::new(move || {
+        let waited = |done: &dyn Fn() -> bool, what: &str| -> io::Result<()> {
+            let by = Instant::now() + Duration::from_secs(5);
+            while !done() {
+                if Instant::now() >= by {
+                    return Err(io::Error::other(format!(
+                        "endpoint worker never {what}: {:?}",
+                        monitor.report()
+                    )));
+                }
+                thread::sleep(Duration::from_millis(1));
+            }
+            Ok(())
+        };
+        if stage == 0 && monitor.report().requests >= 1 {
+            requested = Some(scenario_clock::instant());
+            stage = 1;
+        } else if stage == 1 && requested.is_some_and(|at| scenario_clock::instant() >= at + hang) {
+            waited(
+                &|| matches!(monitor.availability(), Availability::Recovering(_)),
+                "found the hang",
+            )?;
+            stage = 2;
+        } else if stage == 2 {
+            waited(&|| monitor.report().spawned >= 2, "respawned")?;
+            stage = 3;
+        }
+        Ok(())
+    });
+    let session = run_policy_with_peers_held(
+        TurnTaking::V1Baseline,
         6,
         two_questions,
-        scripted_process(&[ready()], "exec sleep 60", limits),
+        endpoint,
+        None,
+        None,
+        PeerMode::Stepped,
+        Lamp::default(),
+        Some(hold),
     );
-    // A stalled loop still fails the unchanged 100 ms capture lease and this
-    // explicit 100 ms integration privacy bound, not the lamp's 50 ms bound.
     session.result.as_ref().unwrap();
     assert!(
         session.elapsed < Duration::from_secs(8),

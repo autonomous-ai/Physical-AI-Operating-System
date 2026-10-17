@@ -57,8 +57,9 @@ selection), which must stay identical:
   four, `serve_session`, `physical_loopback`, `serve_relay` and
   `final_dispatch`, and six of `lamp-memory::health`'s seven tests left on
   2026-10-17, below);
-- two tests of `lamp-voice`'s `coordinator::tests::endpoint_session`, named
-  exactly (the module's other 28 left on 2026-10-17, and
+- one test of `lamp-voice`'s `coordinator::tests::endpoint_session`, named
+  exactly, `endpoint_fixture_reaps_on_panic_before_and_after_handoff` (the
+  module's other 28 left on 2026-10-17, `hung_worker…` later that day, and
   `coordinator::tests::early_end` and `coordinator::tests::pilot_faults` on
   2026-10-16, below);
 - single tests that took 4 s or more outside those, named exactly, among
@@ -139,9 +140,9 @@ Review points:
 - Who decides that a red full run holds the next merge? The workflow only
   opens the issue; it does not block merging.
 - Does a pull request's run list the expected number of tests? As of
-  2026-10-17 nextest says "including 5 tests and 1 binary via
-  profile.pr.default-filter": the three named single tests, the two named
-  `endpoint_session` tests, and `capture_hold_worker` as one binary.
+  2026-10-17 nextest says "including 4 tests and 1 binary via
+  profile.pr.default-filter": the three named single tests, the named
+  `endpoint_session` test, and `capture_hold_worker` as one binary.
 
 ## The measured list
 
@@ -790,7 +791,8 @@ the three took 4.42 to 4.51 s each before and 0.62 to 0.77 s after, one run
 time: its assertions need the worker supervisor's 700 ms hang detection
 (`turn-end-wire`, on the host clock) to happen during the conversation. The
 module stayed in the group as a whole, for it and the module's other
-real-process tests, until 2026-10-17 (below).
+real-process tests, until 2026-10-17 (below). It left the group itself later
+that day, waiting on its worker's events on the stepped clock (below).
 
 ## Two barrier waits on a paused clock (#823)
 
@@ -987,8 +989,8 @@ and `endpoint_fixture_reaps_on_panic_before_and_after_handoff` (3.1 s of
 real process reaping).
 
 None of the other 27 uses the fixture's 100 ms ordering tolerance; only
-`hung_worker…` and the ignored test reach it
-(`run_process_with_privacy_tolerance`). The 27 still keep these host-clock
+the ignored test reaches it now (`run_process_with_privacy_tolerance`),
+`hung_worker…` having moved to the stepped clock (below). The 27 still keep these host-clock
 windows (the reviewer on #1203):
 - `confirmed_endpoint_exit_keeps_the_restartable_mute`: its `exec sleep 60`
   worker is killed at the default 300 ms grace (`turn-end-wire`'s
@@ -1041,3 +1043,26 @@ same right after Stop is sent; a cleanup of its own (`service_privacy_controls`)
 still has the peer close the input on Stop, as before. The 300 ms bounds and
 every assertion are unchanged, and a Stop that is never sent still fails. With
 the 400 ms sleep in place, all six `service_mute` tests pass.
+
+## hung_worker on the stepped clock, waiting on its worker (#823)
+
+`coordinator::tests::endpoint_session::hung_worker_never_delays_capture_endpoint_or_session_end`
+ran its whole six-second conversation on the host clock (6.4 s), with the
+100 ms fixture privacy tolerance, because its assertions need the real worker
+supervisor's 700 ms hang detection, its 100 ms backoff and its respawn to
+happen during the conversation. On the host clock the loop's own 500 ms result
+timeout had to come first, with 200 ms to spare: a 400 ms stall of the loop
+right after the first request fails it ("physical privacy closed or lost
+freshness").
+
+It now runs stepped (`run_policy_with_peers_held`, a `Hold` run before each
+step). Logical time waits for the worker's real events in their real order:
+when the first request is out, the hold notes the logical time; once logical
+time is the hang bound (`limits.hang`) past it, the loop having given up at its
+500 ms, the hold waits on the host until the supervisor reports `Recovering`,
+which the loop's next pass records; on the next step it waits until the worker
+has been respawned (`spawned >= 2`). Each wait has a 5 s host bound. The
+assertions are unchanged; `session.elapsed < 8 s` now measures the real time
+including those waits. With the same 400 ms stall after the first request it
+passes; it takes about 1.45 s, and 30 copies at once passed 90 of 90 runs on
+the Intel Mac. It left the group, in all three filtersets, on 2026-10-17.

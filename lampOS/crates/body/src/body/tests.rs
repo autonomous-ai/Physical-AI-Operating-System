@@ -64,6 +64,10 @@ struct Lamp {
     blip: Option<(usize, u8)>,
     /// Temperatures one servo reads from a given time: when, servo, degrees.
     heats: Vec<(Duration, usize, u8)>,
+    /// From this time, one servo's temperature reads, read by read: a
+    /// glitch, or `None` for what it is. Past the end, what it is. From,
+    /// servo, readings, reads so far.
+    flicker: Option<(Duration, usize, Vec<Option<u8>>, usize)>,
     simulated_to: Duration,
     /// The shoulder and the elbow follow their goals like the other three.
     /// Off, they stay where they are whatever is written to them.
@@ -149,6 +153,7 @@ fn folded(cancel_at: Duration) -> (Lamp, Clock) {
             unstrained: None,
             blip: None,
             heats: Vec::new(),
+            flicker: None,
             simulated_to: Duration::ZERO,
             arm_moves: false,
             overload_clears: 0,
@@ -336,6 +341,16 @@ impl Lamp {
                         {
                             servo.position = f32::from(misread.2);
                             misread.3 -= 1;
+                        }
+                        if address == 56
+                            && let Some((from, flickering, readings, reads)) = self.flicker.as_mut()
+                            && *flickering == index
+                            && now >= *from
+                        {
+                            if let Some(Some(glitch)) = readings.get(*reads) {
+                                servo.temperature = *glitch;
+                            }
+                            *reads += 1;
                         }
                         let data = self.registers_of(&servo, address, count);
                         self.answer(asked, &data);
@@ -6737,9 +6752,11 @@ fn a_jump_that_stays_becomes_the_reading_and_stops_on_heat() {
             temperature: to,
         };
         assert_eq!(report.stop, hot, "{to}: {report:?}");
+        assert_eq!(report.temperature_settles, vec![(5, 45, to)], "{to}");
         assert_eq!(
             report.bad_temperatures[4],
-            u16::from(Limits::FOLDED.temperature_steps) - 1,
+            // It settles on the read half of `temperature_steps` in.
+            u16::from(Limits::FOLDED.temperature_steps / 2) - 1,
             "{to}"
         );
     }
@@ -6757,6 +6774,244 @@ fn a_glitch_of_32_between_47_and_48_is_dropped() {
     assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
     assert_eq!(report.bad_temperatures, [0, 0, 0, 0, 1]);
     assert_eq!(report.peak_temperature[0], 48);
+}
+
+/// The seventh's case (a): the servo at 60, one read of 63 let in, and its
+/// register a degree down to 59 from the next read. The 59s are replaced
+/// by 63 until they settle; a replaced read holds the heat streak, so the
+/// one 63 never becomes 50 hot steps and nothing is let go.
+#[test]
+fn a_small_glitch_near_the_limit_then_a_flicker_down_is_not_heat() {
+    let report = heated_pitch(
+        60,
+        Some(63),
+        vec![(Duration::from_millis(1_510), PITCH, 59)],
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.bad_temperatures[4] > 0, "{report:?}");
+}
+
+/// The seventh's 5 degrees a second row: the first read 5, the servo
+/// rising from 45 at once. The rise settles a read at a time, so it is
+/// judged on it within a second and stops on heat near 62, not at 120.
+#[test]
+fn a_fast_rise_after_a_low_first_read_still_stops_near_the_limit() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(8));
+    lamp.servos[PITCH].temperature = 45;
+    lamp.event = Some((Duration::ZERO, PITCH, Event::HeatOnce(5)));
+    lamp.heats = (0..100)
+        .map(|n| (Duration::from_millis(200 * (n + 1)), PITCH, 46 + n as u8))
+        .collect();
+    let news = script(&clock.time);
+    let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
+    assert!(
+        matches!(
+            report.stop,
+            Stop::Temperature {
+                joint: 5,
+                temperature: 62..=70
+            }
+        ),
+        "{report:?}"
+    );
+}
+
+/// Folded until `until`, the head pitch at `start`, warmed by `heats`, its
+/// temperature reading `readings` read by read from `from`.
+fn scripted_pitch(
+    start: u8,
+    heats: Vec<(Duration, usize, u8)>,
+    from: Duration,
+    readings: Vec<Option<u8>>,
+    until: Duration,
+) -> (BodyReport, Lamp) {
+    let (mut lamp, mut clock) = folded(until);
+    lamp.servos[PITCH].temperature = start;
+    lamp.heats = heats;
+    lamp.flicker = Some((from, PITCH, readings, 0));
+    let news = script(&clock.time);
+    let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
+    (report, lamp)
+}
+
+/// 150 and 5 by turns, `reads` reads.
+fn by_turns(reads: usize) -> Vec<Option<u8>> {
+    (0..reads)
+        .map(|n| Some(if n % 2 == 0 { 150 } else { 5 }))
+        .collect()
+}
+
+/// The seventh's 10:12 case: the last good 40, then the joint really
+/// warming at 5 degrees a second behind 60 reads of 150 and 5 by turns,
+/// then a 150 on one read in 27 (lamp-52e6's elbow rate). Its last good
+/// one is cool, so no heat stop could see it: it ends as unreadable on the
+/// 50th bad read in a row, within a second of the warming starting.
+#[test]
+fn a_joint_warming_behind_bad_reads_stops_as_unreadable_within_a_second() {
+    let at = Duration::from_millis(1_500);
+    let heats = (0..40)
+        .map(|n| (at + Duration::from_millis(200 * n), PITCH, 41 + n as u8))
+        .collect();
+    let mut readings = by_turns(60);
+    readings.extend((0..2_000).map(|n| (n % 27 == 0).then_some(150)));
+    let (report, lamp) = scripted_pitch(40, heats, at, readings, Duration::from_secs(40));
+    assert!(
+        matches!(
+            report.stop,
+            Stop::BadTemperature {
+                joint: 5,
+                from: 40..=43,
+                ..
+            }
+        ),
+        "{report:?}"
+    );
+    let reads = lamp.read_times.iter().filter(|t| **t >= at).count();
+    assert!(
+        reads <= usize::from(Limits::FOLDED.temperature_steps) + 1,
+        "{reads}"
+    );
+}
+
+/// A joint already hot when its reads stop settling ends the same way.
+#[test]
+fn a_hot_joint_whose_reads_never_settle_stops_as_unreadable() {
+    let ramp = (61..=70)
+        .zip(0..)
+        .map(|(to, n)| (Duration::from_millis(1_500 + 40 * n), PITCH, to))
+        .collect();
+    let at = Duration::from_millis(1_900);
+    let (report, _) = scripted_pitch(60, ramp, at, by_turns(2_000), Duration::from_secs(8));
+    assert!(
+        matches!(report.stop, Stop::BadTemperature { joint: 5, .. }),
+        "{report:?}"
+    );
+    assert_eq!(
+        report.bad_temperatures[4],
+        u16::from(Limits::FOLDED.temperature_steps)
+    );
+}
+
+/// Glitches between good reads never end the run, however many: a cool
+/// head with a 150 on one read in 27 runs its full 60 s. The stop counts
+/// bad reads in a row only.
+#[test]
+fn a_cool_joint_glitching_one_read_in_27_runs_on_for_a_minute() {
+    let readings = (0..3_100).map(|n| (n % 27 == 0).then_some(150)).collect();
+    let (report, _) = scripted_pitch(
+        45,
+        Vec::new(),
+        Duration::from_millis(1_500),
+        readings,
+        Duration::from_secs(60),
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.bad_temperatures[4] > 100, "{report:?}");
+    assert_eq!(report.peak_temperature[0], 45);
+}
+
+/// At lamp-52e6's measured rate, one read in 27 at random, a cool head runs
+/// ten minutes and nothing stops it.
+#[test]
+fn a_cool_joint_glitching_at_random_one_read_in_27_runs_ten_minutes() {
+    let mut seed: u32 = 0x5eed_1e57;
+    let readings = (0..30_500)
+        .map(|_| {
+            seed = seed.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+            (seed >> 8).is_multiple_of(27).then_some(150)
+        })
+        .collect();
+    let (report, _) = scripted_pitch(
+        45,
+        Vec::new(),
+        Duration::from_millis(1_500),
+        readings,
+        Duration::from_secs(600),
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.bad_temperatures[4] > 900, "{report:?}");
+    assert_eq!(report.peak_temperature[0], 45);
+}
+
+/// Garbage with one good read in 50 is still garbage: a head warmed to 70,
+/// then 49 reads of 150 and 5 by turns and one true, again and again. A
+/// good read takes one off the bad reads in a row instead of starting them
+/// again, so it ends as unreadable within seconds (44.7 s before).
+#[test]
+fn garbage_with_one_good_read_in_50_still_stops_within_seconds() {
+    let ramp = (61..=70)
+        .zip(0..)
+        .map(|(to, n)| (Duration::from_millis(1_500 + 40 * n), PITCH, to))
+        .collect();
+    let at = Duration::from_millis(1_900);
+    let readings = (0..2_000)
+        .map(|n| (n % 50 != 49).then_some(if n % 2 == 0 { 150 } else { 5 }))
+        .collect();
+    let (report, lamp) = scripted_pitch(60, ramp, at, readings, Duration::from_secs(8));
+    assert!(
+        matches!(report.stop, Stop::BadTemperature { joint: 5, .. }),
+        "{report:?}"
+    );
+    let reads = lamp.read_times.iter().filter(|t| **t >= at).count();
+    assert!(reads <= 150, "{reads}");
+}
+
+/// A low first read, then the true value rising 5 degrees a second with a
+/// 150 every 20 reads: each glitch is skipped by the settle, not a reason to
+/// start it again, so the true value settles and heat stops it near the
+/// limit (it ended as unreadable on a cool lamp before).
+#[test]
+fn a_true_value_settles_through_glitches_after_a_low_first_read() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(8));
+    lamp.servos[PITCH].temperature = 45;
+    lamp.event = Some((Duration::ZERO, PITCH, Event::HeatOnce(5)));
+    lamp.heats = (0..100)
+        .map(|n| (Duration::from_millis(200 * (n + 1)), PITCH, 46 + n as u8))
+        .collect();
+    let readings = (0..400).map(|n| (n % 20 == 19).then_some(150)).collect();
+    lamp.flicker = Some((Duration::from_millis(20), PITCH, readings, 0));
+    let news = script(&clock.time);
+    let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
+    assert!(
+        matches!(
+            report.stop,
+            Stop::Temperature {
+                joint: 5,
+                temperature: 62..=72
+            }
+        ),
+        "{report:?}"
+    );
+    assert_eq!(report.temperature_settles.first().map(|s| s.0), Some(5));
+}
+
+/// One glitch on the first read is read again before it is acted on: a
+/// first read of 150 and then 45 starts as usual, nothing let go.
+#[test]
+fn a_hot_first_read_that_does_not_repeat_starts_as_usual() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(4));
+    lamp.event = Some((Duration::ZERO, PITCH, Event::HeatOnce(150)));
+    let news = script(&clock.time);
+    let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.hot_rereads, vec![[45; 5]]);
+    assert!(report.moved, "{report:?}");
+}
+
+/// Heat that repeats on every read again is acted on as before: refused,
+/// and the whole lamp let go.
+#[test]
+fn a_hot_first_read_that_repeats_is_refused_as_before() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(4));
+    lamp.servos[PITCH].temperature = 70;
+    let news = script(&clock.time);
+    let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
+    assert!(
+        matches!(&report.stop, Stop::Refused { why } if why.contains("70 already")),
+        "{report:?}"
+    );
+    assert_eq!(report.hot_rereads.len(), 3);
+    assert!(let_go_of_the_whole_lamp(&lamp), "{:?}", lamp.registers);
 }
 
 /// Taking hold of an arm joint writes its goal by itself, and that write is

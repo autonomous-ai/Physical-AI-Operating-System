@@ -213,3 +213,23 @@ Ready for lamp-voice: #1174 yes (approved, ARM64 green); #990 waits on DevOps
 - Open from #560: task 97 came by the watch, not the push; lamp-4ace's journal
   says which of two causes.
 - Disk: removed 12 worktrees of merged work; build folders 8.5 GB, 366 GB free.
+
+## 17 Oct, morning (+07)
+
+- #1242 merged (the start-offline loop test); the reviewer's P2 after it,
+  that no test failed with the 25 s budget dropped, became #1256 (merged
+  10:15 on Third's review): both checks fail without the budget, and a
+  normal start with the switch on says nothing.
+- #1247 (the reach probe, off unless `--reach-probe on` and
+  `LAMP_REACH_PROBE=on`): the reviewer's P2, a router forcing its own DNS
+  answers port 53 with the WAN down, so the probe asks 1.1.1.1:443 and
+  8.8.8.8:443 only. Docs say only the second route answers in a relay
+  outage. A `serve` test with a local listener pins the wiring. El
+  approved; it waits for the reviewer.
+- #1263, the follow-up owed after #1094: `lamp-keeper prepare` reads the
+  records with `Records::state`. Third's P2: install (#1184) and prepare
+  both forgot a set-aside on their next run, so a key missing then is
+  recorded as `SET_ASIDE` (once written, no matchable hash) and saved.
+  Approved by Third; waits for the reviewer.
+- Lesson: a fix for a damaged state must hold on the run after the one
+  that finds it; test a second run.

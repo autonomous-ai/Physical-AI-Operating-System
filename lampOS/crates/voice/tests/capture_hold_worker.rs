@@ -350,7 +350,7 @@ impl Rig {
     /// Renew authority as the coordinator does, until the worker has been
     /// sent what ends it, and take whatever the worker has sent.
     fn service(&mut self) {
-        if !self.ending
+        if true
             && self
                 .authority_at
                 .is_none_or(|at| at.elapsed() >= Duration::from_millis(40))

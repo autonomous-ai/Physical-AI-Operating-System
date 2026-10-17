@@ -769,6 +769,18 @@ It is to be decided again before home lamps ship.
   forgotten are dropped, never taken for the next yield's.
 - **What is kept on the lamp:** the outcome per yield (`stop_words`, no
   words). Whatever the relay keeps is the relay's.
+- **Not covered: `LAMP_WAIT_KEEPS_ANSWER=words`** (#1123 step 2,
+  `group-talk.md`) sends something else to the same relay, through the same
+  driver (`RelayEars::for_waits`):
+  - what: a short sound said while an answer is awaited and the lamp is
+    silent, from its pre-roll until its words are asked for (100 ms after it
+    stops);
+  - when its stream is open: while an answer is awaited unheard, and while
+    a sound is in hand;
+  - closed: as the stop words' stream is, and kept: `wait_words`, with a
+    count and no words.
+
+  The decision above doesn't cover it.
 
 Tests:
 - `stop_words::tests`: the phrases, and the driver: the held audio and each

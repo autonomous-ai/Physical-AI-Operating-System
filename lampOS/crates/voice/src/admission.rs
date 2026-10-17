@@ -93,6 +93,16 @@ pub struct CandidateId {
     serial: u64,
 }
 
+#[cfg(test)]
+impl CandidateId {
+    pub(crate) fn for_test(serial: u64) -> Self {
+        Self {
+            controller: BootId::new([5; 16]).unwrap(),
+            serial,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Serialize)]
 pub struct Candidate {
     pub id: CandidateId,

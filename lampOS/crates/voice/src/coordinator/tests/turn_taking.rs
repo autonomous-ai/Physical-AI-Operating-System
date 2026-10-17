@@ -34,6 +34,10 @@ struct Harness {
     sounded_for: Option<crate::admission::CandidateId>,
     /// The last block heard as speech, as the loop keeps it.
     last_speech_us: u64,
+    /// A waited sound's words (`LAMP_WAIT_KEEPS_ANSWER=words`), and what
+    /// they did (#1123 step 2).
+    words: Option<crate::wait_words::WaitWords>,
+    told: Vec<WordsTold>,
 }
 impl Harness {
     /// The product's turn-taking and mask with `LAMP_WAIT_KEEPS_ANSWER=on`:
@@ -136,6 +140,8 @@ impl Harness {
             kept_for: None,
             sounded_for: None,
             last_speech_us: 0,
+            words: None,
+            told: Vec::new(),
         }
     }
     fn old(&self) -> TurnOwner {
@@ -272,6 +278,15 @@ impl Harness {
             }
             _ => None,
         };
+        if wait && let Some(words) = self.words.as_mut() {
+            let still_pending = words
+                .holds()
+                .is_some_and(|id| self.admission.pending_audio(id).is_some());
+            words.follow(
+                self.reply.as_ref().is_some_and(answer_unheard),
+                still_pending,
+            );
+        }
         if wait && let Some(c) = candidate.as_ref() {
             let state = AnswerWait {
                 waited: self.kept_for == Some(c.id),
@@ -280,14 +295,28 @@ impl Harness {
                 heard: !self.mask.is_duplex() || (self.echo && !self.echo_missing),
                 ..self.wait
             };
-            match while_answer_waits(
+            let mut waits = while_answer_waits(
                 state,
                 self.reply.as_ref(),
                 c,
                 self.admission.pending_ended(),
                 self.detector.pause_blocks(),
                 at_us,
-            ) {
+            );
+            if let Some(words) = self.words.as_mut() {
+                let told;
+                (waits, told) = with_waited_words(
+                    words,
+                    waits,
+                    c,
+                    self.admission.pending_audio(c.id).unwrap_or_default(),
+                    self.admission.pending_ended(),
+                    self.detector.pause_blocks(),
+                    at_us,
+                );
+                self.told.extend(told);
+            }
+            match waits {
                 WhileAnswerWaits::Decide => {
                     if state.waited && state.sounding {
                         self.sounded_for = Some(c.id);
@@ -512,13 +541,212 @@ fn while_an_answer_waits_a_short_sound_is_let_go_and_the_answer_goes_on() {
     }
 }
 
-/// #1123: only `on` turns the wait on.
+/// #1123: only `on`, or `words` (step 2), turns the wait on.
 #[test]
-fn the_wait_is_on_only_with_on() {
-    for value in [None, Some(""), Some("off"), Some("ON"), Some("1")] {
+fn the_wait_is_on_only_with_on_or_words() {
+    for value in [
+        None,
+        Some(""),
+        Some("off"),
+        Some("ON"),
+        Some("1"),
+        Some("Words"),
+    ] {
         assert!(!wait_keeps_answer(value), "{value:?}");
+        assert!(!wait_hears_words(value), "{value:?}");
     }
     assert!(wait_keeps_answer(Some("on")));
+    assert!(!wait_hears_words(Some("on")));
+    assert!(wait_keeps_answer(Some("words")));
+    assert!(wait_hears_words(Some("words")));
+}
+
+/// What a product harness did with a sound and its words (#1123 step 2).
+struct WithWords {
+    accepted: Option<Accepted>,
+    let_go: Vec<&'static str>,
+    told: Vec<WordsTold>,
+    /// What the ears were told, in order.
+    ears: Vec<String>,
+    /// Blocks from the sound's first: when its words were asked for, and
+    /// when it was taken or let go.
+    asked: Option<u32>,
+    decided: Option<u32>,
+    /// When the sound began, by the capture clock.
+    began: u64,
+}
+
+/// A fresh product harness, with `LAMP_WAIT_KEEPS_ANSWER=words` on scripted
+/// ears if `words`, or `on` alone: [`QUIET_FIRST`], a sound of `blocks` at
+/// 0.99, then 1.5 s of quiet. `said` comes back from the ears `after`
+/// blocks once its words were asked for, if ever.
+fn with_words(blocks: u32, words: bool, said: Option<(&str, u32)>) -> WithWords {
+    let mut h = Harness::duplex(4_000_000);
+    let script = words.then(|| {
+        let (words, script) = crate::wait_words::tests::scripted();
+        h.words = Some(words);
+        script
+    });
+    let (mut t, mut accepted) = (0, None);
+    sound(&mut h, &mut t, QUIET_FIRST, 0.0, true, &mut accepted);
+    let began = h.base + t + 10_000;
+    let (mut asked, mut decided) = (None, None);
+    for block in 0..blocks + 150 {
+        let score = if block < blocks { 0.99 } else { 0.0 };
+        sound(&mut h, &mut t, 1, score, true, &mut accepted);
+        if decided.is_none() && (accepted.is_some() || !h.let_go.is_empty()) {
+            decided = Some(block);
+        }
+        let Some(script) = script.as_ref() else {
+            continue;
+        };
+        let mut script = script.lock().unwrap();
+        if asked.is_none() && script.told.iter().any(|told| told == "finalize") {
+            asked = Some(block);
+        }
+        if let (Some(asked), Some((text, after))) = (asked, said)
+            && block == asked + after
+        {
+            script.words = Some(text.into());
+        }
+    }
+    let ears = script.map_or_else(Vec::new, |script| script.lock().unwrap().told.clone());
+    WithWords {
+        accepted,
+        let_go: h.let_go,
+        told: h.told,
+        ears,
+        asked,
+        decided,
+        began,
+    }
+}
+
+/// #1123 step 2: with `words`, a short "No." (0.4 s) said while an answer
+/// waits, which `on` lets go, takes the turn from its start once its words
+/// come back. Its audio from its first block went to the stream, its words
+/// were asked for after 100 ms of quiet, and only their count is recorded.
+#[test]
+fn with_words_a_short_no_while_an_answer_waits_takes_the_turn_from_its_start() {
+    let on = with_words(40, false, None);
+    assert!(on.accepted.is_none(), "`on` lets it go");
+    assert_eq!(on.let_go, ["ended"]);
+    let heard = with_words(40, true, Some(("No.", 10)));
+    let accepted = heard.accepted.expect("its words take the turn");
+    assert!(heard.let_go.is_empty(), "{:?}", heard.let_go);
+    let first = accepted.audio.first().unwrap().captured_at_us;
+    assert!(first <= heard.began, "its start is kept");
+    assert_eq!(heard.told.len(), 1);
+    assert_eq!(heard.told[0].words, Some(1));
+    assert!(heard.told[0].took);
+    // Asked once it had been quiet for 100 ms, 10 blocks after its last,
+    // and taken on the block after its words came back.
+    assert_eq!(heard.asked, Some(40 + 10 - 1));
+    assert_eq!(heard.decided, Some(40 + 10 - 1 + 10 + 1));
+    assert!(heard.decided < on.decided, "before `on` lets it go");
+    // Every block of it, from its pre-roll, went to the stream once.
+    let sent = heard
+        .ears
+        .iter()
+        .filter(|told| told.starts_with("hear"))
+        .count();
+    assert!(sent >= 40 + 10, "{sent} blocks");
+    let mut values: Vec<_> = heard
+        .ears
+        .iter()
+        .filter(|told| told.starts_with("hear"))
+        .collect();
+    let count = values.len();
+    values.dedup();
+    assert_eq!(values.len(), count, "no block twice");
+    assert_eq!(heard.ears.first().map(String::as_str), Some("ready"));
+    assert_eq!(
+        heard.ears.iter().filter(|told| *told == "finalize").count(),
+        1
+    );
+}
+
+/// #1123 step 2: words that say nothing, or none back in time, leave the
+/// sound to `on`. A cough's empty words or an "Um." let it go when `on`
+/// does; none back lets it go when it ends, as `on` does, or at most 100 ms
+/// later for one `on` lets go as quiet at its 1 s mark (0.75 s), which
+/// waits for its words to just short of its deadline.
+#[test]
+fn with_words_a_cough_a_filler_or_no_words_in_time_are_let_go() {
+    for blocks in [20, 40, 75] {
+        let on = with_words(blocks, false, None);
+        assert!(on.accepted.is_none(), "{blocks}");
+        for said in [Some(("", 5)), Some(("Um.", 5)), None] {
+            let heard = with_words(blocks, true, said);
+            assert!(heard.accepted.is_none(), "{blocks} blocks, {said:?}");
+            assert_eq!(heard.let_go.len(), 1, "{blocks} blocks, {said:?}");
+            assert_eq!(heard.told.len(), 1, "{blocks} blocks, {said:?}");
+            assert!(!heard.told[0].took);
+            assert_eq!(heard.told[0].words, said.map(|_| 0), "{blocks} blocks");
+            let (decided, before) = (heard.decided.unwrap(), on.decided.unwrap());
+            if said.is_some() || blocks < 75 {
+                assert_eq!(decided, before, "{blocks} blocks, {said:?}");
+            } else {
+                assert!(
+                    decided > before && decided <= before + 10,
+                    "{blocks} blocks: {decided} against {before}"
+                );
+            }
+        }
+    }
+}
+
+/// #1123 step 2: a sound whose words are not back when it ends is let go
+/// then, never held for them: the next sound's start would find it still
+/// pending, and the admission refuses that as a contradiction, which ends
+/// the conversation. Here the next one begins on the block after the end,
+/// and is taken at once, as one soon after a sound let go is.
+#[test]
+fn with_words_a_sound_is_never_held_for_them_past_its_end() {
+    let mut h = Harness::duplex(4_000_000);
+    let (words, _script) = crate::wait_words::tests::scripted();
+    h.words = Some(words);
+    let (mut t, mut accepted) = (0, None);
+    sound(&mut h, &mut t, QUIET_FIRST, 0.0, true, &mut accepted);
+    sound(&mut h, &mut t, 40, 0.99, true, &mut accepted);
+    sound(&mut h, &mut t, 60, 0.0, true, &mut accepted);
+    assert_eq!(h.let_go, ["ended"]);
+    assert_eq!(h.told.len(), 1);
+    assert_eq!(h.told[0].words, None);
+    sound(&mut h, &mut t, 40, 0.99, true, &mut accepted);
+    assert!(accepted.is_some(), "the next sound is taken");
+}
+
+/// #1123 step 2, measured on the product's mask and hold: how long words
+/// may take to come back, once asked for, and still take the turn, by the
+/// sound's length. A sound of 0.5 s or less ends, and is let go, 500 ms
+/// after its words were asked for, so they have 490 ms; one quiet at its
+/// 1 s mark waits for them to 100 ms short of its deadline: 450 ms at 0.6 s,
+/// 350 ms at 0.7 s, 300 ms at 0.75 s. Words back later let it go, as `on`
+/// does. A sound that goes on is taken as before, or sooner if it paused
+/// and its words came back first; one with no pause never has them asked.
+#[test]
+fn how_long_the_words_may_take_by_length() {
+    for (blocks, in_time) in [(20, 49), (40, 49), (50, 49), (60, 45), (70, 35), (75, 30)] {
+        let taken = with_words(blocks, true, Some(("No.", in_time)));
+        assert!(taken.accepted.is_some(), "{blocks} blocks, {in_time}");
+        let late = with_words(blocks, true, Some(("No.", in_time + 1)));
+        assert!(late.accepted.is_none(), "{blocks} blocks, {}", in_time + 1);
+        assert_eq!(late.told[0].words, None);
+    }
+    let on = with_words(80, false, None);
+    let heard = with_words(80, true, None);
+    assert!(heard.accepted.is_some());
+    assert_eq!(heard.decided, on.decided);
+    let sooner = with_words(80, true, Some(("No.", 5)));
+    assert!(sooner.accepted.is_some());
+    assert_eq!(sooner.decided, Some(80 + 10 - 1 + 5 + 1));
+    let on = with_words(140, false, None);
+    let heard = with_words(140, true, Some(("No.", 5)));
+    assert!(heard.accepted.is_some());
+    assert_eq!(heard.decided, on.decided);
+    assert_eq!(heard.asked, None);
+    assert!(heard.told.is_empty());
 }
 
 /// #1123: a sound that goes on (1.4 s) takes the turn once it has gone on

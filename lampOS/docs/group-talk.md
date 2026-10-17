@@ -188,8 +188,96 @@ answer really playing, its echo not yet matched);
 `a_sound_heard_without_echo_evidence_does_not_wait`;
 `a_sound_with_the_lamps_name_in_it_takes_the_turn`;
 `the_wait_is_only_for_an_answer_to_someone_awaited_a_short_while`;
-`the_wait_is_on_only_with_on`. The loop's own call is not driven by a
-test (#1087).
+`the_wait_is_on_only_with_on_or_words`. The loop's own call is not driven
+by a test (#1087).
+
+**With `LAMP_WAIT_KEEPS_ANSWER=words`, a waited sound is judged by its
+words too** (#1123 step 2, `crates/voice/src/wait_words.rs`; off unless
+set, and the wait is `on`'s alone without the second voice's configuration,
+`LAMP_VOICE_SECOND_CONFIG`). With `on`, a real short "No." or "Wait." is
+let go with the cough (#1130's "most likely wrong"). With `words`,
+everything `on` does, and:
+- while an answer to someone is awaited unheard, a speech-to-text stream
+  is kept ready: the second voice's, as the stop words use it
+  (`RelayEars::for_waits`). One takes 0.6 to 0.8 s to connect. It rests
+  once no answer is awaited and no sound is in hand. It closes with a Stop,
+  the mute or the microphone's privacy.
+- a waited sound's audio goes to it from its first kept block (its
+  pre-roll), each block once, while it waits.
+- its words are asked for once it has been quiet for 100 ms
+  (`ASK_AFTER_QUIET_BLOCKS`, as the stop words ask), well before its
+  endpoint (600 ms).
+- words back with anything past fillers ("um", "uh", "hmm", "mm-hm" and
+  the like, `FILLERS`): it is decided at once, as a sound that went on is.
+  With nothing playing it takes the turn from its start. Once the answer
+  sounds, the duplex rules decide it, as for a sound still going then. The
+  asker-first rule still applies after it.
+- words back with nothing past fillers: `on` decides it, as before.
+- where `on` would let it go and its words aren't back: it waits for them
+  while it hasn't ended, up to 100 ms before its deadline, and is then let
+  go as with `on`. A sound that has ended is never held. The next sound's
+  start would find it still pending, which the admission refuses, and that
+  ends the conversation
+  (`with_words_a_sound_is_never_held_for_them_past_its_end`).
+
+How long the words may take once asked for, measured on the product's mask
+and hold (`how_long_the_words_may_take_by_length`):
+- 490 ms for a sound of 0.5 s or less (it is let go at its endpoint);
+- 450 ms at 0.6 s;
+- 350 ms at 0.7 s;
+- 300 ms at 0.75 s (these are let go as quiet at their 1 s mark, and wait to
+  100 ms before their deadline).
+
+Through the relay on lamp-4ace the words came 225 and 269 ms after the
+audio (`stt-check`, #1047, in `stop-word.md`). Asked at the 300 ms of quiet
+that `on` lets go on, they would have had 290 ms, and 250 down to 90 ms
+for sounds of 0.6 to 0.76 s.
+
+A 0.4 s "No." whose words come back in 100 ms is taken 210 ms after it
+stops. Without the switch it was taken at once, on its trigger; with `on`
+it was let go.
+
+What it costs:
+- the waited sound's audio goes to the relay: the stop words' privacy line
+  (`stop-word.md`, "Privacy: what goes where"), accepted for lamp-4ace only,
+  covers it no further, and is to be decided for this too before home
+  lamps;
+- someone else's short words (a television, a colleague) in the gap take
+  the turn as a follow-up would, where `on` let them go;
+- a sound with a pause of more than 100 ms in it is judged by its words
+  before the pause: "Uh, … no" is let go, as with `on`;
+- with no words back, a sound `on` lets go as quiet at its 1 s mark is let
+  go up to 100 ms later;
+- a sound that goes on (0.8 s and longer) but paused for 100 ms is taken
+  sooner than with `on`, once its words come back.
+
+Recorded:
+- `wait_keeps_answer` at the start, with `words` and
+  `words_asked_after_quiet_blocks`;
+- `wait_words` once a sound, with:
+  - `words`: the count of its words that ask something, or `null` if none
+    came back in time;
+  - `took`;
+  - `asked_at_us` and `at_us`: from the ask to the decision.
+
+The words themselves aren't recorded. The journal names the stream
+`wait words`.
+
+Tests:
+- in `wait_words.rs`, on scripted ears: the stream's life, the filler
+  count, and the decision;
+- in `coordinator/tests/turn_taking.rs`, through the function the loop calls
+  (`with_waited_words`), on the product's mask, hold, admission and
+  detector: `with_words_a_short_no_while_an_answer_waits_takes_the_turn_from_its_start`,
+  `with_words_a_cough_a_filler_or_no_words_in_time_are_let_go`,
+  `with_words_a_sound_is_never_held_for_them_past_its_end` and
+  `how_long_the_words_may_take_by_length`.
+
+The real relay is not driven by a test. The lamp check, on lamp-4ace with
+the second voice configured: a question, then in the gap before its answer
+"No." and "Wait." five times each, and five coughs. Count `wait_words`
+(`took`, `words`, `null`) and `input_let_go_answer_waits`, with the time
+from `asked_at_us` to `at_us`.
 
 **With `LAMP_ASKER_FIRST=on`, the person asked comes first while the
 answer is awaited** (`crates/voice/src/asker_first.rs`, #829; off unless

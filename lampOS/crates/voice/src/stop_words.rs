@@ -736,8 +736,37 @@ impl RelayEars {
         })
     }
 
+    /// The speech-to-text `config` names, from a thread of its own, for a
+    /// waited sound's words (`crate::wait_words`, #1123): its journal lines
+    /// say `wait words`, and nothing it hears is kept or counted.
+    pub fn for_waits(config: SecondConfig) -> io::Result<Self> {
+        Self::named("wait words", false, None, None, move || {
+            let config = config.clone();
+            async move {
+                SttStream::connect(&config)
+                    .await
+                    .map_err(|error| error.to_string())
+            }
+        })
+    }
+
     /// The same, with streams from `connect`.
     fn with<C, F>(
+        always: bool,
+        record: Option<std::path::PathBuf>,
+        counts: Option<std::path::PathBuf>,
+        connect: C,
+    ) -> io::Result<Self>
+    where
+        C: Fn() -> F + Send + 'static,
+        F: Future<Output = Result<SttStream, String>> + Send + 'static,
+    {
+        Self::named("stop words", always, record, counts, connect)
+    }
+
+    /// [`Self::with`], its thread and its journal lines called `name`.
+    fn named<C, F>(
+        name: &'static str,
         always: bool,
         record: Option<std::path::PathBuf>,
         counts: Option<std::path::PathBuf>,
@@ -753,7 +782,7 @@ impl RelayEars {
         let live = Arc::new(Live::new());
         let shared = Arc::clone(&live);
         std::thread::Builder::new()
-            .name("lamp-voice-stop-words".into())
+            .name(format!("lamp-voice-{}", name.replace(' ', "-")))
             .spawn(move || {
                 match tokio::runtime::Builder::new_current_thread()
                     .enable_all()
@@ -761,10 +790,10 @@ impl RelayEars {
                 {
                     // Its streams and their tasks go with the runtime.
                     Ok(runtime) => runtime.block_on(serve(
-                        connect, always, record, counts, queued, said, &shared,
+                        name, connect, always, record, counts, queued, said, &shared,
                     )),
                     Err(error) => {
-                        eprintln!("lamp-voice: stop words cannot be heard: {error}");
+                        eprintln!("lamp-voice: {name} cannot be heard: {error}");
                     }
                 }
                 #[cfg(test)]
@@ -964,7 +993,10 @@ impl Handed {
 
 /// The thread's loop: a stream connected and kept ready while a reply is
 /// under way, the yield's audio to it, and its words back once asked for.
+/// Its journal lines are called `name`.
+#[allow(clippy::too_many_arguments)]
 async fn serve<C, F>(
+    name: &str,
     connect: C,
     always: bool,
     record: Option<std::path::PathBuf>,
@@ -1004,9 +1036,7 @@ async fn serve<C, F>(
         // What a revocation took away is dropped before anything else.
         let number = live.now();
         if number == CLOSED {
-            eprintln!(
-                "lamp-voice: stop words: the speech-to-text thread ends: the voice let it go"
-            );
+            eprintln!("lamp-voice: {name}: the speech-to-text thread ends: the voice let it go");
             return;
         }
         if current.as_ref().is_some_and(|(of, _)| *of != number)
@@ -1046,7 +1076,7 @@ async fn serve<C, F>(
                 drop(live.pause.lock().unwrap_or_else(PoisonError::into_inner));
                 match command {
                     None => {
-                        eprintln!("lamp-voice: stop words: the speech-to-text thread ends: nothing more can be asked of it");
+                        eprintln!("lamp-voice: {name}: the speech-to-text thread ends: nothing more can be asked of it");
                         return;
                     }
                     Some(Command::Ready) => {
@@ -1179,7 +1209,7 @@ async fn serve<C, F>(
                 match connected {
                     Ok(Ok(stream)) => {
                         eprintln!(
-                            "lamp-voice: stop words: a stream is ready, connected in {} ms{}",
+                            "lamp-voice: {name}: a stream is ready, connected in {} ms{}",
                             asked_at.elapsed().as_millis(),
                             if told_failure { ", the speech-to-text reached again" } else { "" }
                         );
@@ -1206,7 +1236,7 @@ async fn serve<C, F>(
                     }
                     Ok(Err(error)) => {
                         if !told_failure {
-                            eprintln!("lamp-voice: stop words: the speech-to-text cannot be reached, retried every {} s: {error}", RETRY.as_secs());
+                            eprintln!("lamp-voice: {name}: the speech-to-text cannot be reached, retried every {} s: {error}", RETRY.as_secs());
                             told_failure = true;
                         }
                         retry_at = Some(tokio::time::Instant::now() + RETRY);
@@ -1228,7 +1258,7 @@ async fn serve<C, F>(
                         if always && let Some((_, stream)) = current.take() {
                             handed.reopened += 1;
                             eprintln!(
-                                "lamp-voice: stop words: the stream ended during the reply after it sent back {}; another is asked for",
+                                "lamp-voice: {name}: the stream ended during the reply after it sent back {}; another is asked for",
                                 stream.replies().told()
                             );
                         }

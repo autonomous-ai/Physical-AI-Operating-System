@@ -291,6 +291,7 @@ fn run_with_notice_policy(
                         peer.channels
                             .data
                             .send(MicrophoneFrame {
+                                raw: None,
                                 epoch: 1,
                                 dsp_epoch: 1,
                                 privacy_generation: peer.snapshot.unwrap().microphone_generation(),

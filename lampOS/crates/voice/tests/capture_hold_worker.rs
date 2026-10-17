@@ -113,6 +113,9 @@ struct Heard {
     processed_at: u64,
     power: f64,
     explained: Option<u8>,
+    /// The block before the canceller's power, when the worker was asked
+    /// for raw blocks (#1047).
+    raw_power: Option<f64>,
 }
 
 struct Rig {
@@ -158,6 +161,16 @@ impl Rig {
         busy_opens: usize,
         recovery: ReferenceRecovery,
     ) -> Self {
+        Self::start_asking(device_name, busy_opens, recovery, false)
+    }
+
+    /// The same, with raw blocks asked for or not (`--raw-blocks`, #1047).
+    fn start_asking(
+        device_name: &'static str,
+        busy_opens: usize,
+        recovery: ReferenceRecovery,
+        raw_blocks: bool,
+    ) -> Self {
         let directory = SessionDirectory::create().unwrap();
         let (parent_boot, worker_boot, speaker_boot) = (
             new_boot().unwrap(),
@@ -191,6 +204,7 @@ impl Rig {
                 ReferenceClock::Capture,
                 recovery,
                 lamp_audio::Reference::AsGiven,
+                raw_blocks,
             )
             .map_err(|error| error.to_string())
         });
@@ -337,6 +351,10 @@ impl Rig {
                     .echo
                     .and_then(|evidence| evidence.echo)
                     .map(|matched| matched.capture_explained),
+                raw_power: frame.raw.as_ref().map(|raw| {
+                    assert_eq!(raw.len(), CAPTURE_SAMPLES);
+                    raw.iter().map(|&s| f64::from(s).powi(2)).sum::<f64>() / CAPTURE_SAMPLES as f64
+                }),
             });
         }
     }
@@ -614,6 +632,38 @@ fn another_microphone_is_handed_on_at_once_and_its_early_sound_is_not_accounted_
         explained.is_none_or(|percent| percent <= Hearing::EVALUATED.explained_percent),
         "{explained:?}"
     );
+}
+
+/// #1047: asked for raw blocks, every frame also carries the block as the
+/// microphone recorded it, before the canceller: louder than what the
+/// canceller lets through of the lamp's echo (mic1, which holds the echo
+/// four blocks behind its render, as the first test here). Not asked, none.
+#[test]
+fn raw_blocks_carry_the_microphone_before_the_canceller_only_when_asked() {
+    warm_up();
+    let name = Microphone::Mic1.device();
+    let blocks = hold::blocks_for(name, ReferenceClock::Capture);
+    for raw_blocks in [true, false] {
+        let signal = Signal::new(400);
+        let mut rig = Rig::start_asking(name, 0, ReferenceRecovery::Off, raw_blocks);
+        rig.stream(&signal, 400);
+        rig.settle(blocks);
+        rig.parent.control.send(Control::Stop).unwrap();
+        let frames = rig.finish();
+        assert!(!frames.is_empty());
+        assert!(
+            frames
+                .iter()
+                .all(|frame| frame.raw_power.is_some() == raw_blocks),
+            "raw blocks asked: {raw_blocks}"
+        );
+        if raw_blocks {
+            let last = &frames[frames.len() - 100..];
+            let raw: f64 = last.iter().filter_map(|frame| frame.raw_power).sum();
+            let clean: f64 = last.iter().map(|frame| frame.power).sum();
+            assert!(raw > clean, "raw {raw:.0}, after the canceller {clean:.0}");
+        }
+    }
 }
 
 /// A microphone still busy for a moment when the worker starts (left so by

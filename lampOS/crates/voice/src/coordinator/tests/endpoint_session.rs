@@ -248,6 +248,7 @@ fn capture_peer(
                 None => 20,
             };
             let frame = MicrophoneFrame {
+                raw: None,
                 epoch: 1,
                 dsp_epoch: 1,
                 privacy_generation: generation,

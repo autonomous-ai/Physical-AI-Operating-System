@@ -796,6 +796,182 @@ Not shown: the relay on a lamp in this path, and how long the pause grows
 when the words are slow (at most to the deadline). The thread's retry after
 a failed connection is not tested.
 
+## A stop word heard over the lamp's voice (#828, 16 October)
+
+Off unless `LAMP_STOP_WORDS=heard-always` in the voice's environment, with
+`--turn-taking duplex` and the second voice's configuration; built by the
+fourth builder (`crates/voice/src/stop_words.rs`, `Listen::Always`).
+
+**Why** (the evidence is in
+[verification/stop-yield-20261016](verification/stop-yield-20261016/README.md)):
+with `heard`, words are heard only once the lamp yields, and a short "Stop."
+said under the lamp's voice mostly makes no yield. In the first builder's
+two recordings of 16 October at 01:51, replayed with `lamp-audio
+replay-aec` and scored with `hearing_replay`, 2 of 9 cut-ins said over the
+lamp made one ("Wait." and "Lamp, stop talking."). In the speech-like
+blocks over the other seven, the lamp's own sound explained a median 96 to
+99% of the microphone, so the rule took them for its own voice. No sign
+per block told the two apart there: the residual after the canceller rose
+47 to 74 dB over most cut-ins, but as much between the lamp's own words
+(7 such blocks in a row at 20 dB fired 22 times in 143 s of the lamp
+alone), and the canceller took off a median 13.7 dB over the cut-ins and
+17.4 dB with the lamp alone.
+
+With the switch:
+- **Everything heard while the lamp speaks goes to the stream:** every
+  block while the lamp's sound still reaches the microphone, or while it
+  has stopped for someone, from the reply's first block to its end. A
+  stream is asked for at the reply's first sound from the provider and
+  closed when the reply ends. A reply held, or never answered, opens none
+  (the first builder at 15:29: eleven in two minutes of office noise). The
+  0.6 to 0.8 s the stream takes to connect overlaps the start of playout,
+  and up to 3 s heard meanwhile is kept for it.
+- **The words are read as they come:** each result the service gives,
+  interim ones among them (`SttStream::take_words`). No stream is asked to
+  finish.
+- **A stop phrase the lamp did not say itself stops the reply,** once a
+  reply (`stop_over`). What the lamp says, as its words are written
+  (`LAMP_WORDS_US`, the last 6 s), is its own: the canceller lets its
+  voice through, and "the fox had to wait" in a story stops nothing. The
+  reply stops as for a hand Stop (`hand_control_cancel`, reason
+  `spoken_stop`): the lamp falls silent and listens, and nothing is sent to
+  the model. It is one of the local cancels (`receipt_history::LOCAL_CANCELS`,
+  #1024), so the speaker's discard of the rest of the reply's audio is
+  expected and ends nothing, as for a head tap (the first builder's P1 on
+  #1047).
+- **A yield takes its usual course,** without waiting for words.
+- `duplex_policy` records `stop_words_always`.
+
+**Its privacy cost:** everything the microphone hears while the lamp
+speaks goes to the second voice's speech-to-text (the company relay on
+lamp-4ace), the lamp's own voice let through by the canceller with it, not
+only a yield's second or two. That is beyond what the first builder
+accepted for `heard` at 09:49, so it is a separate value, off unless set.
+The stream is closed on every way out, as with `heard`.
+
+**Its latency:** about 0.25 s from the end of a phrase to its words
+through the relay (the sixth builder, #828, 08:22); interim words can
+come sooner.
+
+**The journal**, counts only, never the words:
+- At start, "stop words: heard-always, …" with the speech-to-text's host,
+  or why it isn't heard.
+- Each stream: "a stream is ready, connected in N ms", or why not.
+- Each reply's end: "the reply's N blocks went to the speech-to-text, M
+  results came back". Then, from the stream's own thread, "the stream took
+  N blocks and dropped M (too old, or a backlog); the speech-to-text sent
+  back A results with words, B without, C speech starts, D other messages".
+  Those tell a service that said nothing from one whose results held no
+  words, and both from results that weren't read.
+
+**On lamp-4ace at 15:27** (the first builder, #1047): a played story
+with "Lamp, stop." and then "Stop." said over it. "The reply's 455 blocks
+went to the speech-to-text, 0 results came back", and no yield either
+time. The stream connected, and the audio went to it. Nothing came back
+that the stop words read.
+
+**What `stt-check` showed** (the first builder on lamp-4ace, 16:59): a
+short "Stop." (461 ms) got no interim result at all, only a speech start.
+Its words came only from `Finalize`, 269 ms after its audio. A longer "Lamp,
+stop talking please." (2,040 ms) got interims, and its final came from
+`Finalize` 225 ms after its audio. heard-always never asked a stream to
+finish during a reply, so 33 replies with sound since 16:20 had 0 results.
+
+**So the words are asked for at each pause** (`FLUSH_AFTER_STILL_BLOCKS`,
+200 ms): while the lamp speaks, after speech-like blocks (the coordinator's
+detector at 0.5 or more), 20 blocks that aren't ask the stream for the words
+heard so far with `Finalize`, and the stream goes on (`SttStream::flush`,
+in order with the audio). Pauses between the lamp's own words ask too, and
+their words are the lamp's, checked as before. A "Stop." should then stop
+the lamp about 0.5 s after it's said. The end-of-reply line says how many
+pauses asked.
+
+**On lamp-4ace at 20:49 with that** (the first builder, #1047, 20:58):
+"Lamp, stop." and "Stop." played over a story. The pauses asked for words
+13 and 9 times, 0 results came back, and there was no yield. So:
+- **How a stream ended is kept** (`Replies::ended`): the service's close
+  code and reason, the socket ending with no close, or a failure. It is in
+  the thread's end-of-reply line ("…; the stream was closed by the
+  service, code N …").
+- **A stream that ends during a reply is replaced at once.** The journal
+  says "the stream ended during the reply after it sent back …; another is
+  asked for", and what is heard while it reconnects (up to 3 s) goes to the
+  new one. If the relay closes a stream once it has answered a `Finalize`,
+  as it would `CloseStream`, every pause after the first was talking to
+  nobody. The end-of-reply line says how many times one was opened again.
+- **`LAMP_STOP_WORDS_AUDIO=/run/…/file.wav`** (an absolute path, off
+  unless set): the last 10 s of each reply's stream audio, exactly as sent,
+  written there at the reply's end (16 kHz mono 16-bit), for `stt-check`.
+  Written over at each reply; deleting it is for whoever set it.
+- **`LAMP_STOP_WORDS_COUNTS=/run/…/stop-words.json`** (an absolute path,
+  off unless set; with `heard-always`): each reply's counts as JSON,
+  written over at its end. Under `reply`: the blocks sent, the pauses its
+  words were asked for at (with the raw source, every half-second ask
+  among them, `asked_every_ms`), the results, whether a stop phrase was heard,
+  and what each result heard (at most 16, 200 bytes each), with whether
+  it stopped the lamp. Under `stream`, added by the stream's thread as it
+  rests: the blocks it took and dropped, how often it was opened again,
+  and the last stream's results with and without words, speech starts,
+  other messages and how it ended. On lamp-4ace on 17 October the journal
+  could not be read after midnight's log sync, so a stop from the stop
+  words could not be told from one by the duplex yield (the first builder
+  on #1047). It holds what was said over the lamp's replies: for played
+  tests.
+- **`LAMP_STOP_WORDS_SOURCE=raw`** (off unless set; unset or `processed`
+  is as before): the stream hears each block as the microphone recorded
+  it, before the canceller, not the canceller's output the provider hears.
+  On lamp-4ace on 16 October at 22:44 the canceller's output gave 16 and
+  18 speech starts and no words at all over two replies with "Lamp, stop."
+  and "Stop." played over them: when the lamp's own voice reaches the
+  microphone far louder than the person, the canceller suppresses both
+  (`lamp_audio::duplex`), so a short word said over the lamp is gone
+  before the speech-to-text gets it (the first builder on #1047). The
+  capture worker is asked for the raw blocks (`--raw-blocks`, only then)
+  and sends each beside the cancelled one (`MicrophoneFrame::raw`).
+  - The lamp's own words are in the raw blocks too. A stop word in what
+    the lamp is saying is left out as before (`stop_over`), so "stop" in
+    its own story stops nothing.
+  - **The words are asked for every half second while the lamp sounds**
+    (`CADENCE_BLOCKS`, 50 blocks sent; `StopWords::with_cadence`), as well
+    as at each pause after speech. The pause is the detector's, and the
+    detector scores the canceller's output, which over the lamp holds no
+    speech: `pauses_asked` stayed near 0 and a "Lamp, stop." said over it
+    was never asked for (the first builder at 02:29 and 02:57 on #1047).
+    A pause after speech starts the half second again. Words said across
+    an ask come back in two results: a stop word is one word, but "Hold
+    on." split there is missed. The counts file then says
+    `asked_every_ms: 500`.
+  - `LAMP_STOP_WORDS_AUDIO` then writes the raw blocks, which is what the
+    stream was sent.
+  - With `heard` (yields only), a yield's first, held blocks are still the
+    canceller's output: only what follows is raw.
+  - Not offered: the canceller's linear output, before its residual-echo
+    suppressor. The canceller (`sonora`'s AEC3) computes it but gives no way
+    to read it out. Nor mic1: the first builder's recording there (22:55)
+    had the played request only 8 dB over the floor, and no words even in
+    the request.
+  - Not yet played on the lamp.
+
+**`lamp-voice stt-check SECOND_CONFIG WAV`** is for finding out why, on
+the lamp, with its own configuration and a recording made for the purpose
+(16 kHz mono 16-bit; the words heard are printed). It streams the
+recording in 10 ms blocks at its own pace, as the stop words do. Then,
+1.5 s after the last block, it sends `Finalize`, and 2 s later
+`CloseStream`. It prints everything the service sends back, by kind and
+when (`Results` with `is_final`, `speech_final` and `from_finalize`,
+`SpeechStarted`, and anything else), and the counts at the close. Run on
+the canceller's output for a recorded reply with "Stop." in it
+(`lamp-audio replay-aec`), and on a clear "Stop." beside it, it shows
+whether results come at all, only after `Finalize`, or only at the close.
+
+Tests: `stop_words::tests::a_stop_word_the_lamp_did_not_say_itself_is_heard_over_it`,
+`listening_always_hears_the_lamps_whole_reply_and_stops_on_a_word_it_did_not_say`
+(the driver) and `listening_always_gives_the_words_as_they_come_through_the_thread`
+(the relay's real thread, against a stand-in speech-to-text that gives an
+interim result), and `with_the_raw_blocks_the_words_are_asked_for_every_half_second`.
+Not exercised: the coordinator's loop taking the stop
+(`spoken_stop`), and the relay with a person's voice under the lamp's.
+
 ## Not shown
 
 - **The lamp.** No sound from the lamp's microphones went into training,

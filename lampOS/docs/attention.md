@@ -968,19 +968,31 @@ the call was answered and not run, and nothing was said. A short sound is
 now played, with the reason "a short sound with a word in it, right after
 the lamp's own question, in a conversation going on", when all three hold:
 - what was heard has a letter or a digit in it;
-- a conversation is going on (and is not someone else's, #829);
+- a conversation is going on. With `LAMP_SPOKEN_TO=on` it must also not be
+  someone else's (#829: a reply to someone just called by name, a line
+  calling someone else). The product doesn't set that switch, so on a
+  product lamp a colleague's or a TV's short line in the window ("Sí,
+  bien") is played too, and the model judges it (the reviewer on #1355);
 - the lamp's own last line before the request ended in a question
   (`Thread::lamp_asked`, as #926 reads it).
 
 Then the model judges it. "Right after" is as wide as the conversation:
 the lamp's newest line with a word in it ended in `?`, and some line of the
-lamp's began within the last 45 s (`GOING_ON_FOR`). So a question nobody
-answered still lets a sound with a word in it through for up to 45 s (Twelve
-on #1355). The thread times an exchange from when the lamp's line began, not
+lamp's began within the last 45 s (`GOING_ON_FOR`). Nothing short that ends
+within 4 s of the lamp's own words is marked a sound at all
+(`AFTER_OWN_WORDS_US`), so the case sees sounds from 4 s after the lamp
+stopped until 45 s after its question line began. It isn't once: a held
+sound adds no line of the lamp's, so every sound with a word in it in that
+window plays, until the lamp says something else (Twelve and the reviewer on
+#1355). The thread times an exchange from when the lamp's line began, not
 when it ended, so a tighter bound would cut the question at the end of a long
 answer. Only an ASCII `?` counts as a question (`Thread::lamp_asked`, #926's
 own): a line ending in a full-width `？` would not, which doesn't matter for
-the English the lamp speaks. A room sound with no question before it is held
+the English the lamp speaks. It reads only the line's last mark: an answer
+that ends in a question of form ("Anything else?", or a story's "Who knew?")
+opens the window too, and a question with words after it ("Shall I start
+it? It takes a minute.") doesn't. The first-output record's `lamp_asked`
+shows how often it opens. A room sound with no question before it is held
 as before: of the 17 requests held this way on lamp-4ace from 16 to 17
 October, only 3 came in a conversation (the first builder's count on #828).
 What it lets through is a sound heard as words in that one moment, "¿Qué?"

@@ -579,7 +579,7 @@ mod tests {
         let said = "the lamp's USB hub dropped 2 times since boot; the voice mic, the body's servo port, \
                     the speaker with the room mic and the camera went with it";
         let short = "the lamp's USB hub dropped 2 times since boot, with the voice mic, servo port, \
-                     speaker and camera";
+                     speaker/room mic and camera";
         let with_hub = |verdict: Verdict| {
             let mut test = run(&[("voice_mic", verdict, "")], 1_000.0);
             test.parts[0] = test.parts[0]
@@ -601,6 +601,27 @@ mod tests {
             item.message,
             format!("{short}; 1 part failing: the SD card (9 re-tunes)")
         );
+        // Whole as published even with the log wrapped ("at least"): 156
+        // bytes, inside the cap, nothing cut.
+        let wrapped_short = short.replace("dropped 2", "dropped at least 2");
+        let mut test = run(&[("storage", Verdict::Fail, "9 re-tunes")], 1_010.0);
+        test.parts.push(
+            run(&[("voice_mic", Verdict::Pass, "")], 1_010.0).parts[0]
+                .clone()
+                .with(
+                    "usb_hub_said",
+                    said.replace("dropped 2", "dropped at least 2"),
+                )
+                .with("usb_hub_said_short", &wrapped_short),
+        );
+        let mut wrapped = SelfTests::default();
+        wrapped.take(&test);
+        let message = wrapped.item(1_011.0).unwrap().message;
+        assert_eq!(
+            message,
+            format!("{wrapped_short}; 1 part failing: the SD card (9 re-tunes)")
+        );
+        assert!(message.len() <= MOST_MESSAGE_BYTES, "{}", message.len());
         // A short hub line fits whole beside a failed part.
         let mut tests = SelfTests::default();
         let mut test = run(&[("storage", Verdict::Fail, "9 re-tunes")], 1_000.0);

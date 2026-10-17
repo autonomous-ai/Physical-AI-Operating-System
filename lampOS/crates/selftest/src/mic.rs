@@ -75,7 +75,9 @@ pub const WITH_HUB_US: u64 = 1_000_000;
 fn short(name: &str) -> String {
     match name {
         "the body's servo port" => "servo port".to_owned(),
-        "the speaker with the room mic" => "speaker".to_owned(),
+        // The C-Media speakerphone is the room mic too: both, short (the
+        // reviewer on #1356).
+        "the speaker with the room mic" => "speaker/room mic".to_owned(),
         name => name.strip_prefix("the ").unwrap_or(name).to_owned(),
     }
 }
@@ -118,7 +120,7 @@ impl Usb {
 
     /// The same, short enough to stand before a failed part in
     /// `lamp/health`'s line: "the lamp's USB hub dropped 2 times since
-    /// boot, with the voice mic, servo port, speaker and camera".
+    /// boot, with the voice mic, servo port, speaker/room mic and camera".
     pub fn hub_said_short(&self) -> Option<String> {
         let (mut said, hub) = self.hub_dropped()?;
         if !hub.took.is_empty() {
@@ -821,7 +823,7 @@ mod tests {
             value("usb_hub_said_short").as_deref(),
             Some(
                 "the lamp's USB hub dropped 2 times since boot, with the voice mic, servo port, \
-                 speaker and camera"
+                 speaker/room mic and camera"
             )
         );
         // A hub that never dropped says nothing of itself.

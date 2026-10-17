@@ -282,7 +282,11 @@ read. It records what it wrote in lamp-update's records
 install's rule (#1102; the key is the user's and a reset wipes it, #806): a
 key written once, by install or by prepare, and now gone is not put back
 from V1's config, which may still hold the previous owner's; it says so and
-leaves the key to setup. A file missing and no usable key in V1's config:
+leaves the key to setup. It reads the records as install does
+(`Records::state`, #1094's review): a corrupt `state.json` is set aside as
+`state.json.corrupt-<ms>` and said, and since what was written before is
+then not known, V1's key is not copied; one that cannot be read is said and
+left alone, with nothing written and exit 0. A file missing and no usable key in V1's config:
 nothing written, it says so and exits 0, as install does, and setup takes
 the user's key. Main's updater runs `bin/service prepare` before every
 `lamp-os` update, so a refusal here would refuse every update, not only

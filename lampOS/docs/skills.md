@@ -464,8 +464,14 @@ What is not done, and why:
    touches the person's light, which comes back by itself when the claim
    lapses ([ring-choreography.md](ring-choreography.md#the-lamps-own-light)).
    The body's is built behind `lamp-body --arbitration on`: a gesture or a
-   move on the mood socket says its `source` and `priority`
-   ([body.md](body.md#who-may-ask-over-whom-940)).
+   move on the mood socket may say its `source` and `priority`
+   ([body.md](body.md#who-may-ask-over-whom-940)). Nothing sends them yet:
+   `lamp-skills` writes `{"gesture":NAME}` and `{"move":{...}}` and the
+   voice neither, so with the switch on today a skill's move counts as the
+   conversation's and a conversation gesture cannot end it. The skill runner,
+   not the skill file, must stamp `source = "skill:<name>"` and
+   `priority = "skill"` (a follow-up in `crates/skills`), so that no skill
+   can claim a higher priority.
 3. **The eyes publish `camera/image`** (a file and when it was taken), so a
    skill can look.
 4. **The body plays move files** from a skill, within its own speed and

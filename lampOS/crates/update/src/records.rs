@@ -221,7 +221,8 @@ impl Records {
     }
 
     /// The state. One that cannot be read is moved aside, said, and begun
-    /// again: an update must not stop for good because of its own file.
+    /// again, with the key paths marked `install::SET_ASIDE`: an update must
+    /// not stop for good because of its own file.
     pub fn state(&self, say: &mut dyn FnMut(&str)) -> io::Result<State> {
         let path = self.folder.join("state.json");
         match fs::read(&path) {
@@ -234,7 +235,18 @@ impl Records {
                         "the state could not be read ({error}): kept as {} and begun again",
                         aside.display()
                     ));
-                    Ok(State::default())
+                    // What install wrote before is not known now: each key
+                    // path is recorded as once written, so whichever reader
+                    // saves first, a round as much as install or prepare,
+                    // keeps a key a reset removes from coming back from V1's
+                    // config (the reviewer on #1263).
+                    let mut state = State::default();
+                    for path in crate::install::KEY_PATHS {
+                        state
+                            .settings
+                            .insert(path.to_owned(), crate::install::SET_ASIDE.to_owned());
+                    }
+                    Ok(state)
                 }
             },
             Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(State::default()),
@@ -446,11 +458,19 @@ mod tests {
         let records = Records::new(folder.path().to_owned());
         fs::write(folder.path().join("state.json"), b"{not json").unwrap();
         let mut said = Vec::new();
+        // Begun again, with only the key paths marked as once written (the
+        // reviewer on #1263).
+        let mut begun = State::default();
+        for path in crate::install::KEY_PATHS {
+            begun
+                .settings
+                .insert(path.to_owned(), crate::install::SET_ASIDE.to_owned());
+        }
         assert_eq!(
             records
                 .state(&mut |line| said.push(line.to_owned()))
                 .unwrap(),
-            State::default()
+            begun
         );
         assert_eq!(said.len(), 1);
         assert!(fs::read_dir(folder.path()).unwrap().any(|entry| {

@@ -518,6 +518,52 @@ fn build_two(lamp: &mut Lamp) -> Manifest {
     )
 }
 
+/// The reviewer on #1263: a round is the likeliest reader to find damaged
+/// records first, and it saves them. What it saves keeps the key paths
+/// marked as once written, so a reset after it does not let prepare (or
+/// install) copy V1's key, which may be the previous owner's.
+#[test]
+fn a_round_that_sets_damaged_records_aside_keeps_the_keys_marked() {
+    use lamp_update::install;
+    const V1_KEY: &str = "previous-owners-key-0123456789";
+    let prepare = |root: &Path| install::provision_device_key(root, install::RECORDS, &mut |_| {});
+    let keys = |root: &Path| {
+        install::KEY_PATHS.map(|path| root.join(path.trim_start_matches('/')).exists())
+    };
+    for reset_first in [false, true] {
+        let mut lamp = Lamp::new();
+        let config = lamp.root.join("root/config/config.json");
+        fs::create_dir_all(config.parent().unwrap()).unwrap();
+        fs::write(&config, format!(r#"{{"llm_api_key":"{V1_KEY}"}}"#)).unwrap();
+        assert_eq!(prepare(&lamp.root).unwrap().len(), 2);
+        let reset = |root: &Path| {
+            for path in install::KEY_PATHS {
+                fs::remove_file(root.join(path.trim_start_matches('/'))).unwrap();
+            }
+        };
+        if reset_first {
+            reset(&lamp.root);
+        }
+        let state = lamp.root.join("var/lib/lampos-update/state.json");
+        fs::write(&state, b"{ not json").unwrap();
+        build_two(&mut lamp);
+        assert_eq!(lamp.round(), Outcome::Switched(2));
+        assert!(state.exists(), "the round saved fresh records");
+        if !reset_first {
+            reset(&lamp.root);
+        }
+        assert!(
+            prepare(&lamp.root).unwrap().is_empty(),
+            "reset first: {reset_first}"
+        );
+        assert_eq!(
+            keys(&lamp.root),
+            [false, false],
+            "reset first: {reset_first}"
+        );
+    }
+}
+
 #[test]
 fn a_new_build_is_installed_beside_the_old_and_switched() {
     let mut lamp = Lamp::new();

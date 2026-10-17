@@ -46,14 +46,64 @@ const BARRIER_US: u64 = 100_000;
 /// busy 330 ms after the old process had gone, and after a power cut too).
 /// Its open is tried again for this long before the worker gives up.
 const BUSY_AT_START: Duration = Duration::from_secs(3);
+/// At start the microphone may be off USB for a moment: on lamp-4ace on
+/// 2026-10-17 (12:29:20 and 12:49:06) the voice mic fell off for 4-5 s, the
+/// open failed with `ENODEV`, and the run ended and muted the lamp (#1178).
+/// Its open is tried again for this long, every [`GONE_RETRY`].
+const GONE_AT_START: Duration = Duration::from_secs(10);
+const GONE_RETRY: Duration = Duration::from_millis(250);
 
-/// True while a microphone found busy at start may be tried again: the
-/// first busy answer starts the wait, and it ends after [`BUSY_AT_START`].
-fn busy_at_start(error: &lamp_audio::capture::CaptureError, since: &mut Option<Instant>) -> bool {
-    error
-        .device_error
-        .is_some_and(|fault| fault.call == "open" && fault.errno == lamp_audio::device::errno::BUSY)
-        && since.get_or_insert_with(Instant::now).elapsed() < BUSY_AT_START
+/// Why a microphone that failed to open at start is waited for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum AtStart {
+    Busy,
+    Gone,
+}
+
+/// A microphone that failed to open at start: busy, or off the bus. The
+/// first such answer starts the wait, which ends after its bound.
+#[derive(Default)]
+struct OpenAtStart {
+    since: Option<(Instant, AtStart)>,
+    next: Option<Instant>,
+}
+
+impl OpenAtStart {
+    /// True while the open may be tried again after `error`.
+    fn waits(&mut self, error: &lamp_audio::capture::CaptureError, now: Instant) -> bool {
+        use lamp_audio::device::{OPEN_CALL, errno};
+        let Some(why) = error.device_error.and_then(|fault| {
+            (fault.call == OPEN_CALL)
+                .then_some(match fault.errno {
+                    errno::BUSY => Some(AtStart::Busy),
+                    errno::NODEV => Some(AtStart::Gone),
+                    _ => None,
+                })
+                .flatten()
+        }) else {
+            return false;
+        };
+        let (since, _) = *self.since.get_or_insert((now, why));
+        let (bound, retry) = match why {
+            AtStart::Busy => (BUSY_AT_START, Duration::ZERO),
+            AtStart::Gone => (GONE_AT_START, GONE_RETRY),
+        };
+        self.next = Some(now + retry);
+        now.duration_since(since) < bound
+    }
+
+    /// Whether to try the open on this tick.
+    fn due(&self, now: Instant) -> bool {
+        self.next.is_none_or(|next| now >= next)
+    }
+
+    /// The microphone opened: what it waited for, and how long.
+    fn opened(&mut self, now: Instant) -> Option<(AtStart, Duration)> {
+        self.next = None;
+        self.since
+            .take()
+            .map(|(since, why)| (why, now.duration_since(since)))
+    }
 }
 
 /// How long a microphone closed by a stall may stay closed before the
@@ -407,7 +457,7 @@ fn capture_loop<D: CaptureDevice>(
     let mut link: Option<ReferenceChannels> = None;
     let mut prepare_requested = false;
     let mut capture_prepared = false;
-    let mut busy_since = None;
+    let mut at_start = OpenAtStart::default();
     let mut privacy = 0;
     // The fixed margin is the default and the fallback. The capture-clocked
     // reference follows the difference between the two USB clocks; loss,
@@ -548,18 +598,24 @@ fn capture_loop<D: CaptureDevice>(
         if let Some(link) = link.as_mut()
             && link.connect_step()?
         {
-            if prepare_requested && !capture_prepared {
+            if prepare_requested && !capture_prepared && at_start.due(Instant::now()) {
                 microphone.reset()?;
                 let report = match microphone.prepare() {
                     Ok(report) => Some(report),
-                    Err(error) if busy_at_start(&error, &mut busy_since) => None,
+                    Err(error) if at_start.waits(&error, Instant::now()) => None,
                     Err(error) => return Err(error.into()),
                 };
                 if let Some(report) = report {
-                    if busy_since.take().is_some() {
-                        eprintln!(
-                            "lamp-voice: capture: the microphone was busy at start, and is open now"
-                        );
+                    match at_start.opened(Instant::now()) {
+                        Some((AtStart::Busy, waited)) => eprintln!(
+                            "lamp-voice: capture: the microphone was busy at start for {} ms, and is open now",
+                            waited.as_millis()
+                        ),
+                        Some((AtStart::Gone, waited)) => eprintln!(
+                            "lamp-voice: capture: the microphone was gone at start for {} ms, and is open now",
+                            waited.as_millis()
+                        ),
+                        None => {}
                     }
                     privacy = report.microphone_generation;
                     capture_prepared = true;
@@ -1811,5 +1867,65 @@ fn old_interaction_error(error: &(dyn std::error::Error + Send + Sync + 'static)
 fn finish_tick(started: Instant) {
     if let Some(remaining) = TICK.checked_sub(started.elapsed()) {
         std::thread::sleep(remaining);
+    }
+}
+
+#[cfg(test)]
+mod open_at_start_tests {
+    use super::*;
+    use lamp_audio::device::{DeviceFault, OPEN_CALL, errno};
+
+    fn failed(call: &'static str, errno: i32) -> CaptureError {
+        CaptureError {
+            kind: CaptureErrorKind::NotPermitted,
+            device_error: Some(DeviceFault::new(call, errno)),
+            close_error: None,
+        }
+    }
+
+    /// A microphone off the bus at start is tried every 250 ms for 10 s, one
+    /// busy at start on every tick for 3 s, and only an open that failed so:
+    /// by ALSA's own name for it, which the lamp's errors carry.
+    #[test]
+    fn a_microphone_gone_or_busy_at_start_is_waited_for_within_its_bound() {
+        let start = Instant::now();
+        let at = |ms: u64| start + Duration::from_millis(ms);
+        let gone = failed(OPEN_CALL, errno::NODEV);
+        let mut wait = OpenAtStart::default();
+        assert!(wait.due(at(0)));
+        assert!(wait.waits(&gone, at(0)));
+        assert!(!wait.due(at(249)));
+        assert!(wait.due(at(250)));
+        assert!(wait.waits(&gone, at(9_999)));
+        assert!(!wait.waits(&gone, at(10_000)));
+        let mut back = OpenAtStart::default();
+        assert!(back.waits(&gone, at(0)));
+        assert_eq!(
+            back.opened(at(4_500)),
+            Some((AtStart::Gone, Duration::from_millis(4_500)))
+        );
+        assert!(back.due(at(4_500)));
+        assert_eq!(back.opened(at(4_600)), None);
+
+        let busy = failed(OPEN_CALL, errno::BUSY);
+        let mut wait = OpenAtStart::default();
+        assert!(wait.waits(&busy, at(0)));
+        assert!(wait.due(at(0)), "busy is tried again on the next tick");
+        assert!(wait.waits(&busy, at(2_999)));
+        assert!(!wait.waits(&busy, at(3_000)));
+
+        for other in [
+            failed(OPEN_CALL, errno::IO),
+            failed(OPEN_CALL, errno::NOENT),
+            failed("open", errno::NODEV),
+            failed("snd_pcm_hw_params", errno::NODEV),
+            CaptureError {
+                kind: CaptureErrorKind::NotPermitted,
+                device_error: None,
+                close_error: None,
+            },
+        ] {
+            assert!(!OpenAtStart::default().waits(&other, at(0)), "{other}");
+        }
     }
 }

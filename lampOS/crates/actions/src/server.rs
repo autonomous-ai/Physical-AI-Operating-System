@@ -240,11 +240,11 @@ pub fn serve_with_clock<S: Mixer, L: Light>(
         }
         if now().saturating_duration_since(looked) >= LOOK_AGAIN {
             looked = now();
-            let now = offered_now(executive);
-            if now != offered {
-                put(directory, CATALOG_FILE, &catalog_file(&now))?;
-                eprintln!("lamp-actions: can do now: {}", names(&now));
-                offered = now;
+            let current = offered_now(executive);
+            if current != offered {
+                put(directory, CATALOG_FILE, &catalog_file(&current))?;
+                eprintln!("lamp-actions: can do now: {}", names(&current));
+                offered = current;
             }
         }
     }

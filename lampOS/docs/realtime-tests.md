@@ -1094,11 +1094,14 @@ The server's two periods (`LOOK_AGAIN` and the health report's
 `REPORT_EVERY`) are now read on a clock its caller gives
 (`server::serve_with_clock`). `serve_reporting_with_schedule`, and so the
 lamp, passes `Instant::now`. The test gives a clock that moves only when it
-says, and it moves it by `LOOK_AGAIN` only after an event on the bus. To
-offer the light, that event is the owner's state being there. To withdraw
-it, the event is that state having expired, by its own real 600 ms. A
-caller's waits, the idle pause and the light's freshness stay on the
-host's clock. Every assertion and the test's 5 s bounds are unchanged.
+says, and it moves it by 2 s, the period docs/actions.md gives, only after
+an event on the bus. To offer the light, that event is the owner's state
+being there. To withdraw it, the event is that state having expired, by its
+own real 600 ms. A caller's waits, the idle pause and the light's freshness
+stay on the host's clock. Every assertion and the test's 5 s bounds are
+unchanged. Because the move is a fixed 2 s, not `LOOK_AGAIN`, a longer period
+still fails: with `LOOK_AGAIN` at 10 s, "never: the light is offered" (the
+reviewer's P3 on #1273).
 
 It takes about 1.4 s (3 of 3), and 30 copies at once passed 90 of 90 runs
 on the Intel Mac. The control is a 400 ms sleep in the owner before its

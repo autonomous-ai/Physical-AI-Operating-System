@@ -28,10 +28,12 @@ pub enum Command {
     SttCheck,
     Marked,
     TurnTimes,
+    /// The stall lines of tonight (`lamp-voice stalls`, #1178): read only.
+    Stalls,
 }
 
 impl Command {
-    pub const ALL: [Command; 11] = [
+    pub const ALL: [Command; 12] = [
         Command::Serve,
         Command::Directed,
         Command::DirectedFixture,
@@ -43,6 +45,7 @@ impl Command {
         Command::SttCheck,
         Command::Marked,
         Command::TurnTimes,
+        Command::Stalls,
     ];
 
     pub const fn as_str(self) -> &'static str {
@@ -58,6 +61,7 @@ impl Command {
             Command::SttCheck => "stt-check",
             Command::Marked => "marked",
             Command::TurnTimes => "turn-times",
+            Command::Stalls => "stalls",
         }
     }
 

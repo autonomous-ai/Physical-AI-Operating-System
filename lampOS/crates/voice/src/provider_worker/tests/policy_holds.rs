@@ -662,6 +662,9 @@ fn the_transcription_language_is_read_after_ask_unclear() {
     ]
     .map(String::from)
     .into();
+    assert!(parse_flags(dir, &wrong).is_err());
+}
+
 /// `--resend-lost-line` is read where the coordinator puts it, after
 /// `--policy-holds-actions`, on both routes (#705, Step B).
 #[test]

@@ -38,13 +38,13 @@ on or removed.
 
 ## The count
 
-112 switches (`LAMP_VAD_INPUT` added with #1416, off; `LAMP_SERVICE_DOWN_LINE` added with #830 (C), off; `LAMP_EYES_SPEAKING` added with #1385, off; `LAMP_QUIET_PACE` and `--call-wait-ms` added with #1332, both set in the product unit, counted as on):
+113 switches (`LAMP_RESEND_LOST_LINE` added with #705's Step B, off; `LAMP_VAD_INPUT` added with #1416, off; `LAMP_SERVICE_DOWN_LINE` added with #830 (C), off; `LAMP_EYES_SPEAKING` added with #1385, off; `LAMP_QUIET_PACE` and `--call-wait-ms` added with #1332, both set in the product unit, counted as on):
 
 | | Voice: hearing, turns, ring | Voice: tasks, memory, schedule, skills, looks | Voice: its own flags | Other parts | All |
 |---|---|---|---|---|---|
 | On already, or right at its default | 16 | 10 | 8 | 16 | **50** |
 | **Proposed to turn on now** | 0 | 1 | 0 | 1 | **2** |
-| Off until its named lamp check | 28 | 13 | 0 | 6 | **47** |
+| Off until its named lamp check | 28 | 13 | 1 | 6 | **48** |
 | Stays off (diagnostic, turned down, or not needed) | 5 | 1 | 2 | 2 | **10** |
 | A setting, not a behaviour | 1 | 2 | 0 | 0 | **3** |
 

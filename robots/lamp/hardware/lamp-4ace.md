@@ -113,7 +113,9 @@ a row for it and the pins are measured again.
    22)"), on I2C bus 0 with the MPR121 (how many reads still succeed was
    not counted). Its wiring and pull-ups, please, or whether this unit's
    sensor is faulty. **Answered on 17 October by swapping the sensor (item
-   12): neither. It is the bus speed, lampOS's to fix.**
+   12): neither. Not the bus speed either, as first written here: put back
+   at 400 kHz at 20:15, it read 20 of 20. The cause is not shown; it is
+   lampOS's to fix.**
 10. **The board runs hot.** From 16 October 16:03 to 17 October 14:21, one
     reading a minute, `cpul_thermal_zone` and `cpub_thermal_zone` read within
     1 °C of each other. Their hourly means were 74 to 81 °C at night (19:00 to
@@ -165,13 +167,18 @@ a row for it and the pins are measured again.
       (`0xD014`, product name), the sensor answers "SEN63C" correctly, with
       `0xff` filler bytes wedged between the real ones (`53 ff 45 83 ff 4e 36
       ff 06 …`). Stripped of them, every CRC matches. The board runs I2C bus 0
-      (`twi@2510000`) at 400 kHz (`clock-frequency` 400000), and SEN6x sensors
-      take standard mode (100 kHz) and stretch the clock. The fix is lampOS's,
-      not the hardware team's: the bus set to 100 kHz at run time
-      (`/sys/class/i2c-adapter/i2c-0/device/freq`, as V1's HAL did), an
-      overlay in the next image, and a reader that skips the filler. With the
-      sensor measuring, `lamp-air` read the air from 18:36 (CO2 about 470 ppm),
-      and the self-test passes its air item.
+      (`twi@2510000`) at 400 kHz (`clock-frequency` 400000), above the SEN6x's
+      standard mode (100 kHz). I first took that for the cause, and it is not
+      shown. At 20:15, with the bus put back at 400 kHz, the `lamp-air`
+      without a filler decode read 20 of 20, and 3,360 raw bytes held no
+      filler. The rate change is real: a 48-byte read takes 1.3 ms at 400 kHz
+      and 4.6 ms at 100 kHz. The reads came back at 18:36, after a start was
+      sent by hand to the swapped sensor, so a sensor left not measuring is
+      the likelier cause. lampOS's fixes: a reader that starts a sensor it
+      finds idle and skips filler (#1366), and the bus at the sensor's own
+      100 kHz, at run time (#1368, as V1's HAL did) and in the next image
+      (#1372). Since 18:36 `lamp-air` reads the air (CO2 about 470 ppm), and
+      the self-test passes its air item.
 
 ## Parts the design does not list
 

@@ -100,6 +100,7 @@ fn run_with_notice_policy(
         call_wait_blocks: None,
         cut_keeps_name: false,
         asker_first: crate::asker_first::Mode::Off,
+        follows_on: false,
         paused: Box::new(|| false),
     };
     // The clock starts once every child has crossed its startup barrier;

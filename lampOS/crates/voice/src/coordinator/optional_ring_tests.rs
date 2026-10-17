@@ -42,6 +42,7 @@ fn fixture_with_command(directory: &SessionDirectory, command: &str) -> (Rig, Pe
             call_wait_blocks: None,
             cut_keeps_name: false,
             asker_first: crate::asker_first::Mode::Off,
+            follows_on: false,
             paused: Box::new(|| false),
         },
         Peers {

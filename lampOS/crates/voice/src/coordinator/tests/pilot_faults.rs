@@ -1402,6 +1402,7 @@ fn run_in(script: Script, trace: &mut SessionState) -> Run {
         call_wait_blocks: None,
         cut_keeps_name: false,
         asker_first: crate::asker_first::Mode::Off,
+        follows_on: false,
         paused: Box::new({
             let paused = paused.clone();
             move || paused.load(Ordering::SeqCst)

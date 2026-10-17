@@ -851,6 +851,7 @@ fn run(script: Script) -> Run {
         call_wait_blocks: None,
         cut_keeps_name: false,
         asker_first: crate::asker_first::Mode::Off,
+        follows_on: false,
         paused: Box::new(|| false),
         microphone: crate::options::Microphone::Mic2,
         end_silence_blocks: None,

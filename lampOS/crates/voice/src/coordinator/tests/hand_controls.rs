@@ -694,6 +694,7 @@ fn conversation_sends_hand_stop_before_a_provider_fault_queued_in_the_same_tick(
         call_wait_blocks: None,
         cut_keeps_name: false,
         asker_first: crate::asker_first::Mode::Off,
+        follows_on: false,
         paused: Box::new(|| false),
         early_end_blocks: None,
     };
@@ -1229,6 +1230,7 @@ fn run_loop_ringed(
         call_wait_blocks: None,
         cut_keeps_name: false,
         asker_first: crate::asker_first::Mode::Off,
+        follows_on: false,
         paused: Box::new(|| false),
         early_end_blocks: None,
     };

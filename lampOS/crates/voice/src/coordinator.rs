@@ -645,6 +645,9 @@ struct Rig {
     /// awaited, speech well under the asker's level takes no turn (#829);
     /// `record` judges it without acting.
     asker_first: crate::asker_first::Mode,
+    /// `LAMP_FOLLOWS_ON=on` ([`crate::follows_on`]): a line begun soon after
+    /// the lamp's words finished says so in its Start (#829).
+    follows_on: bool,
     /// How long an utterance that is only the lamp's name waits for the
     /// rest (`--call-wait-ms`, #782).
     call_wait_blocks: Option<u16>,
@@ -2630,6 +2633,7 @@ fn spawn_rig(
         call_wait_blocks: options.call_wait_blocks,
         cut_keeps_name: crate::attention::cut_keeps_name(),
         asker_first: crate::asker_first::Mode::from_environment(),
+        follows_on: crate::follows_on::on(),
         paused: keeper_pause(lamp_bus::Bus::from_environment()),
         second,
     })
@@ -3215,11 +3219,10 @@ fn conversation_with_gate(
         None
     };
     let mut last_turn_us = monotonic_us();
-    // When the lamp's own words last finished playing, and whether a line
-    // begun soon after may follow on from them (`LAMP_FOLLOWS_ON=on`, #829,
-    // the first builder at 09:01 on 17 October).
+    // When the lamp's own words last finished playing: only a reply that
+    // played to its end, never one cut off (`LAMP_FOLLOWS_ON=on`, #829, the
+    // first builder at 09:01 on 17 October).
     let mut lamp_words_ended_us: Option<u64> = None;
-    let follows_on_switch = crate::follows_on::on();
     // The first five minutes with a new person, led by the lamp
     // (`docs/onboarding.md`). Off unless `LAMP_ONBOARDING=on`.
     let mut onboarding = if lifetime.continuous() {
@@ -5196,9 +5199,12 @@ fn conversation_with_gate(
                             snapshot.microphone_generation(),
                         )
                     });
+                    // Over the lamp's sound or a line said is over the lamp;
+                    // over a sound sent on for the model to judge, with the
+                    // lamp silent, is not (the reviewer on #1278).
                     let follows_on = crate::follows_on::due(
-                        follows_on_switch,
-                        reply.is_some(),
+                        rig.follows_on,
+                        took_over,
                         lamp_words_ended_us,
                         accepted.candidate.trigger_read_at_us,
                     );
@@ -7920,7 +7926,7 @@ fn commit_admitted_input(
     if after_stop.is_some() {
         admitted["after_stop"] = json!(true);
     }
-    if follows_on {
+    if follows_on && after_stop.is_none() {
         admitted["follows_on"] = json!(true);
     }
     record(trace, admitted)?;
@@ -7938,8 +7944,10 @@ fn commit_admitted_input(
         // model is told so (#829, 16:33).
         after_stop: after_stop.is_some(),
         // Begun soon after the lamp's words finished: the model is told it
-        // may follow on (`LAMP_FOLLOWS_ON=on`, #829, 09:01).
-        follows_on,
+        // may follow on (`LAMP_FOLLOWS_ON=on`, #829, 09:01). Not the first
+        // line after a Stop, which is told the lamp's words are over (the
+        // reviewer on #1278).
+        follows_on: follows_on && after_stop.is_none(),
     });
     let mut current = Reply {
         owner: turn,
@@ -8264,6 +8272,9 @@ fn continue_after_early_end(
         // Nothing of the answer given up was played.
         over_the_lamp: false,
         after_stop: false,
+        // A first part that followed on was told so beside its own sound,
+        // in this same session (a continuation never crosses one), so the
+        // model has it; marked again, it would be told twice (El on #1278).
         follows_on: false,
     });
     let mut current = Reply {
@@ -9295,6 +9306,7 @@ mod tests {
             call_wait_blocks: None,
             cut_keeps_name: false,
             asker_first: crate::asker_first::Mode::Off,
+            follows_on: false,
             paused: Box::new(|| false),
         };
         let started = Instant::now();

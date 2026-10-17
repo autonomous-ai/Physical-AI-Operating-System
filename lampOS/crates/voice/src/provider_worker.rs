@@ -7877,12 +7877,27 @@ mod tests {
             }
             room
         };
+        // Puts the process-wide room back when dropped, a failed assertion
+        // included (El on #1278).
+        struct PutBack(Option<crate::room_told::RoomTold>);
+        impl Drop for PutBack {
+            fn drop(&mut self) {
+                if let Some(old) = self.0.take() {
+                    *crate::room_told::room()
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner) = old;
+                }
+            }
+        }
         for (follows_on, busy, told_it) in [
             (true, false, true),
             (true, true, false),
             (false, false, false),
         ] {
-            let old = std::mem::replace(&mut *crate::room_told::room().lock().unwrap(), room(busy));
+            let _put_back = PutBack(Some(std::mem::replace(
+                &mut *crate::room_told::room().lock().unwrap(),
+                room(busy),
+            )));
             let mut rig = LiveRig::start_with(quick_policy(), Options::reporting(Reporting::Typed));
             let mut dial = rig.ready().await;
             let request = rig
@@ -7925,7 +7940,6 @@ mod tests {
             };
             assert_eq!(told, expected, "follows on {follows_on}, busy {busy}");
             rig.stop().await;
-            *crate::room_told::room().lock().unwrap() = old;
         }
     }
 

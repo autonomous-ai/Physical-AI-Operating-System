@@ -984,6 +984,7 @@ mod tests {
                     call_wait_blocks: None,
                     cut_keeps_name: false,
                     asker_first: crate::asker_first::Mode::Off,
+                    follows_on: false,
                     paused: Box::new(|| false),
                 },
                 cloud,

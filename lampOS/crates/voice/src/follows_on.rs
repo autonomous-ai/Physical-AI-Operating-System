@@ -12,8 +12,10 @@
 //! about 3 s after an answer was answered.
 //!
 //! With the switch, a line that begins within [`WITHIN_US`] of the lamp's
-//! own words finishing playing, and not over them, is sent with
-//! [`NOTE`] beside it, unless the room is busy. The note says only what the
+//! own words finishing playing, and not over the lamp's sound or a line
+//! said, is sent with [`NOTE`] beside it, unless the room is busy. Only a
+//! reply that played to its end starts the clock, never one cut off, and
+//! the first line after a Stop is not marked. The note says only what the
 //! lamp did, in the file's own words: whether the line follows on is still
 //! the model's to judge, so talk that doesn't stays unanswered.
 
@@ -40,11 +42,12 @@ fn on_for(value: Option<&str>) -> bool {
 
 /// Whether a line whose speech began at `began_us` may follow on from the
 /// lamp's words, which last finished playing at `ended_us`: with the
-/// switch `on`, not said over the lamp, and begun within [`WITHIN_US`]. A
-/// line begun a moment before the words finished counts as begun at once.
-pub fn due(on: bool, over_the_lamp: bool, ended_us: Option<u64>, began_us: u64) -> bool {
-    on && !over_the_lamp
-        && ended_us.is_some_and(|ended| began_us.saturating_sub(ended) <= WITHIN_US)
+/// switch `on`, not taking over from the lamp's sound or a line said
+/// (`took_over`, [`crate::not_speech::takes_over`]), and begun within
+/// [`WITHIN_US`]. A line whose first sound came a moment before the words
+/// finished, admitted once the reply was over, counts as begun at once.
+pub fn due(on: bool, took_over: bool, ended_us: Option<u64>, began_us: u64) -> bool {
+    on && !took_over && ended_us.is_some_and(|ended| began_us.saturating_sub(ended) <= WITHIN_US)
 }
 
 #[cfg(test)]
@@ -69,9 +72,17 @@ mod tests {
         ] {
             assert_eq!(due(true, false, ended, began), follows, "{began}");
         }
-        assert!(!due(true, true, ended, 112 * S));
         assert!(!due(true, false, None, 112 * S));
         assert!(!due(false, false, ended, 112 * S));
+        // The reviewer on #1278: a sound sent on for the model to judge, in
+        // hand with the lamp silent, is neither the lamp's sound nor a line
+        // said, so a line begun over it may follow on. Over the lamp's
+        // sound, or a line said (15:39's reply to someone else's question
+        // still in hand), it does not.
+        let over = crate::not_speech::takes_over;
+        assert!(due(true, over(false, false), ended, 112 * S));
+        assert!(!due(true, over(true, false), ended, 112 * S));
+        assert!(!due(true, over(false, true), ended, 112 * S));
     }
 
     #[test]

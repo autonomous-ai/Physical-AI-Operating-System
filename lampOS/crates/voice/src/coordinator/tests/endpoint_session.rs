@@ -1150,6 +1150,7 @@ fn run_policy_with_peers_held(
         call_wait_blocks: None,
         cut_keeps_name: lamp.cut_keeps_name,
         asker_first: lamp.asker_first,
+        follows_on: false,
         paused: Box::new(|| false),
     };
     let mut owner = Controller::new(new_boot().unwrap(), now());
@@ -1700,6 +1701,7 @@ fn mute_with_endpoint(endpoint: EndpointRig) -> (Result<()>, SessionState) {
         call_wait_blocks: None,
         cut_keeps_name: false,
         asker_first: crate::asker_first::Mode::Off,
+        follows_on: false,
         paused: Box::new(|| false),
     };
     let (mut controller, current, _) = active_reply();

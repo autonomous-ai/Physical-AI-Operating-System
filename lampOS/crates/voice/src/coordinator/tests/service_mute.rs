@@ -32,6 +32,7 @@ fn cleanup_failure_cannot_leave_a_restartable_physical_mute() {
         call_wait_blocks: None,
         cut_keeps_name: false,
         asker_first: crate::asker_first::Mode::Off,
+        follows_on: false,
         paused: Box::new(|| false),
     };
     let (mut controller, current, _) = active_reply();
@@ -230,6 +231,7 @@ fn active_mute(trace: &mut SessionState, invalid: bool) -> Result<()> {
         call_wait_blocks: None,
         cut_keeps_name: false,
         asker_first: crate::asker_first::Mode::Off,
+        follows_on: false,
         paused: Box::new(|| false),
     };
     let (mut controller, current, permit) = active_reply();
@@ -476,6 +478,7 @@ fn shutdown_after_unreadable(
         call_wait_blocks: None,
         cut_keeps_name: false,
         asker_first: crate::asker_first::Mode::Off,
+        follows_on: false,
         paused: Box::new(|| false),
     };
     let (mut controller, _, _) = active_reply();

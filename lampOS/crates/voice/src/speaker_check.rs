@@ -201,6 +201,7 @@ mod tests {
             capture_level: Level::from_tenths_of_db((capture_db * 10.0) as i16),
             residual_level: Level::from_tenths_of_db((residual_db * 10.0) as i16),
             echo: None,
+            silent_at_echo: None,
         }
     }
 

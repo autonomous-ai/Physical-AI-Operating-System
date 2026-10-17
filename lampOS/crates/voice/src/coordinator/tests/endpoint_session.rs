@@ -57,6 +57,8 @@ struct Seen {
     requests: Vec<SeenRequest>,
     /// Every speech chunk dispatched to the speaker: its turn and when.
     chunks: Vec<(u64, Instant)>,
+    /// Each chunk's samples summed, in order: what the speaker was handed.
+    chunk_sums: Vec<i64>,
     /// When the speaker reported its authority lapsed ([`Lamp::lapses_after`]).
     lapsed_at: Option<Instant>,
     /// Chunks the speaker refused after that, for the answer it lapsed in.
@@ -543,6 +545,7 @@ fn provider_peer(
     seen: Arc<Mutex<Seen>>,
     reply: Option<ProviderReply>,
     ready_after: Option<Duration>,
+    shape: Option<fn(u64) -> i16>,
 ) -> PeerStep {
     assert!(reply.is_none_or(|reply| reply.packets <= PEER_STEP_BUDGET));
     let mut ready = false;
@@ -649,7 +652,7 @@ fn provider_peer(
             }
             due.pop_front();
             let packets = reply.map_or(0, |reply| reply.packets);
-            for _ in 0..packets {
+            for packet in 0..packets as u64 {
                 sequence += 1;
                 outbox.push_back(ProviderOutput::Audio {
                     request,
@@ -657,7 +660,9 @@ fn provider_peer(
                     provider_event_at_us: monotonic_us(),
                     source_frames: 960,
                     source_offset: 0,
-                    samples: vec![1_000; 960],
+                    samples: (0..960)
+                        .map(|index| shape.map_or(1_000, |shape| shape(packet * 960 + index)))
+                        .collect(),
                 });
             }
             outbox.push_back(ProviderOutput::GenerationComplete { request });
@@ -722,6 +727,10 @@ fn speaker_peer(
                 .unwrap()
                 .chunks
                 .push((owner.turn(), scenario_clock::instant()));
+            seen.lock()
+                .unwrap()
+                .chunk_sums
+                .push(chunk.samples.iter().map(|&sample| i64::from(sample)).sum());
             let frames = chunk.samples.len();
             let at = monotonic_us();
             channels.control.send(WorkerEvent::Playback {
@@ -997,6 +1006,10 @@ struct Lamp {
     /// Run as the service does (`Lifetime::Serve`), ended by `mute_at`,
     /// not after `seconds`: starting offline is only for a service.
     serve: bool,
+    /// Each answer's samples by their index in it; 1,000 throughout without.
+    reply_shape: Option<fn(u64) -> i16>,
+    /// `LAMP_LISTEN_GAPS`, for this run's thread (#828).
+    listen_gaps: bool,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1080,6 +1093,7 @@ fn run_policy_with_peers_held(
             seen.clone(),
             reply,
             lamp.provider_ready_after,
+            lamp.reply_shape,
         ),
         speaker_peer(
             speaker_peer_channels,
@@ -1143,6 +1157,7 @@ fn run_policy_with_peers_held(
     let mut reply = None;
     let started = Instant::now();
     crate::session_lifetime::set_start_offline_for_test(lamp.start_offline);
+    crate::listen_gaps::set_for_test(Some(lamp.listen_gaps));
     let result = if let Some(gate) = fixture_privacy {
         conversation_with_fixture_privacy(
             &mut rig,
@@ -1176,6 +1191,7 @@ fn run_policy_with_peers_held(
     };
     let elapsed = started.elapsed();
     crate::session_lifetime::set_start_offline_for_test(None);
+    crate::listen_gaps::set_for_test(None);
     // Sleeping fixtures need forced reaping; only the endpoint record matters.
     let _ = rig.shutdown(&mut trace);
     stop.store(true, Ordering::SeqCst);
@@ -3002,4 +3018,75 @@ fn a_service_started_with_no_link_says_so_once_and_is_ready_when_the_link_comes(
     let error = ended.result.as_ref().unwrap_err().to_string();
     assert!(error.contains("voice input never became ready"), "{error}");
     assert!(ended.events("waiting_for_link").is_empty());
+}
+
+/// #828, listening gaps, through the coordinator's own loop: the answer's
+/// first sentence is 2.2 s, then 120 ms quiet, then the next. With
+/// `LAMP_LISTEN_GAPS=on` the next sentence's first chunk waits until 250 ms
+/// after the first quiet one, once (`listen_gap`), while the speaker writes
+/// zeros. Off, nothing waits. The speaker is handed the same samples either
+/// way: the gap is the speaker's zeros, never samples of its own.
+#[test]
+fn a_long_answers_sentence_end_is_held_quiet_once_only_with_the_switch() {
+    let _one = one_session();
+    fn shape(index: u64) -> i16 {
+        let ms = index * 1_000 / u64::from(lamp_audio::RENDER_RATE);
+        if (2_200..2_320).contains(&ms) {
+            0
+        } else {
+            3_000
+        }
+    }
+    let run = |listen_gaps| {
+        run_policy_with_peers(
+            TurnTaking::Duplex,
+            10,
+            one_question,
+            EndpointRig::double(delayed(0.95, Duration::from_millis(60))),
+            Some(ProviderReply {
+                after_end: Duration::from_millis(300),
+                packets: 64,
+                only_first: false,
+            }),
+            None,
+            PeerMode::Stepped,
+            Lamp {
+                reply_shape: Some(shape),
+                listen_gaps,
+                ..Lamp::default()
+            },
+        )
+    };
+    let longest_wait = |session: &Session| {
+        session
+            .seen
+            .chunks
+            .windows(2)
+            .map(|pair| pair[1].1 - pair[0].1)
+            .max()
+            .unwrap()
+    };
+    let on = run(true);
+    on.result.as_ref().unwrap();
+    let gaps = on.events("listen_gap");
+    assert_eq!(gaps.len(), 1, "{gaps:?}");
+    assert_eq!(
+        gaps[0]["sent_ms"].as_u64().map(|ms| ms >= 2_000),
+        Some(true)
+    );
+    assert!(
+        longest_wait(&on) >= Duration::from_millis(200),
+        "{:?}",
+        longest_wait(&on)
+    );
+    let off = run(false);
+    off.result.as_ref().unwrap();
+    assert!(off.events("listen_gap").is_empty());
+    assert!(
+        longest_wait(&off) < Duration::from_millis(100),
+        "{:?}",
+        longest_wait(&off)
+    );
+    assert_eq!(on.seen.chunk_sums, off.seen.chunk_sums);
+    assert!(on.seen.chunk_sums.len() > 250);
 }

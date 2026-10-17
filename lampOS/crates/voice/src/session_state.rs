@@ -328,6 +328,7 @@ mod tests {
                 residual_playback_floor: floor,
                 alignment_age_blocks: 0,
             }),
+            silent_at_echo: None,
         }
     }
 

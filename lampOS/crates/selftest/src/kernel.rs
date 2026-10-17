@@ -113,8 +113,18 @@ pub fn storage(heard: &Result<Storage, String>) -> PartResult {
 }
 
 /// Every record in the kernel's ring now.
-#[cfg(target_os = "linux")]
 pub fn read(path: &str) -> Result<Storage, String> {
+    let mut storage = Storage::default();
+    if each_record(path, |line| storage.count(line))? {
+        storage.lost = true;
+    }
+    Ok(storage)
+}
+
+/// Hands each line of the kernel's ring now to `line`; true if the ring
+/// overwrote records while they were read.
+#[cfg(target_os = "linux")]
+pub fn each_record(path: &str, mut line: impl FnMut(&str)) -> Result<bool, String> {
     use std::{
         fs::OpenOptions,
         io::{ErrorKind, Read},
@@ -127,30 +137,30 @@ pub fn read(path: &str) -> Result<Storage, String> {
         .custom_flags(O_NONBLOCK)
         .open(path)
         .map_err(|e| e.to_string())?;
-    let mut storage = Storage::default();
+    let mut overwritten = false;
     // Each read gives one whole record; the kernel caps one at 8 KiB.
     let mut buffer = vec![0u8; 8192];
     loop {
         match kmsg.read(&mut buffer) {
             Ok(0) => break,
             Ok(n) => {
-                for line in String::from_utf8_lossy(&buffer[..n]).lines() {
-                    storage.count(line);
+                for each in String::from_utf8_lossy(&buffer[..n]).lines() {
+                    line(each);
                 }
             }
             Err(e) if e.kind() == ErrorKind::WouldBlock => break,
             // EPIPE: the ring overwrote records before they were read.
-            Err(e) if e.raw_os_error() == Some(32) => storage.lost = true,
+            Err(e) if e.raw_os_error() == Some(32) => overwritten = true,
             Err(e) if e.kind() == ErrorKind::Interrupted => {}
             Err(e) => return Err(e.to_string()),
         }
     }
-    Ok(storage)
+    Ok(overwritten)
 }
 
 /// Only Linux keeps `/dev/kmsg`.
 #[cfg(not(target_os = "linux"))]
-pub fn read(_path: &str) -> Result<Storage, String> {
+pub fn each_record(_path: &str, _line: impl FnMut(&str)) -> Result<bool, String> {
     Err("only Linux has a kernel log to read".into())
 }
 

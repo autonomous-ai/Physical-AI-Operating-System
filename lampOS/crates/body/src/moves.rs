@@ -76,43 +76,31 @@ pub struct Move {
     pub frames: Vec<[i16; 5]>,
 }
 
-/// Who asks for a gesture on the mood socket, under `lamp-body --arbitration on`
-/// (#940, `docs/skills.md`): a person, over safety, over the conversation,
-/// over a skill, over idle life. A gesture asked without one is the
-/// conversation's, as every caller was before.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Priority {
-    Idle,
-    Skill,
-    #[default]
-    Conversation,
-    Safety,
-    Person,
+/// Who asks for a gesture on the mood socket (#940, `docs/skills.md`): the
+/// one order every part that owns an actuator gives way in, a person over
+/// safety, over the conversation, over a skill, over idle life.
+pub use lamp_msgs::Priority;
+
+/// Why a gesture asked while one of this priority holds the body is
+/// dropped, naming who holds it.
+pub fn busy(holder: Priority) -> &'static str {
+    match holder {
+        Priority::Idle => "dropped: busy, idle",
+        Priority::Skill => "dropped: busy, skill",
+        Priority::Conversation => "dropped: busy, conversation",
+        Priority::Safety => "dropped: busy, safety",
+        Priority::Person => "dropped: busy, person",
+    }
 }
 
-impl Priority {
-    /// Why a gesture asked while one of this priority holds the body is
-    /// dropped, naming who holds it.
-    pub fn busy(self) -> &'static str {
-        match self {
-            Self::Idle => "dropped: busy, idle",
-            Self::Skill => "dropped: busy, skill",
-            Self::Conversation => "dropped: busy, conversation",
-            Self::Safety => "dropped: busy, safety",
-            Self::Person => "dropped: busy, person",
-        }
-    }
-
-    /// Why a gesture playing was ended for one asked at this priority.
-    pub fn ended(self) -> &'static str {
-        match self {
-            Self::Idle => "ended: by idle",
-            Self::Skill => "ended: by skill",
-            Self::Conversation => "ended: by conversation",
-            Self::Safety => "ended: by safety",
-            Self::Person => "ended: by person",
-        }
+/// Why a gesture playing was ended for one asked at this priority.
+pub fn ended(by: Priority) -> &'static str {
+    match by {
+        Priority::Idle => "ended: by idle",
+        Priority::Skill => "ended: by skill",
+        Priority::Conversation => "ended: by conversation",
+        Priority::Safety => "ended: by safety",
+        Priority::Person => "ended: by person",
     }
 }
 
@@ -132,7 +120,7 @@ impl Asker {
     }
 
     pub fn priority(&self) -> Priority {
-        self.priority.unwrap_or_default()
+        self.priority.unwrap_or(Priority::Conversation)
     }
 }
 
@@ -184,16 +172,7 @@ impl Sent {
     /// The clip of a `{"move":{...}}` datagram, or why the body cannot play
     /// it; `None` for a datagram that is not a move.
     pub fn take(&mut self, datagram: &[u8]) -> Option<Result<&'static Clip, String>> {
-        // The one field and nothing else, as before #940: a `source` or a
-        // `priority`, even `null`, is not read.
-        #[derive(Deserialize)]
-        #[serde(deny_unknown_fields)]
-        struct Message {
-            #[serde(rename = "move")]
-            sent: serde_json::Value,
-        }
-        let message: Message = serde_json::from_slice(datagram).ok()?;
-        Some(self.keep(message.sent))
+        self.take_asked(datagram).map(|(taken, _)| taken)
     }
 
     /// The same, for a datagram that may also say who asks (`source`,

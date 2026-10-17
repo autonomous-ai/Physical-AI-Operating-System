@@ -3741,7 +3741,7 @@ fn run_on<P: PortIo, R: Runtime>(
                 } else if asked_by > by {
                     None
                 } else {
-                    Some(by.busy())
+                    Some(crate::moves::busy(by))
                 }
             } else if let Some((old, _)) = pending.filter(|_| limits.arbitration) {
                 let by = if from_outside(old) {
@@ -3749,7 +3749,7 @@ fn run_on<P: PortIo, R: Runtime>(
                 } else {
                     Priority::Conversation
                 };
-                (asked_by < by).then(|| by.busy())
+                (asked_by < by).then(|| crate::moves::busy(by))
             } else {
                 None
             };
@@ -3761,7 +3761,7 @@ fn run_on<P: PortIo, R: Runtime>(
                     // until it has.
                     if let Some((old, _)) = playing.filter(|(old, _)| !idle::is_move(old)) {
                         if from_outside(old) {
-                            gesture_fate = Some((old.name, asked_by.ended()));
+                            gesture_fate = Some((old.name, crate::moves::ended(asked_by)));
                         }
                         playing = None;
                         yielding = true;

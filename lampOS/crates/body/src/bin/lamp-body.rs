@@ -10,7 +10,7 @@ slump). With --give-way, a joint that pushes at its goal without moving for\n1.5
 did, a head or base joint that a hand stops and still pushes a second later makes the lamp
 slump (torque off on all five, held again 5 s later where it lies; after an overload, 120 s);
 a hand never ends the run, and a head roll or base found beyond 400 counts of home at start is
-taken hold of where it lies. With --overload release, any joint that\nreads a load of 800 of 1000 (80% of --force-limit for a joint held to one) for 1.5 s has\ntorque switched off on all five, so the lamp slumps; 120 s later each is held where it is\n(its goal, then torque on) and the head is brought home as --wake does, while the arm\nwaits where it slumped until the lamp is next asked to stand; a second time within ten\nminutes ends the run with torque off. With --rest-glance on, a lamp at rest takes what\nExpression asks of the head (50 counts of pitch, 25 of roll at most, never the base or the arm)\nand comes back to rest when it runs out. --pitch-window is this lamp's own window for the\nhead's pitch while it is beside the base (by default lamp-4ace's, 1740,2030): never under\nthe head's floor (1670), around --home's pitch, and inside the servo's own limits or it does\nnot start. With --look-at-name on, the lamp's name heard on the bus\n(name/heard) while it does not speak is taken as being spoken to for two seconds: it rises,\nlooks up and turns to a face at once; with nobody in view it glances a little to one side and\nthe other once it stands, and lets it go. At most once in ten seconds. Stops at the first surprise, holding\nwhere it is, then, as the old runtime did, lets go: torque off on all five. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nA lamp standing at its full height also makes a gesture asked for there: {\"gesture\":\"nod\"}\n(nod, headshake, greeting, laugh, shy, stretching); a folded one with --stand stands up for it\nfirst, unless paused, held by a hand or slumped, and the journal says why each was taken or dropped. With --moves, the moves in that folder\n(NAME.json, docs/body.md) are read at start and asked for by name the same way; one this body\ncannot play is refused with why, and a folder that cannot be read leaves the body's own.\nA skill sends its own move whole, {\"move\":{\"name\":...,\"step_ms\":...,\"frames\":[...]}}, held to the same\nbounds and played the same way; one it cannot play is dropped with why.\nWith --arbitration on (off unless given), a gesture or a move may also say who asks,\n\"source\" (free text) and \"priority\" (person, safety, conversation, skill or idle;\nconversation without one). One asked while another plays ends it if asked higher, easing\nout as a dropped gesture does, and is dropped otherwise (\"dropped: busy, conversation\");\na hand on the lamp drops any (\"dropped: held by a hand\"). Off, a datagram that says\neither is not read, as before.\nPrints one JSON report when it ends.\n";
+taken hold of where it lies. With --overload release, any joint that\nreads a load of 800 of 1000 (80% of --force-limit for a joint held to one) for 1.5 s has\ntorque switched off on all five, so the lamp slumps; 120 s later each is held where it is\n(its goal, then torque on) and the head is brought home as --wake does, while the arm\nwaits where it slumped until the lamp is next asked to stand; a second time within ten\nminutes ends the run with torque off. With --rest-glance on, a lamp at rest takes what\nExpression asks of the head (50 counts of pitch, 25 of roll at most, never the base or the arm)\nand comes back to rest when it runs out. --pitch-window is this lamp's own window for the\nhead's pitch while it is beside the base (by default lamp-4ace's, 1740,2030): never under\nthe head's floor (1670), around --home's pitch, and inside the servo's own limits or it does\nnot start. With --look-at-name on, the lamp's name heard on the bus\n(name/heard) while it does not speak is taken as being spoken to for two seconds: it rises,\nlooks up and turns to a face at once; with nobody in view it glances a little to one side and\nthe other once it stands, and lets it go. At most once in ten seconds. Stops at the first surprise, holding\nwhere it is, then, as the old runtime did, lets go: torque off on all five. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nA lamp standing at its full height also makes a gesture asked for there: {\"gesture\":\"nod\"}\n(nod, headshake, greeting, laugh, shy, stretching); a folded one with --stand stands up for it\nfirst, unless paused, held by a hand or slumped, and the journal says why each was taken or dropped. With --moves, the moves in that folder\n(NAME.json, docs/body.md) are read at start and asked for by name the same way; one this body\ncannot play is refused with why, and a folder that cannot be read leaves the body's own.\nA skill sends its own move whole, {\"move\":{\"name\":...,\"step_ms\":...,\"frames\":[...]}}, held to the same\nbounds and played the same way; one it cannot play is dropped with why.\nWith --arbitration on (off unless given), a gesture or a move may also say who asks,\n\"source\" (free text) and \"priority\" (person, safety, conversation, skill or idle;\nconversation without one). One asked while another plays ends it if asked higher, easing\nout as a dropped gesture does, and is dropped otherwise (\"dropped: busy, conversation\");\na hand on the lamp drops any (\"dropped: held by a hand\"). Off, \"source\" and\n\"priority\" are read and ignored, so a caller may always say them.\nPrints one JSON report when it ends.\n";
 
 #[derive(Debug)]
 struct Arguments {
@@ -525,18 +525,12 @@ fn of_this_step(
 /// A gesture asked for by the voice service: `{"gesture":"nod"}` and nothing
 /// else in it, naming a clip this body has, its own or a move read from
 /// `--moves`.
-#[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
+#[cfg(test)]
 fn gesture_of(
     datagram: &[u8],
     moves: &lamp_body::moves::Loaded,
 ) -> Option<&'static lamp_body::clips::Clip> {
-    #[derive(serde::Deserialize)]
-    #[serde(deny_unknown_fields)]
-    struct Message<'a> {
-        gesture: &'a str,
-    }
-    let message: Message = serde_json::from_slice(datagram).ok()?;
-    lamp_body::clips::named(message.gesture).or_else(|| moves.named(message.gesture))
+    gesture_asked(datagram, moves).map(|(clip, _)| clip)
 }
 
 /// The same, with who asks for it (`source`, `priority`) when it says.
@@ -574,8 +568,10 @@ fn kept_of(
     arbitration: bool,
 ) -> (Gesture, Option<(&'static str, &'static str)>) {
     match held {
-        Some(old) if arbitration && old.1 > asked.1 => (old, Some((asked.0.name, old.1.busy()))),
-        Some(old) if arbitration => (asked, Some((old.0.name, asked.1.busy()))),
+        Some(old) if arbitration && old.1 > asked.1 => {
+            (old, Some((asked.0.name, lamp_body::moves::busy(old.1))))
+        }
+        Some(old) if arbitration => (asked, Some((old.0.name, lamp_body::moves::busy(asked.1)))),
         _ => (asked, None),
     }
 }
@@ -602,9 +598,10 @@ fn heard(
     heard_asked(datagram, moves, sent, false).0
 }
 
-/// The same, and who asked for a gesture or a move. Only under
-/// `--arbitration on` may a datagram say so; off, one that does is not
-/// read, as before.
+/// The same, and who asked for a gesture or a move. A caller may always
+/// say so (`source`, `priority`); only under `--arbitration on` is it
+/// weighed, and off it is ignored, so callers and bodies need not switch
+/// together. Any other field is refused either way.
 #[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
 fn heard_asked(
     datagram: &[u8],
@@ -619,21 +616,12 @@ fn heard_asked(
             Asker::default(),
         );
     }
-    let gesture = if arbitration {
-        gesture_asked(datagram, moves)
-    } else {
-        gesture_of(datagram, moves).map(|clip| (clip, Asker::default()))
-    };
-    if let Some((clip, asker)) = gesture {
-        return (Heard::Gesture(clip), asker);
+    let weighed = |asker: Asker| if arbitration { asker } else { Asker::default() };
+    if let Some((clip, asker)) = gesture_asked(datagram, moves) {
+        return (Heard::Gesture(clip), weighed(asker));
     }
-    let taken = if arbitration {
-        sent.take_asked(datagram)
-    } else {
-        sent.take(datagram).map(|taken| (taken, Asker::default()))
-    };
-    match taken {
-        Some((Ok(clip), asker)) => (Heard::Gesture(clip), asker),
+    match sent.take_asked(datagram) {
+        Some((Ok(clip), asker)) => (Heard::Gesture(clip), weighed(asker)),
         Some((Err(why), _)) => (
             Heard::Dropped(format!("a move this body cannot play: {why}")),
             Asker::default(),
@@ -1218,11 +1206,10 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         news,
         || {
             let now_us = lamp_ipc::monotonic_us();
-            let (gesture, priority) = gesture_asked
-                .take()
-                .map_or((None, Default::default()), |(clip, priority)| {
-                    (Some(clip), priority)
-                });
+            let (gesture, priority) = gesture_asked.take().map_or(
+                (None, lamp_body::moves::Priority::Conversation),
+                |(clip, priority)| (Some(clip), priority),
+            );
             let asked = lamp_body::body::Asked {
                 seen: eyes(),
                 gesture,
@@ -1920,11 +1907,11 @@ mod tests {
         );
     }
 
-    /// Under --arbitration on, a gesture or a move may say who asks, and a
-    /// priority that is not one of the five refuses it, as does any other
-    /// field. Off, one that says either is not read, as before.
+    /// A gesture or a move may say who asks, and a priority that is not one
+    /// of the five refuses it, as does any other field. Only under
+    /// --arbitration on is who asks weighed; off it is ignored.
     #[test]
-    fn who_asks_is_read_only_with_arbitration_and_an_unknown_priority_is_refused() {
+    fn who_asks_is_weighed_only_with_arbitration_and_an_unknown_priority_is_refused() {
         use lamp_body::moves::{Asker, Priority};
         let moves = lamp_body::moves::Loaded::default();
         let mut sent = lamp_body::moves::Sent::default();
@@ -1965,20 +1952,42 @@ mod tests {
                 "{refused}: {said:?}"
             );
         }
-        // Off, the datagrams of before #940 only: a `source` or a
-        // `priority` is an unknown field, even `null`.
+        // Off, a stamp is ignored, even `null`: a stamped nod is taken
+        // exactly as an unstamped one, so callers may always stamp. Any
+        // other field is still refused.
+        let plain = heard(r#"{"gesture":"nod"}"#, false);
+        assert_eq!(
+            plain,
+            (Heard::Gesture(&lamp_body::clips::NOD), Asker::default())
+        );
+        for stamped in [
+            asked,
+            r#"{"gesture":"nod","source":null}"#,
+            r#"{"gesture":"nod","priority":null}"#,
+            r#"{"gesture":"nod","source":null,"priority":null}"#,
+        ] {
+            assert_eq!(heard(stamped, false), plain, "{stamped}");
+        }
         let nulls = sway
             .replace(r#""skill:dance""#, "null")
             .replace(r#""skill"}"#, "null}");
-        for not_read in [
-            asked,
-            &sway,
-            &nulls,
-            r#"{"gesture":"nod","source":null}"#,
-            r#"{"gesture":"nod","priority":null}"#,
+        for stamped in [&sway, &nulls] {
+            match heard(stamped, false) {
+                (Heard::Gesture(clip), asker) => {
+                    assert_eq!((clip.name, asker), ("sway", Asker::default()))
+                }
+                other => panic!("{stamped}: {other:?}"),
+            }
+        }
+        for refused in [
+            r#"{"gesture":"nod","volume":3}"#,
+            r#"{"gesture":"nod","priority":"skill","volume":3}"#,
         ] {
-            let (said, _) = heard(not_read, false);
-            assert!(matches!(said, Heard::Dropped(_)), "{not_read}: {said:?}");
+            let (said, _) = heard(refused, false);
+            assert!(
+                matches!(said, Heard::Dropped(ref why) if why.contains("not a mood or a gesture")),
+                "{refused}: {said:?}"
+            );
         }
     }
 

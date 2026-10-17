@@ -8498,3 +8498,228 @@ fn a_slump_during_an_ease_back_leaves_no_offset_after_the_take_up() {
     // before the slump at all.
     assert!(most[..4].iter().all(|most| *most <= 12), "{most:?}");
 }
+
+/// One step of a reading session: when, the gesture playing, the head's
+/// goals and the arm's.
+type ReadingStep = (Duration, Option<&'static str>, [u16; 3], [u16; 2]);
+
+/// A lamp with these flags, found folded, talked to from 1 to 3 s and
+/// reading from then on (a skill saying it again and again), as its unit
+/// runs it, asked `clip` at `ask_at`. The run's report, each step, and
+/// every arm goal write, shoulder and elbow.
+fn reading_session(
+    flags: &Flags,
+    seconds: u64,
+    clip: &'static Clip,
+    ask_at: Duration,
+) -> (BodyReport, Vec<ReadingStep>, Vec<[u16; 2]>) {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(seconds));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    let found = [
+        flags.home[2],
+        flags.folded[0],
+        flags.folded[1],
+        flags.home[1],
+        flags.home[0],
+    ];
+    for (servo, at) in lamp.servos.iter_mut().zip(found) {
+        servo.position = f32::from(at);
+        servo.goal = at;
+        servo.status = 0;
+    }
+    let up = Standing::new(flags.folded, flags.stand, 100, 6, 60, flags.load).unwrap();
+    let limits = Limits {
+        give_way: Some(GiveWay::Return),
+        limp: true,
+        wake: true,
+        ..gesture_limits()
+    };
+    let time = clock.time.clone();
+    let news = move || {
+        Some(if time.get() < Duration::from_secs(3) {
+            (Mood::Listening, 100)
+        } else {
+            (Mood::Reading, 100)
+        })
+    };
+    let asked_at = clock.time.clone();
+    let seen_at = clock.time.clone();
+    let mut asked = false;
+    let mut seen = Vec::new();
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some(flags.home),
+        Some(up),
+        None,
+        news,
+        move || {
+            let due = !asked && asked_at.get() >= ask_at;
+            asked |= due;
+            Asked {
+                gesture: due.then_some(clip),
+                ..Asked::default()
+            }
+        },
+        |glimpse| {
+            seen.push((
+                seen_at.get(),
+                glimpse.gesture,
+                glimpse.goals,
+                glimpse.arm_goals,
+            ))
+        },
+    );
+    let arm = lamp
+        .goals
+        .iter()
+        .filter_map(|write| {
+            let of = |id: u8| {
+                write
+                    .iter()
+                    .find(|(at, _)| *at == id)
+                    .map(|(_, goal)| *goal)
+            };
+            Some([of(2)?, of(3)?])
+        })
+        .collect();
+    (report, seen, arm)
+}
+
+/// What every reading session with a gesture must keep, on each lamp's
+/// flags: it plays, the run ends as asked (no `Window` stop), no arm goal
+/// moves more than `ARM_GOAL_STEP` a write, the anti-tip rule neither
+/// refused nor cut anything, and no pose written is past its 22 mm.
+fn assert_reading_gesture_safe(
+    name: &str,
+    report: &BodyReport,
+    steps: &[ReadingStep],
+    arm: &[[u16; 2]],
+) {
+    assert_eq!(report.gestures, 1, "{name}: {report:?}");
+    assert_eq!(report.stop, Stop::Cancelled, "{name}: {report:?}");
+    assert!(
+        largest_arm_step(arm) <= ARM_GOAL_STEP,
+        "{name}: {}",
+        largest_arm_step(arm)
+    );
+    assert_eq!(
+        (report.tipping.refused, report.tipping.cuts),
+        (0, 0),
+        "{name}: {:?}",
+        report.tipping
+    );
+    for (at, _, head, arm) in steps {
+        let mm = cog::off_axis_mm([head[2], arm[0], arm[1], head[1], head[0]].map(f32::from));
+        assert!(mm <= cog::CLIP_MM, "{name}: {mm} mm at {at:?}");
+    }
+}
+
+/// #1260 review, 09:19: reading, `acknowledge` (a skill's "right" at the
+/// page) is laid over the lean and leaves it where it was. The arm never
+/// rises above the reading lean, its dip is the gesture's on top of the
+/// lean, and once it is over the arm is at the lean on every step, with no
+/// easing out and back in. With each lamp's flags.
+#[test]
+fn a_reading_lamp_keeps_its_lean_through_a_gesture() {
+    let ms = Duration::from_millis;
+    for (name, flags) in [("lamp-4ace", &LAMP_4ACE), ("lamp-52e6", &LAMP_52E6)] {
+        let (report, steps, arm) =
+            reading_session(flags, 20, &crate::clips::ACKNOWLEDGE, ms(12_000));
+        assert_reading_gesture_safe(name, &report, &steps, &arm);
+        let lean: [u16; 2] = std::array::from_fn(|index| {
+            (f32::from(flags.stand[3 + index]) + LEAN[index]).round() as u16
+        });
+        let at = |when: Duration| steps.iter().rfind(|step| step.0 < when).unwrap();
+        assert_eq!(at(ms(11_900)).3, lean, "{name}");
+        let after: Vec<_> = steps
+            .iter()
+            .filter(|step| (ms(12_000)..ms(19_900)).contains(&step.0))
+            .collect();
+        for index in 0..2 {
+            let top = after.iter().map(|step| step.3[index]).max().unwrap();
+            assert!(top <= lean[index] + 3, "{name}: {top} over {lean:?}");
+        }
+        // The elbow dips the gesture's 325 counts from the lean, not from
+        // the pose without it.
+        let low = after.iter().map(|step| step.3[1]).min().unwrap();
+        assert!(low <= lean[1] - 300, "{name}: {low}");
+        let over = after.iter().rfind(|step| step.1.is_some()).unwrap().0;
+        for step in after.iter().filter(|step| step.0 > over + ms(400)) {
+            for index in 0..2 {
+                assert!(
+                    step.3[index].abs_diff(lean[index]) <= 3,
+                    "{name}: {step:?} against {lean:?}"
+                );
+            }
+        }
+    }
+}
+
+/// Asked while the reading lean is still easing in, the gesture is laid
+/// over the lean as it was then, which is held while it plays: the pose
+/// the anti-tip rule checked it over is the pose it plays over, and it
+/// ends with the arm where it began. The lean goes on easing in after.
+#[test]
+fn a_gesture_asked_as_the_reading_lean_eases_in_holds_it_where_it_was() {
+    let ms = Duration::from_millis;
+    for (name, flags) in [("lamp-4ace", &LAMP_4ACE), ("lamp-52e6", &LAMP_52E6)] {
+        let (report, steps, arm) =
+            reading_session(flags, 16, &crate::clips::ACKNOWLEDGE, ms(7_300));
+        assert_reading_gesture_safe(name, &report, &steps, &arm);
+        let first = steps.iter().position(|step| step.1.is_some()).unwrap();
+        let began = steps[first - 1].3;
+        let last = steps.iter().rposition(|step| step.1.is_some()).unwrap();
+        // The gesture's last offsets are a few counts, eased off in a step.
+        let ended = steps[last + 1].3;
+        for index in 0..2 {
+            assert!(
+                ended[index].abs_diff(began[index]) <= 3,
+                "{name}: began {began:?}, ended {ended:?}"
+            );
+        }
+        let lean = (f32::from(flags.stand[4]) + LEAN[1]).round() as u16;
+        assert!(
+            began[1] > lean + 10,
+            "{name}: {began:?} was not still easing in"
+        );
+        let before_end = steps.iter().rfind(|step| step.0 < ms(15_900)).unwrap();
+        assert_eq!(before_end.3[1], lean, "{name}");
+    }
+}
+
+/// #1260 review, 09:19, its second point: reading holds the head's pitch
+/// at its reach, and a gesture's pitch is laid over that after the reach is
+/// applied, kept only from the floor and the seam. So the whole of it is
+/// made: `curious` looks up and then down past the reading pitch by what it
+/// has of each, and `acknowledge` (whose pitch only lifts) lifts its 28.
+#[test]
+fn a_reading_lamp_makes_the_whole_of_a_gestures_pitch() {
+    let ms = Duration::from_millis;
+    for (name, flags) in [("lamp-4ace", &LAMP_4ACE), ("lamp-52e6", &LAMP_52E6)] {
+        for (clip, up, down) in [
+            (&crate::clips::CURIOUS, 50, 180),
+            (&crate::clips::ACKNOWLEDGE, 24, 0),
+        ] {
+            let (report, steps, arm) = reading_session(flags, 20, clip, ms(12_000));
+            assert_reading_gesture_safe(name, &report, &steps, &arm);
+            let reading = steps.iter().rfind(|step| step.0 < ms(12_000)).unwrap().2[0];
+            let during = steps.iter().filter(|step| step.1.is_some());
+            let (low, high) = during.fold((u16::MAX, 0), |(low, high), step| {
+                (low.min(step.2[0]), high.max(step.2[0]))
+            });
+            assert!(
+                reading - low >= up,
+                "{name} {}: {low} from {reading}",
+                clip.name
+            );
+            assert!(
+                high - reading >= down,
+                "{name} {}: {high} from {reading}",
+                clip.name
+            );
+        }
+    }
+}

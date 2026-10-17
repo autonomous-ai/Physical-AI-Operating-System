@@ -3934,7 +3934,17 @@ fn run_on<P: PortIo, R: Runtime>(
         // then lean into the hand again. While the wire is failing the lean
         // is kept as it stands, a held place too: nothing new, and nothing
         // dropped to be taken again once the wire answers (#1010 review, 23:39).
-        let leaning = matches!(mood, Mood::Speaking | Mood::Reading) && upright && !gesturing;
+        // Reading, a gesture is laid over the lean instead of taking it
+        // away, and the lean is held where it is while the gesture plays: a
+        // tutor nodding at the page keeps looking at it (#1260 review,
+        // 09:19). Held, the pose V1's anti-tip rule checked the gesture over
+        // as it began (above) is the pose it plays over. Speaking, a gesture
+        // still takes the lean away: that lean is toward a person, and the
+        // gesture is the move made at them instead.
+        let reading_through = mood == Mood::Reading && gesturing;
+        let leaning = matches!(mood, Mood::Speaking | Mood::Reading)
+            && upright
+            && (!gesturing || reading_through);
         let rate = step / LEAN_SECONDS.max(1.5 * LEAN[1].abs() / limits.speed);
         // A hold on the arm is taken into the lean once the lean eases out
         // (the answer over, a gesture, folding), or once the lean is wanted
@@ -3958,7 +3968,7 @@ fn run_on<P: PortIo, R: Runtime>(
             }
         }
         let arm_held = stalls[3..].iter().any(|stall| stall.hold.is_some());
-        let still = blind || (leaning && arm_held);
+        let still = blind || (leaning && (arm_held || reading_through));
         if !still {
             lean = (lean + if leaning { rate } else { -rate }).clamp(0.0, 1.0);
         }

@@ -455,12 +455,11 @@ impl<B: Backend, C: Clock> Worker<B, C> {
             return Ok(false);
         }
         if !self.ready {
-            self.publish(
-                link,
-                Event::Ready {
-                    at_us: n.as_micros(),
-                },
-            )?;
+            // Stamped now, after the controls that installed the authority,
+            // not at the step's start: a backlog read on a slow host would
+            // date Ready old enough for the Supervisor to time it out.
+            let at_us = self.now()?.as_micros();
+            self.publish(link, Event::Ready { at_us })?;
             self.ready = true;
         }
         if budget > 0 && self.pending.is_none() {

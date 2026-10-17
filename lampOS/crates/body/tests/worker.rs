@@ -361,6 +361,38 @@ fn feedback_backpressure_fails_closed_and_cleanup_error_remains_failure() {
     assert_eq!(r.wire.borrow().discards, 1);
 }
 #[test]
+fn ready_is_stamped_after_the_controls_read_before_it() {
+    // Controls queued before the first step are read in it, the clock moving
+    // on each one. Ready reports the authority installed among them, so it is
+    // stamped after them: one stamped at the step's start reads old to the
+    // Supervisor, which refuses a regressed receipt and times out a stale one.
+    let mut r = Rig::new();
+    let owner = r
+        .controller
+        .admit(r.clock.now(), lamp_turn_owner::AdmittedInput::NewTurn)
+        .unwrap();
+    let motion = Motion {
+        worker: b(2),
+        owner,
+        sequence: 1,
+    };
+    r.parent
+        .control
+        .send(&Control::Cancel { motion }, r.clock.now())
+        .unwrap();
+    r.authority();
+    r.clock.1.set(true);
+    assert!(!r.step().unwrap());
+    let at = |ready: bool| {
+        r.events.iter().find_map(|e| match e {
+            Event::Ready { at_us } if ready => Some(*at_us),
+            Event::CancelRejected { at_us, .. } if !ready => Some(*at_us),
+            _ => None,
+        })
+    };
+    assert!(at(true).unwrap() >= at(false).unwrap(), "{:?}", r.events);
+}
+#[test]
 fn startup_without_authority_never_touches_bus() {
     let mut r = Rig::new();
     r.clock.advance(250_000);

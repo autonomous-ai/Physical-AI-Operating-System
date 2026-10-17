@@ -184,6 +184,9 @@ pub struct Files {
     /// number alone is asked again (`--ask-unclear`, #926). Only with
     /// `attention`.
     pub ask_unclear: bool,
+    /// The language hint for the service's transcript of what it hears
+    /// (`--transcription-language`, `LAMP_TRANSCRIPTION_LANGUAGE`, #926).
+    pub transcription_language: Option<String>,
     /// Whether the lamp's actions wait for the Policy's attention decision
     /// (`--policy-holds-actions`, `crate::policy_holds`, #800). Only with the
     /// bus.
@@ -258,6 +261,7 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
     let (first_output, flags) = crate::first_output::take(flags)?;
     let (sounds_checked, flags) = crate::not_speech::take_checked(flags);
     let (ask_unclear, flags) = crate::not_speech::take_unclear(flags);
+    let (transcription_language, flags) = crate::not_speech::take_transcription(flags);
     let (policy_holds, flags) = crate::policy_holds::take(flags);
     let (staff_note, flags) = crate::staff_note::take(flags);
     // `start_agent_task` says what the staff's note asks, when it is sent.
@@ -292,6 +296,7 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
         first_output,
         sounds_checked,
         ask_unclear,
+        transcription_language,
         policy_holds,
         staff_note,
     };
@@ -1019,9 +1024,11 @@ pub async fn run_with_continuation(
         provider_config.recovery_policy()
     };
     let config = continuation.apply(
-        provider_config
-            .into_session_with_camera(visual.is_some())?
-            .barrier_policy(barrier),
+        crate::not_speech::with_transcription(
+            provider_config.into_session_with_camera(visual.is_some())?,
+            files.transcription_language.as_deref(),
+        )?
+        .barrier_policy(barrier),
     )?;
     // Each session it opens is told how the conversation went until then.
     let provider = Supervisor::new(

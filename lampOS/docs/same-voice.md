@@ -122,6 +122,28 @@ to be run. A minute of two real people at the lamp is to set it.
   rule. In the 06:07 scene with the model answering Samantha, her
   "Anyway, …" then counts, and Daniel's "Did you get my message about
   the budget?" after his own unanswered line is held.
+- **One such line ends the conversation** (`RoomTold::another_voice_held`,
+  17 October). It counts as the two lines left alone do, at once: two
+  people are talking, so whoever speaks next needs the name or a face,
+  until the lamp speaks again. Without it, the check only moved the
+  error in the first builder's battery (scene 3: Daniel asks the weather
+  by name, Samantha says "And what about tomorrow?", then "I should bring
+  an umbrella then."). With the umbrella line held, Daniel's own "Yes, and
+  we should leave a bit early.", to her, came with the lamp quiet, in the
+  conversation's voice, inside 45 s, and would have been answered. Its
+  cost: with one person talking to the lamp, someone else's line of 1.5 s
+  or more near it ends that person's conversation too.
+  - **Off the lamp, on the battery's lines** (made with `say` in its two
+    voices, 16 kHz, the real model, `lamp-same-voice pairs`): against
+    Daniel's "Hey Lamp, … Hanoi", Samantha's umbrella line (1.58 s) has a
+    cosine of 0.13, her "Okay, I will book the car for eight." (2.14 s)
+    0.16 and her "Yes, I read it this morning…" (3.07 s) 0.12. Daniel's
+    own lines are 0.75 to 0.86. Her "And what about tomorrow?" (1.19 s)
+    is too short to judge, and stays answered as the conversation going on.
+    These are clean clips, not through the lamp's speaker and microphone.
+  - Test: `with_the_switch_and_a_voice_check_another_voice_ends_the_conversation`
+    (scene 3 through the worker's own loop, with and without the check) and
+    `room_told`'s `with_the_switch_one_line_held_as_another_voice_ends_the_conversation`.
 - **The child is supervised, with bounds.** One that gives no answer to a
   line within 2 s (`ANSWER_WITHIN`) is killed and started again, with a
   journal line. One that ends 3 times in a row before it is ready

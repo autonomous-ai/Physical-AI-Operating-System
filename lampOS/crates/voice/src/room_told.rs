@@ -277,6 +277,22 @@ impl RoomTold {
         }
     }
 
+    /// The answer to `request` was held for being said in another voice than
+    /// the conversation's (the same-voice check, `LAMP_SAME_VOICE_MODEL`,
+    /// #829). With [`Self::count_only_talk`] that one line is talk past the
+    /// lamp, as [`TALK_ENDS_CONVERSATION`] lines left alone are: two people
+    /// are talking, and the conversation with the lamp is over until it
+    /// speaks again, whoever says the next line. In the battery's scene 3 on
+    /// lamp-4ace (17 October), with the umbrella line held, the asker's own
+    /// "Yes, and we should leave a bit early.", to the other person, would
+    /// otherwise have been answered as the conversation still going on.
+    pub fn another_voice_held(&mut self, request: u64) {
+        if self.talk_only {
+            self.talk_counted = self.talk_counted.max(request);
+            self.talk_since_spoke = self.talk_since_spoke.max(TALK_ENDS_CONVERSATION);
+        }
+    }
+
     /// The lamp is speaking in `request`.
     pub fn spoke(&mut self, request: u64, now_us: u64) {
         if self.open.is_some_and(|(open, _)| open == request) {
@@ -761,6 +777,34 @@ mod tests {
         assert!(room.talked_past_the_lamp());
         room.spoke(8, 50 * S);
         assert!(!room.talked_past_the_lamp());
+    }
+
+    /// #829, the battery's scene 3 (17 October): one line held as another
+    /// voice ends the conversation, as two lines left alone do, and is
+    /// counted once however its end is learned; the lamp speaking again
+    /// begins afresh. Without the switch it changes nothing.
+    #[test]
+    fn with_the_switch_one_line_held_as_another_voice_ends_the_conversation() {
+        let after = |talk_only: bool| {
+            let mut room = RoomTold::new();
+            room.count_only_talk(talk_only);
+            // A's "Hey Lamp, what is the weather like…", answered.
+            said(&mut room, 1, 0);
+            room.spoke(1, 4 * S);
+            // B's "I should bring an umbrella then.", held as another voice.
+            said(&mut room, 2, 8);
+            room.another_voice_held(2);
+            let ended = room.talked_past_the_lamp();
+            room.unanswered(2, 11 * S);
+            (ended, room)
+        };
+        let (ended, mut room) = after(true);
+        assert!(ended);
+        assert!(room.talked_past_the_lamp());
+        room.spoke(3, 20 * S);
+        assert!(!room.talked_past_the_lamp());
+        let (ended, room) = after(false);
+        assert!(!ended && !room.talked_past_the_lamp());
     }
 
     /// The sixth on #1029: lines answered by a call and no words are

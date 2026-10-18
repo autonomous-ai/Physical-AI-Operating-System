@@ -764,8 +764,11 @@ and no picture is kept or leaves the lamp. Nothing reads it yet.
   the eye line bends more than 0.1 radians a look.
 - **The pace:** the eyes look every 250 ms while they follow a face, up to
   350 ms on the 10 fps camera (`main.rs`), so 2 s holds 5 to 8 looks. With
-  `--steady-rate` a still face is looked at every 500 ms, 4 or 5 looks a
-  window, and it is mostly `unknown` or wrong (below).
+  `--steady-rate` a still face is looked at 500 to 600 ms apart, 4 looks a
+  window, so it is always `unknown`, never wrong (below).
+- **How fast it answers** (looks every 250 to 350 ms): `yes` on the first
+  look after talking starts (0.06 to 0.18 s), and held 1.3 to 1.8 s after
+  it stops, the 2 s window emptying.
 
 **What it rests on, and what it can't do.** YuNet has no lip points, so
 only the corners carry the mouth: they move in as the jaw opens and in or
@@ -796,9 +799,7 @@ looks right, still / talking):
 | 250–350 ms | 0.3 px | 0.46 / 0.55 | 0.86 / 0.94 | 0.90 / 0.96 | 0.97 / 0.98 |
 | 250–350 ms | 0.5 px | 0.27 / 0.45 | 0.66 / 0.80 | 0.79 / 0.92 | 0.90 / 0.95 |
 | 250–350 ms | 1 px | 0.01 / 0.24 | 0.15 / 0.41 | 0.33 / 0.57 | 0.66 / 0.80 |
-| 450–550 ms | 0.3 px | 0.11 / 0.25 | 0.27 / 0.48 | 0.34 / 0.48 | 0.46 / 0.48 |
-| 450–550 ms | 0.5 px | 0.07 / 0.20 | 0.13 / 0.45 | 0.20 / 0.48 | 0.31 / 0.48 |
-| 450–550 ms | 1 px | 0.00 / 0.07 | 0.03 / 0.29 | 0.08 / 0.39 | 0.13 / 0.45 |
+| 500–600 ms | 0.3 to 1 px | `unknown` | `unknown` | `unknown` | `unknown` |
 
 A face at 1 m fills about 25 pixels of mouth in the detector's 320-wide
 picture, so its eyes are about 27 pixels apart. On this model, that is too

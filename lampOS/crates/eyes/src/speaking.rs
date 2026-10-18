@@ -27,9 +27,9 @@ use std::collections::{HashMap, VecDeque};
 pub const ENVIRONMENT: &str = "LAMP_EYES_SPEAKING";
 /// How far back a face's mouth is read: five to eight looks at the eyes'
 /// pace while they follow a face (250 ms, up to 350 ms on a 10 fps camera,
-/// `main.rs`). With `--steady-rate` a still face is looked at every 500 ms,
-/// four or five looks a window: mostly `unknown`, and right in under half
-/// the rest (docs/eyes.md).
+/// `main.rs`). With `--steady-rate` a still face is looked at 500 to 600 ms
+/// apart, four looks a window, under `LEAST_LOOKS`: always `unknown`
+/// (docs/eyes.md).
 pub const WINDOW_US: u64 = 2_000_000;
 /// The looks a window needs before it says anything.
 pub const LEAST_LOOKS: usize = 5;
@@ -435,7 +435,7 @@ mod tests {
     /// judged right for a still face and a talking one.
     #[test]
     fn margins() {
-        for pace in [(250_000, 350_000), (450_000, 550_000)] {
+        for pace in [(250_000, 350_000), (500_000, 600_000)] {
             for jitter in [0.3, 0.5, 1.0] {
                 for eyes_px in [24.0, 30.0, 40.0, 60.0] {
                     let still = share(
@@ -463,7 +463,20 @@ mod tests {
                     // What docs/eyes.md rests on: at the eyes' pace while they
                     // follow a face it holds (both at least 0.9) only at 0.3 px of
                     // jitter and 60 px between the eyes; 0.3 px at 40 px and 0.5 px
-                    // at 60 px fall just short; at --steady-rate's 500 ms nowhere.
+                    // at 60 px fall just short; at --steady-rate's 500 to 600 ms
+                    // it is never wrong, only `unknown`.
+                    if pace.0 >= 500_000 {
+                        for talk in [false, true] {
+                            let scene = Scene {
+                                eyes_px,
+                                jitter,
+                                pace,
+                                talk,
+                                ..STILL
+                            };
+                            assert_eq!(share(scene, SpeakingState::Unknown), 1.0);
+                        }
+                    }
                     let holds = still >= 0.9 && talk >= 0.9;
                     let expected = pace.0 < 300_000 && (jitter, eyes_px as u32) == (0.3, 60);
                     assert_eq!(

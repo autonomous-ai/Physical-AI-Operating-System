@@ -21,14 +21,15 @@ of the lines addressed to a similar name.
 
 ## The process
 
-    lamp-name --models ABSOLUTE_DIR [--microphone mic1|mic2] [--least SCORE] [--bus-root ABSOLUTE_DIR]
-    lamp-name check MODELS_DIR FILE...
+    lamp-name --models ABSOLUTE_DIR [--microphone mic1|mic2] [--least SCORE] [--quiet-below DBFS] [--bus-root ABSOLUTE_DIR]
+    lamp-name check MODELS_DIR [--quiet-below DBFS] FILE...
 
 | Option | What it is | If left out |
 |---|---|---|
 | `--models` | A directory holding `melspectrogram.onnx`, `embedding_model.onnx` and `name.onnx` | required |
 | `--microphone` | Whose sound to listen to: the topic `mic1/audio` or `mic2/audio` | `mic2` |
 | `--least` | The score from which the name counts as heard, from 0.5 to 1 | 0.9 |
+| `--quiet-below` | A level in dBFS, from -90 to -20: the models rest while the last 2.03 s held no sample this loud ("Resting while the room is quiet") | off: the models always run |
 | `--bus-root` | The bus's directory | `LAMP_BUS_ROOT`, or `/run/lampos-bus` |
 
 It is its own process: with it gone the lamp talks on as before, and
@@ -57,8 +58,10 @@ its test is `a_hearing_is_first_signed_as_it_begins_and_said_when_it_falls`.
 
 **It keeps no sound.** Samples are held for about a fifth of a second,
 until they have been turned into the numbers its models work on, and of
-those it holds the last two seconds' worth. Nothing is written down and
-there is no option to. Its log holds counts, times and scores.
+those it holds the last two seconds' worth. With `--quiet-below` it also
+holds the newest 2.11 s of samples in its memory, to start the models on
+when a sound comes. Nothing is written down and there is no option to.
+Its log holds counts, times, scores and levels.
 
 ## Where the sound comes from
 
@@ -107,6 +110,51 @@ before they give a score again. A hearing that was open at that moment is
 said then, dated from its first high score (it was dated 0.8 s earlier
 than that until 2026-10-14, which left a call 0.7 s, not 1.5 s, to count
 for the request after it).
+
+## Resting while the room is quiet
+
+Run every 80 ms all day, the models cost lamp-4ace 750 steps of 9.3 ms a
+minute: about 12% of one core with nobody speaking, and the board warmed
+to 75 °C overnight, past the 70 at which it slows itself (#705). With
+`--quiet-below DBFS` they rest while the room is quiet (`src/quiet.rs`).
+
+- **What it rests on.** A score is of the newest 2.03 s of sound and of
+  nothing before them (25 chunks for the first model, whose frames make
+  the sixteen embeddings the last one takes: `hear::WINDOW`). A step
+  whose 2.03 s held no 20 ms block with a sample at the bar or above is
+  of a quiet room, and is not worked out. It is counted as `rested`.
+- **The same scores.** The newest 2.11 s are kept. At the first block at
+  the bar, the models start afresh on them, from the step where the
+  first score whose 2.03 s hold that block begins. Steps stay counted
+  from the last start, gap or lost sound, so that score and every one
+  after it is the number the models would have given had they never
+  rested. They rest again with the block that ends the last window to
+  hold the sound, and a hearing still open then is said.
+- **The cost.** The start at each sound after a rest: at most 25 steps of
+  the first model and 16 of the second, before the next live step. On a
+  laptop that block took 32 ms against a step's 2.1 ms, about fifteen
+  steps' work, so about 0.14 s at lamp-4ace's 9.3 ms a step, while a
+  score reaches the bar some 0.3 s or more into "Hey Lamp".
+- **Setting the bar.** The minute line says each 80 ms step's loudest
+  sample as `loudest_db_p50` and `loudest_db_p99`, with the switch on or
+  off. The bar goes at least 10 dB under the quietest call's loudest
+  20 ms, and over the empty room's level, both read on the lamp first.
+- **Tested** by `quiet.rs`'s tests, on a stand-in for the models whose
+  score is a checksum of exactly its own 2.03 s: every score after a
+  rest is the one with no rest
+  (`a_score_after_a_rest_is_the_score_without_one`); exactly the steps
+  whose 2.03 s held a block of sound are worked out
+  (`exactly_the_steps_whose_window_held_sound_are_worked_out`); the
+  models say when they rest (`the_models_say_when_they_rest`). Starting
+  one sample off the steps, one step late, or resting a step late each
+  fails one of them. With the real models,
+  `tests/quiet_models.rs` (ignored; it needs `LAMP_NAME_MODELS` and
+  `LAMP_NAME_SOUND`) gave the same score on every step worked out, to the
+  bit, on a laptop on 18 Oct: 70 of 770 steps worked out on 30 s of hiss,
+  a 3.6 s line and 30 s more; 578 of 639 on four speech files between
+  quiets of 1 to 4 s.
+- `lamp-name check MODELS_DIR --quiet-below DBFS FILE...` rests as the
+  program does, and says how many steps were worked out.
 
 ## How it says it is
 
@@ -178,6 +226,10 @@ With it the lamp's health has six parts reporting.
   A model of the same shape that also hears a bare "Lamp" was trained and
   measured off the lamp, to be tried in place of `name.onnx`:
   [bare-name.md](bare-name.md).
+- **Resting on the lamp.** The bar is not yet set: the room's level and
+  the quietest call at mic2 are to be read on lamp-4ace with the switch
+  off, and the saving and a call's `name/rising` time measured with it
+  on.
 - **A person.** Every voice was synthetic and played through a
   loudspeaker near the lamp. Real voices, accents, distance and a full
   office are untried, and are what the classifier has to be trained for.
@@ -187,7 +239,7 @@ With it the lamp's health has six parts reporting.
   lamp's microphone held at that moment cannot be gone back to. It was
   between two played lines, while or just after the lamp answered.
 - **Its own tests are small**: the rule for a hearing (three), the
-  options and the report (three). The models are not in the repository,
+  options and the report (three), resting (five). The models are not in the repository,
   so no test here runs them; `lamp-name check` and the measurement above
   are what exercises them.
 - **The classifier's training** is outside the repository and was one

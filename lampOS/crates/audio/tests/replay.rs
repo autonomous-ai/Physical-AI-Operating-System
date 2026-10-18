@@ -327,10 +327,17 @@ impl Fixture {
     fn output(&self, name: &str) -> PathBuf {
         self.root.join("artifacts").join(name)
     }
-    /// As a recording made before held steps were recorded: no
-    /// `reference_step` records.
-    fn drop_held_steps(&mut self) {
-        self.capture.retain(|row| row["kind"] != "reference_step");
+    /// Without its `reference_step` records, as a recording made before
+    /// they were kept; or with only the `which`-th (from 0) taken out.
+    fn drop_held_steps(&mut self, which: Option<usize>) {
+        let mut seen = 0;
+        self.capture.retain(|row| {
+            if row["kind"] != "reference_step" {
+                return true;
+            }
+            seen += 1;
+            which.is_some_and(|which| which + 1 != seen)
+        });
         self.save();
     }
 
@@ -1049,18 +1056,68 @@ fn a_recording_held_back_four_steps_replays_whole_with_its_held_steps() {
         0
     );
 
-    // The same recording made before held steps were recorded.
+    // The same recording made before held steps were recorded, as last
+    // night's: the hold is worked out from the first block's count and the
+    // held steps are timed between its read and its cursor. The step that
+    // hands the block on, and every step after, is checked as before. Here
+    // the first 60 blocks replay whole.
     let mut older = Fixture::capture_clocked_held(60, None, 4);
-    older.drop_held_steps();
+    older.drop_held_steps(None);
     let report = older
         .replay("older-held", ReplayOptions::default())
+        .unwrap();
+    assert!(
+        report.replay_complete_for_recorded_capture,
+        "{:?}",
+        report.limitations
+    );
+    assert_eq!(report.segments[0].held_reference_steps, 4);
+    assert!(report.segments[0].held_steps_inferred);
+    // Not bit for bit: the guessed times move the first takes by a fraction
+    // of a sample, and 18 of the 9,600 samples come out different here.
+    let differ = report.segments[0].aec_only_mismatched_samples_vs_recorded;
+    assert!(differ < 160, "{differ}");
+    // But a guessed time seeds the rate controller a little off, and over 300
+    // blocks the replayed ring falls a frame behind the lamp's: the cursor
+    // check stops it there, as it should. Recorded held steps don't drift.
+    let mut longer = Fixture::capture_clocked_held(300, None, 4);
+    longer.drop_held_steps(None);
+    let report = longer
+        .replay("older-held-longer", ReplayOptions::default())
         .unwrap();
     assert!(!report.replay_complete_for_recorded_capture);
     assert!(
         report
             .limitations
             .iter()
+            .any(|limit| limit.contains("the replayed reference had been read to frame")),
+        "{:?}",
+        report.limitations
+    );
+
+    // Refused: one recorded held step lost (the block would jump to step
+    // k + 5), and a hold beyond the voice's eight.
+    let mut lost = Fixture::capture_clocked_held(60, None, 4);
+    lost.drop_held_steps(Some(1));
+    let report = lost.replay("lost-held", ReplayOptions::default()).unwrap();
+    assert!(!report.replay_complete_for_recorded_capture);
+    assert!(
+        report
+            .limitations
+            .iter()
             .any(|limit| limit.contains("cursor, phase count or clock continuity")),
+        "{:?}",
+        report.limitations
+    );
+    let mut nine = Fixture::capture_clocked_held(60, None, 9);
+    nine.drop_held_steps(None);
+    let report = nine.replay("nine", ReplayOptions::default()).unwrap();
+    assert!(!report.replay_complete_for_recorded_capture);
+    assert!(
+        report
+            .limitations
+            .iter()
+            .any(|limit| limit.contains("beyond the voice's hold of at most 8")),
         "{:?}",
         report.limitations
     );

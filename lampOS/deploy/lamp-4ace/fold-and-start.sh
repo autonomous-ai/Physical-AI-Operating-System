@@ -93,7 +93,7 @@ read_arm() {
 
 step 1 "hands off the lamp for now; the operator checks that nothing moves it."
 run "systemctl is-active lamp-body" && [ "$DRY" = 0 ] && abort "lamp-body is running; it must stay stopped for the fold"
-run "pgrep -a -x lamp-body; pgrep -a -f '[e]lbow-recover|[l]amp-body-inspect'" && [ "$DRY" = 0 ] &&
+run "pgrep -a -x lamp-body || pgrep -a -f '[e]lbow-recover|[l]amp-body-inspect'" && [ "$DRY" = 0 ] &&
 	abort "a lamp-body or servo tool is running (above)"
 # Any process with the port or a motor lock open, found through /proc (no fuser needed).
 run "sudo sh -c 'ls -l /proc/[0-9]*/fd 2>/dev/null' | grep -E '$DEV|motor-[0-9]+-[0-9]+\.lock'" && [ "$DRY" = 0 ] &&

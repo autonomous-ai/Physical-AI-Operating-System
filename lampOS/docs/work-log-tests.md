@@ -1,5 +1,31 @@
 # Tests work log
 
+## 2026-10-18 07:55:19 +0700 — a full run at lamp-voice's head, #1434's review, the switch census, and a flaky lamp-update test
+
+My session paused from about 00:58 to 06:22 (a usage limit).
+
+**The full ARM64 run the first builder asked for (06:24):** 39079370774 at `b66716363`, green. 6,627 of 6,627 tests ran one at a time on four runners, realtime group included (504.5 s of test time), plus the doc and own-harness tests. The 04:20 nightly at `8e13fd4cc` already covered tonight's five merges (6,625 of 6,625).
+
+**#1433** merged: a comment on the existing save-order test, saying lamp-cloud relies on the whole order. Saving the link after the marker, or after the key, fails it.
+
+**#1434** (Second and Twelve's resend of a lost line) peer-reviewed at `541fec889`:
+- lamp-gemini 276/0 and lamp-voice 1,947/0.
+- With the switch off nothing changes, by reading both crates.
+- P2: no test pins the worker's off gate. Forced on, all 10 related tests still pass.
+
+**#1436, the switch census** (the first builder's 07:28):
+- Each `switches.md` row now says how it is counted, and a test works out the counts; the hand-kept count line is gone.
+- The hand count had drifted: 116 switches against 114. #926's and `d232f6a99`'s rows were added without it.
+- Rebased once already, over #1418's row.
+
+**#1437 / #1438, a flaky `lamp-update` test:**
+- The listener rightly drops a voice state older than 3 s, and the test published the state long before listening, so a stall of about 2.7 s on a loaded runner failed it.
+- Reproduced here with a 3.1 s stall. The state is now published just before listening.
+
+**Mistakes:**
+- **06:32:** I described a full run's head from a fetch made a minute earlier ("two more commits"; it was three). Corrected, and noted in my memory.
+- **06:34:** a wrong reading of Fourth's flaky test. I took its line number at lamp-voice's head, then read that line at #1415's head, a different revision, and found another test's clock attributes there. Fourth's finding was right, and I corrected it at 06:43.
+
 ## 2026-10-18 00:43:59 +0700 — #1412 and #1419 merged; #1317 closed
 
 Ready for lamp-voice: nothing open from me but #1373, which waits only on #1340.

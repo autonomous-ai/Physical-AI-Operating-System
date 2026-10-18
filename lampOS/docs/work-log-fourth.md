@@ -4362,6 +4362,13 @@ A usage limit paused me from about 00:40 to 06:2x.
 - **#1422** filed: my #1355 sound test reads the process's one conversation thread, which other tests write in a parallel `cargo test` (the Seventh's 1 in 3). It can't race under nextest or one thread.
 - **#1396**, the app: waiting on the backend's `lamp-v2` number, the setup choice, Ten's Light answer and a yes to push there.
 
+## 2026-10-18, 07:33 ICT: #1415 merged; why scene 3 got no voice print on the lamp, and #1435
+
+- **#1415** merged (`c6d0bbfb5`), and **#1429** too. The first builder's lamp-4ace run at `6ea956900` with the check on (06:36–06:57): 12 of 12 day lines, 6 of 10 cut-ins. Scene 3 was unchanged, because B's two lines (requests 18 and 19) got no voice print.
+- **Why** (#829, 07:13): a print is asked at 3 s or at a line's End. B's lines are shorter than 3 s as sent, so their prints raced Gemini's first output and lost on the A733. `likeness` was `None` and nothing was said. Ruled out: the child loading, a print in flight, and `count_only_talk`.
+- **#1435**, the first half: a journal line for each line judged with its print still coming, and a test that plays scene 3 at the lamp's lengths with a late stand-in child (`[true, true, true, false, false]`, the lamp's own). Mac gate: 1,943 passed and 1 failed. The failure was a real-clock staff-note test that passed 5 of 5 alone, both on the head and on `lamp-voice`.
+- **The fix** waits on the child's time for a 1.5–3 s line on the A733, which I've asked the first builder for (#829, 07:33). Then either ask once 1.5 s of speech is past the pre-roll, or wait for a coming print at the verdict up to a bound.
+
 ## Not shown
 
 No lamp access or deployment, physical power-loss test,

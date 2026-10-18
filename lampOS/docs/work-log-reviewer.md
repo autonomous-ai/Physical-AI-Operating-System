@@ -4,6 +4,48 @@
 
 Newest first. Times from `date` (+07). 00:12 to 01:40: the review agents stopped at a usage limit.
 
+- 07:16 merged #1431 (#1426's P3s: a run by hand keeps an installed build's fail; the build check tested)
+- 07:15 #1434 reviewed at 541fec889: four P2s (trace lines never written; a resent line goes alone, losing a continues line's first half; the 'spoken to the lamp' guard missing with no recorded yes to drop it, so room talk could go to the cloud twice; a fix-up commit leaves five commits that don't build), four P3s; asked the first builder for a yes or no on dropping the guard
+- 07:13 #1418 re-checked at 945e68e5e: no code findings, cloud-on.sh drop-in fixed with a test, lamp-06c1 plan matches; conflicts again in switches.md's count after #1397; merge after a rebase, range-diff and green ARM64
+- 07:10 merged #1397 (LAMP_PROVIDER_WRITES=patient, off unless set)
+- 07:07 #1425 re-checked at bb7e6b6a8: both P3s fixed, nothing new; gate 1945/0/11, ARM64 green; ready for the first builder's merge (06:24)
+- 07:00 #1415 merged by the first builder (06:58). #1434 ready (LAMP_RESEND_LOST_LINE, Step B); review started. #1421 moved to 45e8b5779
+- 06:59 #1430 reviewed at 729e276b8: one P2 (no test runs the real recorder loop with a mic1 hold and --diagnostics; one refused record loses the whole recording), one P3; off unless --diagnostics, no audio in the new rows; note for the first builder: #828's 06:36 chose the replay-only fix first, this changes the recorder, so last night's recording still can't replay
+- 06:57 #1431 moved to 42dfbbe34: the wording P3 fixed (comment and doc only); merge on green ARM64
+- 06:54 merged #1429 (the voice-check test on the paused clock; tests only)
+- 06:53 #1432 reviewed at d696278e8: no findings (cloud-on.sh's drop-in carries the os-server conflict); #1397 rebased to 4c9f483b8, count lines only, clean; both merge on green ARM64
+- 06:50 #1397 rebased to c0a299601 (count line only) but conflicts again after #1416; asked once more
+- 06:50 #1394 re-checked at 270fcfa1c (one commit, same diff, count 113): no P1/P2, merges clean; the first builder merges on green ARM64 (on in the product unit)
+- 06:48 #1431 reviewed at a89d3959b: #1426's P3s fixed; one wording P3; merge on green ARM64
+- 06:45 #1430 ready (replay-aec takes a held-back block's reference steps; urgent for the owner's 15:00 run); review started
+- 06:44 #1418 re-checked at f1207d122: both P2s fixed with tests that fail without them; two new P2s (conflicts in switches.md with #830's row; cloud-on.sh's drop-in needs Conflicts=os-server now the unit has none); P3 lamp-06c1's plan needs /var/lib/lampos-cloud
+- 06:39 #1425 reviewed at d3578a7ce: ready, two P3s (a told lost to a restart in between is not retried; tasks.md says marked told without --close-told); gate 151/0/0 and 1944/0/11, ARM64 green; the first builder merges it after their own look (06:24)
+- 06:39 #1429 reviewed at 1ada74c15: no findings, tests only; merge on green ARM64
+- 06:36 #1416 merged by the first builder (06:35). #1429 ready (the voice-check test on the paused clock; tests only); reviewing myself
+- 06:35 #1416 re-checked at 8fabd385c: ready (a comment and a doc paragraph since 80877cd5d; gate 1940/0/11, ARM64 green); the first builder merges it after their own look (06:24)
+- 06:31 merged #1426 (a self-test names its build; an older build's fail the new one can't check is a warning), on the first builder's 06:24 word; three P3s
+- 06:25 #1394 re-checked at c7b22b2e0: no P1/P2, the merge commit changes only switches.md's count; conflicts again in switches.md with today's lamp-voice
+- 06:24 merged #1428 (the stalls test touches 64 MiB, above glibc's mmap threshold; tests only, Seventh's clean peer review)
+- 06:23 merged #1424 (lamp-06c1's reset plan equal to the product's again)
+- 00:46 #1416 re-checked at 80877cd5d: all findings fixed (the say fixture replaced by a Piper libritts-high clip, gone from history); gate 1940/0/11 and 168/0/3, ARM64 green; two P3s from Seventh open; merging after Fifth's peer review, which the first builder asked for
+- 00:46 merged #1420 (cloud-on.sh for lamp-4ace's Sunday step 7; tooling)
+- 00:45 #1415 clean at 6ea956900 (all P2s fixed, gate and ARM64 green) but sent to the first builder: the 23:34 condition (the short follow-up answered) no longer holds on the lamp; needs the lamp-4ace scene 3 run
+- 00:45 #1421 reviewed at 496580e32: off unless set, at most one hum in 30 s, no mic change; four P3s (a cut nothing_said still silent, trace rows named as tap hums, switches.md count, loop wiring untested); ARM64 green; merging after Seventh's peer review, which the task asked for
+- 00:36 #1424 reviewed at 68238eb46: data and docs, equal to the product plan; one P3 (a test keeping the two equal); merge on green ARM64
+- 00:35 merged #1419 (fixture exec wait 30 s, tests only); closed #1317
+- 00:32 #1419 ready (fixture exec wait 3 s to 30 s, tests only, #1317); reviewing myself
+- 00:27 #1421 ready (LAMP_UNCLEAR_HUM: an empty 'Sorry?' gets the hm? and listening face); review started. #1415 moved to 6ea956900; re-check started
+- 00:27 #1418 reviewed at a0bad2a07: two P2s (the unit's Conflicts=os-server acts with LAMP_CLOUD unset, as install enables it under lampos.target; no test with and without the switch), P3 docs; gate 766/0/1, ARM64 green
+- 00:27 #1420 re-checked at 9444990d5: P3s fixed; merge on green ARM64
+- 00:20 merged #1412 (ring startup tests 3 s to under 1 s each; lamp code unchanged); noted on #1128
+- 00:16 merged #1413 (LAMP_SERVICE_DOWN_LINE, off unless set); #830 left open for its recording and step 8b
+- 00:15 #1420 reviewed at 863bb2576: three P3s (run ignores failures, two-part host not filtered, not enabled/undo leaves os-server stopped); tooling, merge on green ARM64
+- 00:10 #1418 ready (lamp-cloud on today's lamp-voice with setup's account path); review started
+- 00:07 #1415 reviewed at c97bd0943: two P2s (a short sound let through with a held answer ends the conversation; the 1.19 s line arrives at 1.8-2.1 s with pre-roll and end silence, so it is judged on the lamp, against the yes's condition), two P3s; ARM64 green
+- 00:06 #1416 reviewed at 975537b0c: one P2 (the fixture is macOS say output, whose licence keeps it off a public repo; redo with Piper libritts-high or a CC BY clip), three P3s; vendored sonora matches crates.io 0.2.0 plus PATCH.md; off unless set
+- 00:04 #1414 ARM64 green at 0c9bcd9f4 but held: the first builder's 23:49 dry run on lamp-4ace found two wrong paths (lamp-body-inspect, body-integration.sh runs from the Mac); merges after the fix
+- 23:57 #1413 moved to cece19c47: the three P3s answered in docs only (range-diff); merge on green ARM64 there
+- 23:53 #1413 reviewed at a718af411: off unless set, three P3s (relay-outage wording left in switches.md/offline.md; an older lamp-voice rejects a recordings list naming the new line; only decision and line choice tested); merge on green ARM64
 - 23:51 #1415 and #1416 ready; reviews started
 - 23:50 #1394 c7b22b2e0 is a merge commit; asked for one folded commit
 - 23:48 #1414 reviewed at 0c9bcd9f4: one P3 (step 1's pgrep pair takes the last exit only; the /proc fd check still guards); tooling, merge on green ARM64

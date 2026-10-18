@@ -765,7 +765,7 @@ and no picture is kept or leaves the lamp. Nothing reads it yet.
 - **The pace:** the eyes look every 250 ms while they follow a face, up to
   350 ms on the 10 fps camera (`main.rs`), so 2 s holds 5 to 8 looks. With
   `--steady-rate` a still face is looked at 500 to 600 ms apart, 4 looks a
-  window, so it is always `unknown`, never wrong (below).
+  window, under the 5 the score needs, so in practice `unknown` (below).
 - **How fast it answers** (looks every 250 to 350 ms): `yes` on the first
   look after talking starts (0.06 to 0.18 s), and held 1.3 to 1.8 s after
   it stops, the 2 s window emptying.

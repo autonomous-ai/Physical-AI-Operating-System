@@ -173,6 +173,23 @@ to be run. A minute of two real people at the lamp is to set it.
     call and A's remark, which only this rule holds) and `room_told`'s
     `with_the_switch_one_line_held_as_another_voice_ends_the_conversation`
     (with a sound let through, which ends nothing).
+- **A print not back at its answer's verdict** (lamp-4ace, 18 October, at
+  `6ea956900` with the check on; the first builder on #829, 06:54). A line
+  is asked for as soon as 3 s of it is heard, or else at its End, the
+  moment its input ends at Gemini. A shorter line's print then races
+  Gemini's first output, and on the lamp it lost: scene 3's "And what
+  about tomorrow?" (about 2.1 s as sent) and the umbrella line (about
+  2.5 s) were judged without the check and played, with no word in the
+  journal. B's late print then became the conversation's voice, since a
+  print that comes after its answer still does. The journal now says so
+  for each such line ("its voice print was not back at its answer:
+  judged without the check"). The fix waits on the child's time on the
+  A733: ask once a line has 1.5 s of its own speech, or wait for the print
+  at the verdict up to a bound. Tests:
+  `with_a_voice_check_whose_prints_come_late_the_scene_is_judged_without_it`
+  (the scene at the lamp's lengths with a stand-in child that answers a
+  line asked at its end after its verdict, as on the lamp) and
+  `a_print_is_coming_from_its_first_sample_until_it_comes`.
 - **The child is supervised, with bounds.** One that gives no answer to a
   line within 2 s (`ANSWER_WITHIN`) is killed and started again, with a
   journal line. One that ends 3 times in a row before it is ready

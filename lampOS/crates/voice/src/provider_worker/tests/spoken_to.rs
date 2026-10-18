@@ -1037,6 +1037,100 @@ async fn with_the_switch_and_a_voice_check_another_voice_ends_the_conversation()
     assert_eq!(scene(false, one_between()).await, [true; 3]);
 }
 
+/// Voice prints as [`TwoVoices`] makes them, but late for a line asked for
+/// at its end: only a line that reaches 3 s while it is heard is printed at
+/// once. One shorter, asked for at its end, is answered on the second look,
+/// after its answer's verdict, as the child on lamp-4ace answered requests
+/// 18 and 19 on 18 October (#829, the first builder at 06:54).
+#[derive(Default)]
+struct LatePrints {
+    ready: std::collections::VecDeque<(u64, std::result::Result<Vec<f32>, String>)>,
+    late: std::collections::VecDeque<(u64, std::result::Result<Vec<f32>, String>, bool)>,
+}
+
+impl crate::same_voice::Printer for LatePrints {
+    fn ask(&mut self, request: u64, samples: &[i16]) -> bool {
+        let print = if samples[0] > 0 {
+            vec![1.0, 0.0]
+        } else {
+            vec![0.0, 1.0]
+        };
+        if samples.len() >= crate::same_voice::MOST_SAMPLES {
+            self.ready.push_back((request, Ok(print)));
+        } else {
+            self.late.push_back((request, Ok(print), false));
+        }
+        true
+    }
+    fn answer(&mut self) -> Option<(u64, std::result::Result<Vec<f32>, String>)> {
+        if let Some(ready) = self.ready.pop_front() {
+            return Some(ready);
+        }
+        match self.late.front_mut() {
+            Some((_, _, looked)) if !*looked => {
+                *looked = true;
+                None
+            }
+            Some(_) => self
+                .late
+                .pop_front()
+                .map(|(request, print, _)| (request, print)),
+            None => None,
+        }
+    }
+}
+
+/// #829, lamp-4ace on 18 October at `6ea956900` with the check on: scene 3
+/// at the lamp's lengths, with the prints as the lamp's child gave them. A's
+/// call, 3 s and more as sent, is printed while it is heard. B's follow-up
+/// and umbrella line, shorter, are asked for only at their ends, and their
+/// prints come after their verdicts: both are judged without the check and
+/// played, as on the lamp, and B's late print becomes the conversation's
+/// voice. A's own remark after them, printed in time, is then the other
+/// voice. With every print in time, scene 3 goes as
+/// `with_the_switch_and_a_voice_check_another_voice_ends_the_conversation`
+/// says.
+#[tokio::test(start_paused = true)]
+async fn with_a_voice_check_whose_prints_come_late_the_scene_is_judged_without_it() {
+    let _clock = logical_clock();
+    let _mark = OwnMark::kept();
+    let _room = OwnRoom::fresh();
+    let mut options = options(true, attention_now, crate::tools::Settings::default());
+    options.voices = Some(Box::new(LatePrints::default()));
+    let mut rig = LiveRig::start_configured(
+        quick_policy(),
+        options,
+        BARRIER,
+        false,
+        Continuation::Off,
+        lamp_gemini::MAX_WIRE_BYTES * 2,
+        |config| {
+            config
+                .timeouts(lamp_gemini::Timeouts {
+                    unanswered: Some(Duration::from_millis(100)),
+                    ..Default::default()
+                })
+                .unwrap()
+        },
+    );
+    let mut dial = rig.ready().await;
+    // The pre-roll and the end silence, in 10 ms blocks, around each line's
+    // `say` length.
+    const SENT: u64 = 30 + 60;
+    let mut played = Vec::new();
+    for (voice, blocks, text) in [
+        (1, 295, "Hey Lamp, what is the weather like in Hanoi today?"),
+        (-1, 119, "And what about tomorrow?"),
+        (-1, 158, "I should bring an umbrella then."),
+        (1, 222, "Yes, and we should leave a bit early."),
+        (-1, 214, "Okay, I will book the car for eight."),
+    ] {
+        played.push(voice_line(&mut rig, &mut dial, false, voice, SENT + blocks, text, true).await);
+    }
+    rig.stop().await;
+    assert_eq!(played, [true, true, true, false, false]);
+}
+
 /// #829, through the worker's own loop, with a conversation going on: after
 /// Daniel's call is answered, a line of 1.5 s in another voice is held, and
 /// one in his is played. Said over the lamp, or with no voice check, the

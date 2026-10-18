@@ -28,7 +28,7 @@ pub const ENVIRONMENT: &str = "LAMP_EYES_SPEAKING";
 /// How far back a face's mouth is read: five to eight looks at the eyes'
 /// pace while they follow a face (250 ms, up to 350 ms on a 10 fps camera,
 /// `main.rs`). With `--steady-rate` a still face is looked at 500 to 600 ms
-/// apart, four looks a window, under `LEAST_LOOKS`: always `unknown`
+/// apart, four looks a window, under `LEAST_LOOKS`: in practice `unknown`
 /// (docs/eyes.md).
 pub const WINDOW_US: u64 = 2_000_000;
 /// The looks a window needs before it says anything.

@@ -20,6 +20,31 @@ const CONNECT: Duration = Duration::from_secs(10);
 /// For a streamed response to say anything more. A chat model thinking
 /// before its first word is the slowest case seen in V1 (6-19 s).
 const STALL: Duration = Duration::from_secs(30);
+/// For a warming request ([`warm`]) to be answered.
+const WARM_AT_MOST: Duration = Duration::from_secs(5);
+
+/// With `on`, a turn's start opens (or keeps) the chat's and the speech's
+/// connections while the person is still speaking ([`warm`], #779). Off
+/// unless set.
+pub const WARM_ENVIRONMENT: &str = "LAMP_SECOND_WARM";
+
+/// Whether this worker warms its connections, read once.
+pub fn warms() -> bool {
+    std::env::var_os(WARM_ENVIRONMENT).as_deref() == Some(std::ffi::OsStr::new("on"))
+}
+
+/// Open, or keep, the client's pooled connection to `url`'s host before the
+/// request that needs it: a GET whose answer, whatever its status, is read
+/// and dropped. No key is sent, and a failure is dropped: the request then
+/// connects as it always did. A new connection to the company relay takes
+/// about 0.3 s (DNS, TCP and TLS, lamp-52e6 on 18 October), which a chat
+/// asked at the end of a line otherwise waits for; the relay keeps an idle
+/// one at least 100 s, past the client's 90 s.
+async fn warm(client: &reqwest::Client, url: &str) {
+    if let Ok(response) = client.get(url).timeout(WARM_AT_MOST).send().await {
+        let _ = response.bytes().await;
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Error {

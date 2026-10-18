@@ -43,6 +43,9 @@ pub struct Net {
     config: Arc<SecondConfig>,
     chat: Arc<Chat>,
     tts: Arc<Tts>,
+    /// Each utterance opened also warms the chat's and the speech's
+    /// connections ([`net::warms`]).
+    warm: bool,
 }
 
 impl Net {
@@ -52,6 +55,7 @@ impl Net {
             chat: Arc::new(Chat::new(&config, declare)?),
             tts: Arc::new(Tts::new(&config)?),
             config: Arc::new(config),
+            warm: net::warms(),
         })
     }
 }
@@ -59,7 +63,15 @@ impl Net {
 impl Services for Net {
     fn listen(&self) -> BoxFuture<'static, net::Result<Box<dyn Listener>>> {
         let config = self.config.clone();
+        let warm = self.warm.then(|| (self.chat.clone(), self.tts.clone()));
         Box::pin(async move {
+            // While the person speaks: the chat at the line's end, and the
+            // speech after it, find their connections open.
+            if let Some((chat, tts)) = warm {
+                tokio::spawn(async move {
+                    tokio::join!(chat.warm(), tts.warm());
+                });
+            }
             let stream = SttStream::connect(&config).await?;
             Ok(Box::new(stream) as Box<dyn Listener>)
         })

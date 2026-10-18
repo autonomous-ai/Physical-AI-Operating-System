@@ -117,6 +117,8 @@ pub type Declare = Arc<dyn Fn() -> Vec<lamp_gemini::Tool> + Send + Sync>;
 pub struct Chat {
     client: reqwest::Client,
     url: String,
+    /// The same host's model list, for [`Chat::warm`].
+    models: String,
     auth: String,
     model: String,
     declare: Declare,
@@ -136,6 +138,7 @@ impl Chat {
         Ok(Self {
             client: http_client()?,
             url: format!("{}/chat/completions", openai_base(base_url)),
+            models: format!("{}/models", openai_base(base_url)),
             auth: format!("Bearer {key}"),
             model: model.to_owned(),
             declare,
@@ -150,6 +153,11 @@ impl Chat {
             body["tools"] = Value::Array(tools);
         }
         body
+    }
+
+    /// Open, or keep, the connection the next [`Chat::send`] will use.
+    pub async fn warm(&self) {
+        super::warm(&self.client, &self.models).await;
     }
 
     pub async fn send(&self, messages: &[Message]) -> Result<ChatStream> {
@@ -544,5 +552,57 @@ data: [DONE]
         assert!(request.starts_with("post /v1/chat/completions http/1.1"));
         assert!(request.contains("authorization: bearer secret"));
         assert!(!request.contains("\"tools\""));
+    }
+
+    /// #779: warming asks the host's model list with no key, and the chat
+    /// asked after it goes over the same connection, so it waits for no
+    /// connect (about 0.3 s to the company relay).
+    #[tokio::test]
+    async fn a_warmed_chat_uses_the_connection_warming_opened() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut seen = Vec::new();
+            let mut buffer = [0; 4096];
+            while !String::from_utf8_lossy(&seen).contains("\r\n\r\n") {
+                let n = socket.read(&mut buffer).await.unwrap();
+                seen.extend_from_slice(&buffer[..n]);
+            }
+            let warm = String::from_utf8_lossy(&seen).to_lowercase();
+            socket
+                .write_all(b"HTTP/1.1 200 OK\r\ncontent-length: 2\r\n\r\n{}")
+                .await
+                .unwrap();
+            // The chat, on the same socket.
+            let mut asked = Vec::new();
+            while !String::from_utf8_lossy(&asked).contains("\"stream\":true") {
+                let n = socket.read(&mut buffer).await.unwrap();
+                assert!(n > 0, "the chat came on another connection");
+                asked.extend_from_slice(&buffer[..n]);
+            }
+            socket
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\ncontent-type: text/event-stream\r\nconnection: close\r\n\r\n\
+                      data: {\"choices\":[{\"delta\":{\"content\":\"Hi.\"}}]}\n\ndata: [DONE]\n\n",
+                )
+                .await
+                .unwrap();
+            (warm, String::from_utf8(asked).unwrap().to_lowercase())
+        });
+        let chat = Chat::with(
+            &format!("http://{address}/v1/"),
+            "m",
+            "secret",
+            Arc::new(Vec::new),
+        )
+        .unwrap();
+        chat.warm().await;
+        let mut stream = chat.send(&[Message::user("hello")]).await.unwrap();
+        while stream.next().await.unwrap().is_some() {}
+        let (warm, asked) = server.await.unwrap();
+        assert!(warm.starts_with("get /v1/models http/1.1"), "{warm}");
+        assert!(!warm.contains("authorization"), "warming sends no key");
+        assert!(asked.starts_with("post /v1/chat/completions http/1.1"));
     }
 }

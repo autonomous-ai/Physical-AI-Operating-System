@@ -439,6 +439,21 @@ while Gemini is down:
 Not yet met on lamp-52e6 (median about 3.9 s at 23:30). The relay's speed
 and a direct provider key are the owner's and the relay team's.
 
+**Warm connections (`LAMP_SECOND_WARM=on`, off unless set, passed to the
+second route's worker only).** A new connection to the company relay takes
+about 0.3 s from lamp-52e6 (DNS, TCP and TLS; median 0.30 s, 0.22 to 0.59 s,
+18 October). The chat and speech clients keep a connection idle for 90 s,
+and the backup voice is used rarely, so its first turn after a pause paid
+that at the line's end. With the switch, opening speech to text for a line
+also sends a GET for the chat host's model list and one for the speech
+host, with no key, whose answers are read and dropped: the chat at the
+line's end and the speech after it find their connections open. The relay
+keeps an idle connection at least 100 s. A failed warm-up changes nothing:
+the request connects as before.
+(`net::chat::tests::a_warmed_chat_uses_the_connection_warming_opened`.)
+That same morning the relay itself took 4 to 11 s (median) to answer, so
+its own speed still decides most of the wait.
+
 A switch on a response timeout cannot meet the first (above).
 
 ## Timing the first words (#828)

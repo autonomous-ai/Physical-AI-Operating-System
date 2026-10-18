@@ -172,6 +172,11 @@ impl Tts {
         })
     }
 
+    /// Open, or keep, the connection the next [`Tts::speak`] will use.
+    pub async fn warm(&self) {
+        super::warm(&self.client, &self.base_url).await;
+    }
+
     /// Start speaking `text`; its samples come from the stream as they
     /// arrive. Dropping the stream stops the download.
     pub async fn speak(&self, text: &str) -> Result<TtsStream> {

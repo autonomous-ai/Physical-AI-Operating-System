@@ -771,6 +771,10 @@ fn worker_command(
             role,
             var(crate::quiet_pace::EVIDENCE_ENVIRONMENT).as_deref(),
         ))
+        .envs(second_warm_worker_environment(
+            role,
+            var(crate::second_provider::net::WARM_ENVIRONMENT).as_deref(),
+        ))
         .envs(vad_input_worker_environment(
             role,
             var(crate::activity::INPUT_ENVIRONMENT).as_deref(),
@@ -825,6 +829,15 @@ fn quiet_evidence_worker_environment(
 ) -> Option<(&'static str, &'static str)> {
     (role == "capture" && value == Some(std::ffi::OsStr::new("on")))
         .then_some((crate::quiet_pace::EVIDENCE_ENVIRONMENT, "on"))
+}
+
+// The second route's warmed connections (#779), to the second route only.
+fn second_warm_worker_environment(
+    role: &str,
+    value: Option<&std::ffi::OsStr>,
+) -> Option<(&'static str, &'static str)> {
+    (role == "second" && value == Some(std::ffi::OsStr::new("on")))
+        .then_some((crate::second_provider::net::WARM_ENVIRONMENT, "on"))
 }
 
 // The detector's input (#828), to the one worker that runs it: capture,
@@ -896,6 +909,12 @@ mod tests {
                         quiet_evidence_worker_environment,
                         "LAMP_QUIET_EVIDENCE",
                         ["capture"].as_slice(),
+                    ),
+                    // The second route's warmed connections.
+                    (
+                        second_warm_worker_environment,
+                        "LAMP_SECOND_WARM",
+                        ["second"].as_slice(),
                     ),
                 ] {
                     // Observe an actual child's environment without changing this
@@ -978,6 +997,7 @@ mod tests {
                     crate::rules::ENVIRONMENT,
                     crate::local_time::KERNEL_CLOCK_ENVIRONMENT,
                     crate::quiet_pace::EVIDENCE_ENVIRONMENT,
+                    crate::second_provider::net::WARM_ENVIRONMENT,
                 ]
                 .contains(&name)
                 {
@@ -1035,6 +1055,7 @@ mod tests {
                     "LAMP_KERNEL_CLOCK=on",
                     "LAMP_MEMORY_DAYS=on",
                     "LAMP_PERSON_NAME=/etc/lampOS/person/name",
+                    "LAMP_SECOND_WARM=on",
                 ],
             ),
             (

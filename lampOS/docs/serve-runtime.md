@@ -363,8 +363,19 @@ echo stayed 4–7 dB under (#828, 17 October 08:01). So with the switch the
 detector may score the lamp's own speech as speech for most of its talk,
 opening the "no speech" gate that held most of the stop lines' blocks, and
 leaving the explained share and the floor (`audio/src/duplex.rs`) alone
-against false yields. The replay that decides it reads the `vad` share over
-the lamp-alone seconds as well as over the stop. Capture says at start that
+against false yields. Those two are what the duplex turn-taking (every unit's
+`--turn-taking duplex`) applies to each speech-like block while the lamp
+sounds: a block the render explains more than 75 % of is the lamp's own
+(`Heard::Own`, no yield, a score of 0 to the turn's start). In the 18 October
+mic2 rehearsal (#828, 07:40, played lines) every lamp-alone block the linear
+output scored as speech was 93 % explained or more, so own, while the stop
+blocks were 94 % at the median and 0 % at the p10: the share alone says the
+lamp is not heard as a person, and the open question is whether a stop gives
+the seven `Over` blocks in a row that yield. `hearing_replay REPLAY_DIR
+--signal aec_linear [--explained N]` scores the linear output through those
+rules, `over_run` counting the blocks in a row, so a replay shows both the
+lamp-alone false yields and the stops caught, at today's 75 % or another
+share. The replay that decides it reads both. Capture says at start that
 the detector reads the linear output, and once a minute on how many blocks
 it did (for example `the speech detector read the linear output on 5990 of
 6000 blocks in the last 60 s`, not a measured figure): 0 would mean the switch

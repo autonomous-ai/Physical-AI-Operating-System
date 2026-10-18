@@ -5,18 +5,25 @@
 //! device result: the replayed canceller ran on the host.
 //!
 //! ```text
-//! hearing_replay REPLAY_DIR
+//! hearing_replay REPLAY_DIR [--signal aec_only|aec_linear|aec_ns|pre_aec] [--explained PERCENT]
 //! ```
 //!
 //! For each replayed capture block (`capture_pair` in `operations.jsonl`),
-//! the AEC-only output (`segment-001-aec_only.wav`) is scored by the voice's
-//! own detector, one stream as the coordinator runs it, and the block is
-//! judged by `Hearing::EVALUATED` against the replayed canceller's own echo
-//! evidence, as the duplex rules judge it. It writes
-//! `REPLAY_DIR/segment-001-hearing.tsv`, one line per block with the time
-//! the lamp read it, so that a played word's own time finds its blocks.
-//! Nothing is decided here: yields and stops are counted from the table. A
-//! replay of more than one segment is refused.
+//! one replayed signal (`segment-001-<signal>.wav`, the AEC-only output by
+//! default; `aec_linear` is what `LAMP_VAD_INPUT=linear` scores) is scored by
+//! the voice's own detector, one stream as the coordinator runs it, and the
+//! block is judged by `Hearing::EVALUATED` against the AEC-only canceller's
+//! echo evidence, as the duplex rules judge it. `--explained` changes only
+//! `explained_percent`, the share of the block the render may explain for
+//! speech over the lamp to be a person (#828: on the linear output the lamp
+//! alone was 93 % explained or more, a played stop 0 % at its p10). It
+//! writes `REPLAY_DIR/segment-001-hearing.tsv` for the default, and
+//! `segment-001-<signal>[-explained-N]-hearing.tsv` otherwise, one line per
+//! block with the time the lamp read it, so that a played word's own time
+//! finds its blocks; `over_run` counts the blocks heard as a person over the
+//! lamp in a row, so a run of `Confirmation::EVALUATED.onset_blocks` (7) is
+//! where the lamp would yield. Nothing is decided here: yields and stops are
+//! counted from the table. A replay of more than one segment is refused.
 use lamp_audio::{
     CAPTURE_SAMPLES, CaptureBlock,
     duplex::{Heard, Hearing},
@@ -33,25 +40,55 @@ use std::{
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 fn main() -> Result<()> {
-    let mut args = std::env::args().skip(1);
-    let (Some(directory), None) = (args.next(), args.next()) else {
-        return Err(io::Error::other("usage: hearing_replay REPLAY_DIR").into());
+    let usage = || {
+        io::Error::other(
+            "usage: hearing_replay REPLAY_DIR [--signal aec_only|aec_linear|aec_ns|pre_aec] [--explained PERCENT]",
+        )
     };
+    let mut args = std::env::args().skip(1);
+    let directory = args.next().ok_or_else(usage)?;
     let directory = Path::new(&directory);
+    let mut hearing = Hearing::EVALUATED;
+    let (mut signal, mut explained) = ("aec_only".to_owned(), None);
+    while let Some(flag) = args.next() {
+        let value = args.next().ok_or_else(usage)?;
+        match flag.as_str() {
+            "--signal"
+                if ["aec_only", "aec_linear", "aec_ns", "pre_aec"].contains(&value.as_str()) =>
+            {
+                signal = value;
+            }
+            "--explained" => {
+                let percent: u8 = value.parse()?;
+                if percent > 100 {
+                    return Err(usage().into());
+                }
+                hearing.explained_percent = percent;
+                explained = Some(percent);
+            }
+            _ => return Err(usage().into()),
+        }
+    }
+    let table_name = match (signal.as_str(), explained) {
+        ("aec_only", None) => "segment-001-hearing.tsv".to_owned(),
+        (signal, None) => format!("segment-001-{signal}-hearing.tsv"),
+        (signal, Some(percent)) => format!("segment-001-{signal}-explained-{percent}-hearing.tsv"),
+    };
     let report: Value = serde_json::from_slice(&fs::read(directory.join("report.json"))?)?;
     let segments = report["segments"].as_array().map_or(0, Vec::len);
     if segments != 1 {
         return Err(io::Error::other(format!("{segments} segments; only one is read")).into());
     }
-    let samples: Vec<i16> = hound::WavReader::open(directory.join("segment-001-aec_only.wav"))?
-        .into_samples::<i16>()
-        .collect::<std::result::Result<_, _>>()?;
-    let mut table = BufWriter::new(fs::File::create(directory.join("segment-001-hearing.tsv"))?);
+    let samples: Vec<i16> =
+        hound::WavReader::open(directory.join(format!("segment-001-{signal}.wav")))?
+            .into_samples::<i16>()
+            .collect::<std::result::Result<_, _>>()?;
+    let mut table = BufWriter::new(fs::File::create(directory.join(&table_name))?);
     writeln!(
         table,
-        "block\tread_at_us\tvad\trender_quiet\tmatched\tcapture_explained\tresidual_floor\talignment_age\tcapture_tenths\tresidual_tenths\theard\tplain"
+        "block\tread_at_us\tvad\trender_quiet\tmatched\tcapture_explained\tresidual_floor\talignment_age\tcapture_tenths\tresidual_tenths\theard\tplain\tover_run"
     )?;
-    let hearing = Hearing::EVALUATED;
+    let mut over_run = 0u32;
     let mut detector = SpeechProbability::default();
     let mut blocks = 0usize;
     let operations = io::BufReader::new(fs::File::open(directory.join("operations.jsonl"))?);
@@ -82,9 +119,14 @@ fn main() -> Result<()> {
             (heard, hearing.plain(heard, &evidence))
         });
         let matched = evidence.and_then(|evidence| evidence.echo);
+        over_run = if heard == Heard::Over {
+            over_run + 1
+        } else {
+            0
+        };
         writeln!(
             table,
-            "{blocks}\t{read_at}\t{probability:.4}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{heard:?}\t{}",
+            "{blocks}\t{read_at}\t{probability:.4}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{heard:?}\t{}\t{over_run}",
             evidence.map_or(-1, |evidence| i32::from(evidence.render_quiet_blocks)),
             u8::from(matched.is_some()),
             matched.map_or(0, |m| m.capture_explained),
@@ -97,6 +139,6 @@ fn main() -> Result<()> {
         blocks += 1;
     }
     table.flush()?;
-    eprintln!("hearing_replay: {blocks} blocks");
+    eprintln!("hearing_replay: {blocks} blocks of {signal} in {table_name}");
     Ok(())
 }

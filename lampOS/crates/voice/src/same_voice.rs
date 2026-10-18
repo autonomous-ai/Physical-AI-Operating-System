@@ -24,7 +24,7 @@
 //!   judged. Over the lamp's voice the model hears the lamp: on lamp-4ace's
 //!   recordings it was right no more often than chance.
 //! - **Only a line of [`LEAST_SAMPLES`] or more**, of which the first
-//!   [`MOST_SAMPLES`] are judged, asked for as soon as they are heard.
+//!   [`ASKED_AT`] are judged, asked for as soon as they are heard.
 //! - **The conversation's voice** is the last voice the lamp answered that
 //!   was long enough to know. An answered line too short to know keeps it,
 //!   unless it began a conversation of its own (answered for its name or a
@@ -55,8 +55,18 @@ pub const RATE: usize = 16_000;
 /// A line shorter than this is not judged: 1.5 s. Under it, the same voice
 /// was taken for another 7.7% of the time on lamp-4ace's recordings.
 pub const LEAST_SAMPLES: usize = RATE * 3 / 2;
-/// The first this much of a line is judged: 3 s, what the child takes.
+/// The most of a line the child takes: 3 s.
 pub const MOST_SAMPLES: usize = RATE * 3;
+/// A line is asked for as soon as this much of it is heard, and only this
+/// much is judged: the 0.3 s pre-roll each request begins with, then 1.5 s.
+/// Asked for at 3 s or at their ends, scene 3's two short lines were printed
+/// after their answers' first output on lamp-4ace on 18 October (#829). On
+/// lamp-4ace's October recordings the first 1.8 s told the voices apart no
+/// worse than the first 3 s, and the first 1.5 s took 6 of 37 same-voice
+/// pairs for two (`docs/verification/same-voice-early-20261018`).
+pub const ASKED_AT: usize =
+    LEAST_SAMPLES + crate::activity::PRE_ROLL_BLOCKS * lamp_audio::CAPTURE_SAMPLES;
+const _: () = assert!(ASKED_AT <= MOST_SAMPLES);
 /// Two prints with a cosine under this are plainly two voices. With both
 /// clips 1.5 s or longer and the lamp quiet, on lamp-4ace's recordings of
 /// three synthetic voices (`docs/verification/same-voice-20261015`), it
@@ -345,6 +355,7 @@ fn child(
         let Ok((request, samples)) = jobs.recv() else {
             return Ended::Closed;
         };
+        let asked = Instant::now();
         let mut frame = Vec::with_capacity(12 + samples.len() * 2);
         frame.extend(request.to_le_bytes());
         frame.extend((samples.len() as u32).to_le_bytes());
@@ -354,6 +365,16 @@ fn child(
             return Ended::Failed(error.to_string(), true);
         }
         let answer = next(timing.answer_within).and_then(|line| answer(&line, request));
+        // From its ask to its answer, so that a run with the check on times
+        // the child on the lamp (#829: a short line's print lost to
+        // Gemini's first output on the A733, which had never been timed).
+        if answer.is_ok() {
+            eprintln!(
+                "lamp-voice provider: request {request}: its voice print came {} ms after it was asked ({:.2} s of sound)",
+                asked.elapsed().as_millis(),
+                samples.len() as f32 / RATE as f32
+            );
+        }
         let failed = answer.as_ref().err().cloned();
         if told
             .send((request, answer.map_err(|why| format!("no print: {why}"))))
@@ -444,7 +465,7 @@ impl<P: Printer> Voices<P> {
     pub fn began(&mut self, request: u64, judged: bool) {
         self.clip = judged.then(|| Clip {
             request,
-            samples: Vec::with_capacity(MOST_SAMPLES),
+            samples: Vec::with_capacity(ASKED_AT),
         });
     }
 
@@ -453,10 +474,10 @@ impl<P: Printer> Voices<P> {
         let Some(clip) = self.clip.as_mut().filter(|clip| clip.request == request) else {
             return;
         };
-        let room = MOST_SAMPLES - clip.samples.len();
+        let room = ASKED_AT - clip.samples.len();
         clip.samples
             .extend_from_slice(&samples[..samples.len().min(room)]);
-        if clip.samples.len() == MOST_SAMPLES {
+        if clip.samples.len() == ASKED_AT {
             self.ask();
         }
     }
@@ -486,6 +507,12 @@ impl<P: Printer> Voices<P> {
             }
             self.asked.push_back(clip.request);
         } else {
+            // The line is then judged without the check: said, not
+            // silently (the reviewer on #1435).
+            eprintln!(
+                "lamp-voice provider: request {}: no voice print: the same-voice child was busy (loading its model or printing another line)",
+                clip.request
+            );
             self.unprinted(clip.request);
         }
     }
@@ -560,6 +587,24 @@ impl<P: Printer> Voices<P> {
         Some(likeness)
     }
 
+    /// Why the line `request`, long enough to know, has no verdict from
+    /// [`Self::likeness`]: its own print still on its way, the
+    /// conversation's, or no voice of the conversation known, in which
+    /// case waiting for its print would change nothing (the reviewer on
+    /// #1435). None for a line judged, too short to know, said over the
+    /// lamp, or whose print could not be asked for.
+    pub fn unjudged(&self, request: u64) -> Option<&'static str> {
+        let coming = self.print_coming(request);
+        if self.judged == Some(request) || !coming && self.print(request).is_none() {
+            return None;
+        }
+        match (&self.conversation, self.answered) {
+            (Some(_), _) => coming.then_some("its voice print was not back at its answer"),
+            (None, Some(_)) => Some("the conversation's voice print was not back at its answer"),
+            (None, None) => Some("no voice of the conversation is known"),
+        }
+    }
+
     /// The answer to the line `request` was judged: let out (`played`) or
     /// not, as part of a conversation going on (`going_on`) or not.
     pub fn decided(&mut self, request: u64, played: bool, going_on: bool) {
@@ -571,12 +616,7 @@ impl<P: Printer> Voices<P> {
             self.conversation = Some(print.clone());
             return;
         }
-        let coming = self.asked.contains(&request)
-            || self
-                .clip
-                .as_ref()
-                .is_some_and(|clip| clip.request == request);
-        if coming {
+        if self.print_coming(request) {
             self.answered = Some((request, !going_on));
         } else if !going_on {
             self.conversation = None;
@@ -660,25 +700,82 @@ mod tests {
         assert!(!voices.print_coming(10));
     }
 
+    /// The reviewer on #1435: a line long enough to know but judged without
+    /// the check says what was missing: its own print, the conversation's,
+    /// or any voice of the conversation. A line judged, too short to know,
+    /// said over the lamp, or that the child was too busy to take, says
+    /// nothing here.
     #[test]
-    fn a_line_is_judged_from_its_first_three_seconds_when_it_is_long_enough_and_said_with_the_lamp_quiet()
-     {
+    fn a_line_judged_without_the_check_says_which_print_was_missing() {
+        let mut voices = Voices::new(StandIn {
+            slow: true,
+            ..StandIn::default()
+        });
+        said(&mut voices, 1, 1, 48_000);
+        assert_eq!(voices.likeness(1), None);
+        assert_eq!(
+            voices.unjudged(1),
+            Some("no voice of the conversation is known")
+        );
+        // Line 1 let out, its print still to come: line 2 waits on it.
+        voices.decided(1, true, false);
+        said(&mut voices, 2, -1, 48_000);
+        assert_eq!(voices.likeness(2), None);
+        assert_eq!(
+            voices.unjudged(2),
+            Some("the conversation's voice print was not back at its answer")
+        );
+        // Both come: line 3's own is still to come.
+        voices.printer.slow = false;
+        voices.poll();
+        voices.printer.slow = true;
+        said(&mut voices, 3, -1, 48_000);
+        assert_eq!(voices.likeness(3), None);
+        assert_eq!(
+            voices.unjudged(3),
+            Some("its voice print was not back at its answer")
+        );
+        voices.printer.slow = false;
+        assert_eq!(voices.likeness(3), Some(0.0));
+        assert_eq!(voices.unjudged(3), None);
+        said(&mut voices, 4, 1, LEAST_SAMPLES - 320);
+        assert_eq!(voices.likeness(4), None);
+        assert_eq!(voices.unjudged(4), None);
+        voices.began(5, false);
+        voices.heard(5, &[1; 320]);
+        voices.ended(5);
+        assert_eq!(voices.unjudged(5), None);
+        voices.printer.busy = true;
+        said(&mut voices, 6, 1, 48_000);
+        assert_eq!(voices.likeness(6), None);
+        assert_eq!(voices.unjudged(6), None);
+    }
+
+    #[test]
+    fn a_line_is_judged_from_its_first_1_8_s_when_it_is_long_enough_and_said_with_the_lamp_quiet() {
         let mut voices = Voices::new(StandIn::default());
-        // 3 s and more: asked for at 3 s, before the line ends.
+        // 1.8 s and more: asked for at 1.8 s, while it is still heard (#829:
+        // asked for at its end, a short line's print came too late on the
+        // lamp).
         voices.began(1, true);
-        for _ in 0..150 {
+        for _ in 1..ASKED_AT / 320 {
             voices.heard(1, &[1; 320]);
         }
-        assert_eq!(voices.printer.asked, [(1, MOST_SAMPLES)]);
+        assert!(voices.printer.asked.is_empty());
+        voices.heard(1, &[1; 320]);
+        assert_eq!(voices.printer.asked, [(1, ASKED_AT)]);
+        for _ in 0..60 {
+            voices.heard(1, &[1; 320]);
+        }
         voices.ended(1);
-        // 1.5 to 3 s: asked for at its end, all of it.
-        said(&mut voices, 2, 1, 32_000);
+        // 1.5 to 1.8 s: asked for at its end, all of it.
+        said(&mut voices, 2, 1, 25_600);
         // Under 1.5 s, or over the lamp: never.
         said(&mut voices, 3, 1, 22_400);
         voices.began(4, false);
         voices.heard(4, &[1; 32_000]);
         voices.ended(4);
-        assert_eq!(voices.printer.asked, [(1, MOST_SAMPLES), (2, 32_000)]);
+        assert_eq!(voices.printer.asked, [(1, ASKED_AT), (2, 25_600)]);
         // Sound of another line is not this one's.
         voices.began(5, true);
         voices.heard(6, &[1; 48_000]);

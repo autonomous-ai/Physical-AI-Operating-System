@@ -322,19 +322,10 @@ mod tests {
             .unwrap();
         let mut said = |_: &str| {};
         let mut ears = BusEars::new(root.path(), &mut said);
-        // Subscribed now; the publisher finds a new subscriber within 200 ms.
-        thread::sleep(Duration::from_millis(300));
-        state
-            .publish_json(
-                1,
-                &VoiceState {
-                    state: lamp_msgs::Voice::Speaking,
-                },
-            )
-            .unwrap();
         let mut heard_pub = bus
             .publisher_declared("voice/heard", &Speech::declaration(), "voice")
             .unwrap();
+        // Subscribed now; a publisher finds a new subscriber within 200 ms.
         thread::sleep(Duration::from_millis(300));
         heard_pub
             .publish_json(
@@ -344,6 +335,17 @@ mod tests {
                     finished: true,
                     locale: None,
                     request: None,
+                },
+            )
+            .unwrap();
+        // The state last, just before listening: one older than
+        // `quiet::STATE_LASTS` (3 s) is not heard, so a stalled test thread
+        // between its publish and the listening must not age it.
+        state
+            .publish_json(
+                1,
+                &VoiceState {
+                    state: lamp_msgs::Voice::Speaking,
                 },
             )
             .unwrap();

@@ -21,12 +21,20 @@
 //! `segment-001-<signal>[-explained-N]-hearing.tsv` otherwise, one line per
 //! block with the time the lamp read it, so that a played word's own time
 //! finds its blocks; `over_run` counts the blocks heard as a person over the
-//! lamp in a row, so a run of `Confirmation::EVALUATED.onset_blocks` (7) is
-//! where the lamp would yield. Nothing is decided here: yields and stops are
-//! counted from the table. A replay of more than one segment is refused.
+//! lamp in a row. `onset_needed` is how many in a row yield there: 10 in the
+//! reply's first 1.2 s (`early_onset_blocks`), 7 after (`onset_blocks`). And
+//! `step` is what `Interruption` (`Confirmation::EVALUATED`) does with the
+//! block: `Yield`, `Commit`, `Resume` or `Carry`. The lamp counts as having
+//! a reply to yield while its render was heard in the last 300 ms
+//! (`clear_after_blocks`) or a yield is in force: an approximation of the
+//! voice's own "reply audio to hand on", which the replay does not have.
+//! The voice's first-match guard (no yield before the render has matched the
+//! microphone a few times in a reply) is not applied. Nothing is decided
+//! here: yields and stops are counted from the table. A replay of more than
+//! one segment is refused.
 use lamp_audio::{
     CAPTURE_SAMPLES, CaptureBlock,
-    duplex::{Heard, Hearing},
+    duplex::{Confirmation, Heard, Hearing, Interruption},
     evidence::EchoEvidence,
 };
 use lamp_voice::activity::SpeechProbability;
@@ -86,9 +94,10 @@ fn main() -> Result<()> {
     let mut table = BufWriter::new(fs::File::create(directory.join(&table_name))?);
     writeln!(
         table,
-        "block\tread_at_us\tvad\trender_quiet\tmatched\tcapture_explained\tresidual_floor\talignment_age\tcapture_tenths\tresidual_tenths\theard\tplain\tover_run"
+        "block\tread_at_us\tvad\trender_quiet\tmatched\tcapture_explained\tresidual_floor\talignment_age\tcapture_tenths\tresidual_tenths\theard\tplain\tover_run\tonset_needed\tstep"
     )?;
     let mut over_run = 0u32;
+    let mut interruption = Interruption::new(Confirmation::EVALUATED);
     let mut detector = SpeechProbability::default();
     let mut blocks = 0usize;
     let operations = io::BufReader::new(fs::File::open(directory.join("operations.jsonl"))?);
@@ -124,9 +133,13 @@ fn main() -> Result<()> {
         } else {
             0
         };
+        let speaking = evidence
+            .is_some_and(|evidence| evidence.render_quiet_blocks < hearing.clear_after_blocks)
+            || interruption.yielded();
+        let step = interruption.observe(heard, plain, speaking);
         writeln!(
             table,
-            "{blocks}\t{read_at}\t{probability:.4}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{heard:?}\t{}\t{over_run}",
+            "{blocks}\t{read_at}\t{probability:.4}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{heard:?}\t{}\t{over_run}\t{}\t{step:?}",
             evidence.map_or(-1, |evidence| i32::from(evidence.render_quiet_blocks)),
             u8::from(matched.is_some()),
             matched.map_or(0, |m| m.capture_explained),
@@ -135,6 +148,7 @@ fn main() -> Result<()> {
             evidence.map_or(-960, |evidence| evidence.capture_level.tenths_of_db()),
             evidence.map_or(-960, |evidence| evidence.residual_level.tenths_of_db()),
             u8::from(plain),
+            interruption.onset_needed(),
         )?;
         blocks += 1;
     }

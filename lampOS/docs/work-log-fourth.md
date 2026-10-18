@@ -4369,6 +4369,14 @@ A usage limit paused me from about 00:40 to 06:2x.
 - **#1435**, the first half: a journal line for each line judged with its print still coming, and a test that plays scene 3 at the lamp's lengths with a late stand-in child (`[true, true, true, false, false]`, the lamp's own). Mac gate: 1,943 passed and 1 failed. The failure was a real-clock staff-note test that passed 5 of 5 alone, both on the head and on `lamp-voice`.
 - **The fix** waits on the child's time for a 1.5–3 s line on the A733, which I've asked the first builder for (#829, 07:33). Then either ask once 1.5 s of speech is past the pre-roll, or wait for a coming print at the verdict up to a bound.
 
+## 2026-10-18, 08:29 ICT: #1435 merged; its P3s and the print timing in #1444; the early print in #1445
+
+- **#1435** merged at 07:49 (`547c3eb47`), a minute after the reviewer's "ready" with three P3s. The Seventh's peer review (08:13) found nothing more.
+- **#1444**, the P3s: the journal names which print was missing (the line's own, the conversation's, or no voice known), says when the child was too busy to take a line, and gives each print's time from its ask, so a lamp run with the check on times the child on the A733. On this Mac the real child took 120, 142 and 178 ms for 2.09, 2.48 and 3.00 s. Mac gate 1,951 passed, 0 failed.
+- **#1445**, the second half (the first builder's 07:56): a line's print is asked once 1.8 s of it is heard, not at 3 s, so scene 3's two short lines are asked while still heard (0.29 s and 0.68 s before their Ends). The worker-loop scene gives `[true, false, false, false, false]`; set back to 3 s, it gives the lamp's own `[true, true, true, false, false]`. Mac gate 1,951 passed, 0 failed.
+- **The evidence for 1.8 s** (`docs/verification/same-voice-early-20261018`): 15 October's 19 lamp-quiet clips were cut again from lamp-4ace's capture as the worker prints them. At 0.25, the first 1.8 s and the first 3 s each take none of the 37 same-voice pairs for two voices and catch 22 of 29; the first 1.5 s takes 6. The `full` cut reproduces 15 October's numbers.
+- **Not shown:** the child's time on the A733. The next lamp run with `43d42ce91` gives it.
+
 ## Not shown
 
 No lamp access or deployment, physical power-loss test,

@@ -1989,7 +1989,17 @@ async fn serve_with_visual<C: Connect>(
                             // (the reviewer on #1030: every chunk of an
                             // answer said it again).
                             let mut other_voice = false;
-                            let going_on = match intake.handoff.voices.as_mut().filter(|_| going_on && attention.awaits_verdict(request)).and_then(|voices| voices.likeness(request)) {
+                            let judged = intake.handoff.voices.as_mut().filter(|_| going_on && attention.awaits_verdict(request)).map(|voices| {
+                                let likeness = voices.likeness(request);
+                                (likeness, likeness.is_none() && voices.print_coming(request))
+                            });
+                            // Its print still on its way: judged as without
+                            // the check, and said, never silently again (#829,
+                            // lamp-4ace on 18 October, requests 18 and 19).
+                            if judged.is_some_and(|(_, late)| late) {
+                                eprintln!("lamp-voice provider: request {request}: its voice print was not back at its answer: judged without the check");
+                            }
+                            let going_on = match judged.and_then(|(likeness, _)| likeness) {
                                 Some(likeness) if likeness < crate::same_voice::DIFFERENT_BELOW => {
                                     eprintln!("lamp-voice provider: request {request}: another voice than the conversation's (cosine {likeness:.2}): no conversation is going on for it");
                                     other_voice = true;

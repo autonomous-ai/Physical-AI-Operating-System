@@ -535,6 +535,18 @@ impl<P: Printer> Voices<P> {
             .map(|(_, print)| print)
     }
 
+    /// Whether the print of the line `request` is on its way: asked for and
+    /// not come, or still being gathered. Its answer's verdict then comes
+    /// without it (#829, lamp-4ace on 18 October: a line asked for only at
+    /// its end was printed after Gemini's first output).
+    pub fn print_coming(&self, request: u64) -> bool {
+        self.asked.contains(&request)
+            || self
+                .clip
+                .as_ref()
+                .is_some_and(|clip| clip.request == request)
+    }
+
     /// How like the conversation's voice the line `request` is, when both
     /// are known: the cosine of their prints. Once a line: asked again for
     /// the same line, nothing.
@@ -615,6 +627,37 @@ mod tests {
             voices.heard(request, &[voice; 320]);
         }
         voices.ended(request);
+    }
+
+    /// #829, lamp-4ace on 18 October: a line's print is on its way while
+    /// its first samples are gathered and once it is asked for, until it
+    /// comes. A line too short to know, or said over the lamp, has none
+    /// coming.
+    #[test]
+    fn a_print_is_coming_from_its_first_sample_until_it_comes() {
+        let mut voices = Voices::new(StandIn {
+            slow: true,
+            ..StandIn::default()
+        });
+        voices.began(7, true);
+        voices.heard(7, &[1; 320]);
+        assert!(voices.print_coming(7));
+        for _ in 0..LEAST_SAMPLES.div_ceil(320) {
+            voices.heard(7, &[1; 320]);
+        }
+        voices.ended(7);
+        assert!(voices.print_coming(7));
+        assert!(!voices.print_coming(8));
+        assert_eq!(voices.likeness(7), None);
+        voices.printer.slow = false;
+        voices.poll();
+        assert!(!voices.print_coming(7));
+        // Too short to know, and over the lamp: none coming.
+        said(&mut voices, 9, 1, LEAST_SAMPLES - 320);
+        assert!(!voices.print_coming(9));
+        voices.began(10, false);
+        voices.heard(10, &[1; 320]);
+        assert!(!voices.print_coming(10));
     }
 
     #[test]

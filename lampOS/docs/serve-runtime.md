@@ -373,7 +373,9 @@ blocks were 94 % at the median and 0 % at the p10: the share alone says the
 lamp is not heard as a person, and the open question is whether a stop gives
 the seven `Over` blocks in a row that yield. `hearing_replay REPLAY_DIR
 --signal aec_linear [--explained N]` scores the linear output through those
-rules, `over_run` counting the blocks in a row, so a replay shows both the
+rules, `over_run` counting the blocks in a row against `onset_needed` (10
+in the reply's first 1.2 s, 7 after) and `step` giving what `Interruption`
+does with each block, so a replay shows both the
 lamp-alone false yields and the stops caught, at today's 75 % or another
 share. The replay that decides it reads both. Capture says at start that
 the detector reads the linear output, and once a minute on how many blocks

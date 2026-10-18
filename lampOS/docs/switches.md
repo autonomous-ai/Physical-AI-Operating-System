@@ -1,7 +1,7 @@
 # Switches
 
 Every setting that turns a behaviour on in `lamp-voice`, `lamp-body`, `lamp-eyes`,
-`lamp-expression`, `lamp-skills`, `lamp-tasks`, `lamp-controls` and `lamp-cloud`: what it does,
+`lamp-expression`, `lamp-name`, `lamp-skills`, `lamp-tasks`, `lamp-controls` and `lamp-cloud`: what it does,
 what lamp-4ace and the product set, the pull request that added it with the lamp
 check it named, and the product default proposed for it. Made for the owner's
 question of 17 October, "why off?", and for switching lamp-4ace on group by
@@ -38,13 +38,13 @@ on or removed.
 
 ## The count
 
-114 switches (`LAMP_CLOUD` added with #1418, off; `LAMP_VAD_INPUT` added with #1416, off; `LAMP_SERVICE_DOWN_LINE` added with #830 (C), off; `LAMP_EYES_SPEAKING` added with #1385, off; `LAMP_QUIET_PACE` and `--call-wait-ms` added with #1332, both set in the product unit, counted as on; `LAMP_PROVIDER_WRITES` added with #705, off):
+115 switches (`lamp-name --quiet-below` added with #705 (heat), off; `LAMP_CLOUD` added with #1418, off; `LAMP_VAD_INPUT` added with #1416, off; `LAMP_SERVICE_DOWN_LINE` added with #830 (C), off; `LAMP_EYES_SPEAKING` added with #1385, off; `LAMP_QUIET_PACE` and `--call-wait-ms` added with #1332, both set in the product unit, counted as on; `LAMP_PROVIDER_WRITES` added with #705, off):
 
 | | Voice: hearing, turns, ring | Voice: tasks, memory, schedule, skills, looks | Voice: its own flags | Other parts | All |
 |---|---|---|---|---|---|
 | On already, or right at its default | 16 | 10 | 8 | 16 | **50** |
 | **Proposed to turn on now** | 0 | 1 | 0 | 1 | **2** |
-| Off until its named lamp check | 28 | 14 | 0 | 7 | **49** |
+| Off until its named lamp check | 28 | 14 | 0 | 8 | **50** |
 | Stays off (diagnostic, turned down, or not needed) | 5 | 1 | 2 | 2 | **10** |
 | A setting, not a behaviour | 1 | 2 | 0 | 0 | **3** |
 
@@ -64,8 +64,9 @@ failing scenes are for Sunday's two-people table (#829).
 motion, since lamp-4ace's motors stay still until Monday: `LAMP_STAFF_NOTE`
 (the in-time/late count), `LAMP_SHORT_SOUNDS=quiet-room-checked`,
 `LAMP_ASKER_FIRST=record`, `LAMP_STOP_TOLD`, `LAMP_WAIT_KEEPS_ANSWER`,
-`LAMP_TASK_NEWS_AT_PAUSE`, `lamp-eyes --leave-still-faces` (one live night) and
-`lamp-expression --offline-face`.
+`LAMP_TASK_NEWS_AT_PAUSE`, `lamp-eyes --leave-still-faces` (one live night),
+`lamp-expression --offline-face` and `lamp-name --quiet-below` (an hour's
+levels, then a night).
 
 ## The voice: hearing, turns, the ring and the backup voice
 
@@ -198,6 +199,7 @@ its lamp-4ace run is Monday's, with a person there.
 | `lamp-eyes --steady-rate` | `on`/`off`; off. Looks 2/s instead of 4/s while one face sits still | — | — | #1114 | Only an offline cost estimate (about 21% vs 11% of a core on lamp-4ace); lamp-52e6 still to measure | off until measured on a lamp | It halves the eyes' CPU but slows gaze correction (1.5 s vs 0.75 s), not yet seen on a lamp |
 | `lamp-eyes --leave-still-faces` | `on`/`off`; off. Leaves out a small, faint face at a fixed spot (a false face) | — | — | #766 | Host replay of lamp-4ace's night: 55 of 55 false faces left out, 0 people; not yet live | off now; on after one live night on lamp-4ace | The replay is strong, but a run on a lamp is still owed before it becomes the default |
 | `lamp-eyes` LAMP_EYES_SPEAKING | `on`; off. With `LAMP_BUS=on`, each face on `humans/faces/tracked` gets `speaking` (yes/no/unknown, score) from YuNet's five marks; nothing reads it yet | — | — | #720 | Offline only: synthetic faces at 60 px between the eyes and 0.3 px of jitter, looked at every 250 to 350 ms (still, nodding, nodding at a 20° tilt, turning, closer, talking, talking while moving) right in at least 90% of looks; at --steady-rate's 500 ms under half (eyes.md, "Whether a face is speaking") | off until YuNet's corner jitter on a still face at 0.5 and 1 m is measured on a lamp | It holds only for a near face (60 px, about 0.45 m) with steady marks; at 1 m (about 27 px) it does not, on the synthetic model; no reader exists yet |
+| `lamp-name --quiet-below` | dBFS, -90 to -30; off. The name's models rest while the last 2.03 s held no sample this loud, and give the same scores when one comes | — | — | #705 (heat) | The bar read on lamp-4ace with it off (the minute line's loudest step, empty room and quietest call), then the saving and `name/rising` with it on | off until the bar is set on lamp-4ace | About 12% of a core idle on lamp-4ace; exact scores shown on a stand-in and, on a laptop, with the real models |
 | `lamp-expression --enable` | flag; off (shadow). Publishes body and light requests instead of only planning | set | set | commit 6226dae33 (direct) | On lamp-4ace with the alive catalogue since 14 Oct, shown | on (already) | Without it Expression only plans, and nothing moves or lights |
 | `lamp-expression --head-touch` | flag; off. Leans into a held hand, sleeps on a 3 s hold, wakes on a tap | — | — | #849 | None shown: ARM64 binaries listed for a lamp run, no result recorded | off until shown, with the voice's LAMP_HEAD_TOUCH | Product Controls publish head touches (`--touch`), but nothing has been seen on a lamp |
 | `lamp-expression --kernel-clock` | flag; off. Time of day only once the kernel says the clock is set | — | set | #884 | Read-only on lamp-75c9 (chrony keeps the clock); nothing run with the network cut | on (already) | No battery clock, so without it a stale boot clock can bring a false night (install.md) |

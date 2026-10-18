@@ -44,7 +44,7 @@ on or removed.
 |---|---|---|---|---|---|
 | On already, or right at its default | 16 | 10 | 8 | 16 | **50** |
 | **Proposed to turn on now** | 0 | 1 | 0 | 1 | **2** |
-| Off until its named lamp check | 28 | 13 | 1 | 6 | **48** |
+| Off until its named lamp check | 29 | 13 | 0 | 6 | **48** |
 | Stays off (diagnostic, turned down, or not needed) | 5 | 1 | 2 | 2 | **10** |
 | A setting, not a behaviour | 1 | 2 | 0 | 0 | **3** |
 

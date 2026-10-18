@@ -115,9 +115,14 @@ step whose block is still held is kept as a PCM-free `reference_step` record
 (`ReferenceStepMeta`: the capture, DSP and privacy identity, the waiting
 block's `frame_sequence`, the step's time and its `ReferenceMeta`), so
 `lamp-audio replay-aec` takes those steps as the lamp did and stays bit for
-bit (#828). A recording made before these records existed stops at its first
-capture record with "capture/analysis cursor, phase count or clock continuity
-is insufficient".
+bit (#828). A recording made before these records existed has its hold
+worked out from the first block's count (at most eight, the voice's bound):
+the held steps are timed evenly between that block's read and its cursor, and
+the report says `held_steps_inferred`. Those guessed times seed the rate
+controller a little off, so such a replay is close (18 of 9,600 samples
+differ in the test) and stops where the replayed ring falls a frame behind
+the lamp's, about 0.7 s into the test's 3 s. A recording with its held steps
+recorded replays bit for bit.
 `RenderMeta` carries playback/privacy identity, first/end accepted sample cursors,
 acceptance/queue observation times, queue depth and optional owner/chunk identity.
 Negative driver queue values remain observations; diagnostics do not correct them.

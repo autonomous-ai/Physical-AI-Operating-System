@@ -125,6 +125,8 @@ struct Rig {
     speaker: ReferenceChannels,
     device: CaptureControl,
     worker: Option<JoinHandle<Result<(), String>>>,
+    /// Where the worker records, when it does.
+    recording: Option<std::path::PathBuf>,
     owner: TurnOwner,
     privacy: u64,
     origin: Instant,
@@ -208,7 +210,20 @@ impl Rig {
         recovery: ReferenceRecovery,
         raw_blocks: bool,
     ) -> Self {
-        let mut rig = Self::spawn(device_name, failed, recovery, raw_blocks);
+        let mut rig = Self::spawn(device_name, failed, recovery, raw_blocks, false);
+        rig.handshake();
+        rig
+    }
+
+    /// The same, with the worker recording (`--diagnostics`) beside it.
+    fn start_recording(device_name: &'static str) -> Self {
+        let mut rig = Self::spawn(
+            device_name,
+            (0, lamp_audio::device::errno::BUSY),
+            ReferenceRecovery::Off,
+            false,
+            true,
+        );
         rig.handshake();
         rig
     }
@@ -219,8 +234,11 @@ impl Rig {
         (failed_opens, errno): (usize, i32),
         recovery: ReferenceRecovery,
         raw_blocks: bool,
+        record: bool,
     ) -> Self {
         let directory = SessionDirectory::create().unwrap();
+        let recording = record.then(|| directory.path.join("capture-audio"));
+        let diagnostics = recording.clone();
         let (parent_boot, worker_boot, speaker_boot) = (
             new_boot().unwrap(),
             new_boot().unwrap(),
@@ -248,7 +266,7 @@ impl Rig {
                 worker_boot,
                 &path,
                 device_name,
-                None,
+                diagnostics.as_deref(),
                 NoiseSuppression::Off,
                 ReferenceClock::Capture,
                 recovery,
@@ -268,6 +286,7 @@ impl Rig {
             speaker,
             device,
             worker: Some(worker),
+            recording,
             owner: owner(parent_boot),
             privacy: 0,
             origin: Instant::now(),
@@ -696,6 +715,66 @@ fn mic1_frames_wait_four_blocks_with_their_own_times_and_a_stop_drops_what_is_he
     );
 }
 
+/// The reviewer on #1430: the recorder's held steps from the real loop. With
+/// `mic1` and a recording, the four steps before the first block is handed
+/// on are kept as `reference_step` records ahead of capture 1, naming blocks
+/// 1 to 4 with counts 1 to 4; every capture record after carries a count four
+/// ahead of its block; the recording is complete; and the blocks handed on
+/// are the ones a run without a recording hands on.
+#[test]
+fn mic1_with_a_recording_keeps_the_held_steps_before_the_first_block() {
+    warm_up();
+    let name = Microphone::Mic1.device();
+    let signal = Signal::new(200);
+    let mut rig = Rig::start_recording(name);
+    rig.stream(&signal, 200);
+    rig.settle(4);
+    rig.end_with(Control::Stop);
+    let directory = rig.recording.clone().unwrap();
+    let pushed_at = rig.pushed_at.clone();
+    let frames = rig.finish();
+    check(&frames, &pushed_at, 4);
+    assert!(directory.join("complete.json").exists(), "not complete");
+    let events = std::fs::read_to_string(directory.join("events.jsonl")).unwrap();
+    let rows: Vec<serde_json::Value> = events
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    let steps: Vec<_> = rows
+        .iter()
+        .filter(|row| row["kind"] == "reference_step" || row["kind"] == "capture")
+        .collect();
+    for (index, row) in steps.iter().take(4).enumerate() {
+        assert_eq!(row["kind"], "reference_step", "{index}");
+        assert_eq!(row["frames"], 0);
+        assert_eq!(row["meta"]["frame_sequence"], index as u64 + 1);
+        assert_eq!(
+            row["meta"]["reference"]["capture_blocks_processed"],
+            index as u64 + 1
+        );
+    }
+    let captures: Vec<_> = steps.iter().skip(4).collect();
+    assert!(captures.iter().all(|row| row["kind"] == "capture"));
+    assert_eq!(captures.len(), frames.len());
+    for (index, row) in captures.iter().enumerate() {
+        assert_eq!(row["meta"]["frame_sequence"], index as u64 + 1);
+        assert_eq!(
+            row["meta"]["reference"]["capture_blocks_processed"],
+            index as u64 + 5
+        );
+    }
+    // What the microphone held, recorded before the canceller, block for
+    // block: the hold changed what is handed on, not which blocks.
+    let pre = std::fs::read(directory.join("pre_aec.pcm16le")).unwrap();
+    for (index, block) in pre.chunks_exact(CAPTURE_SAMPLES * 2).enumerate() {
+        let samples: Vec<i16> = block
+            .chunks_exact(2)
+            .map(|pair| i16::from_le_bytes([pair[0], pair[1]]))
+            .collect();
+        assert_eq!(samples, signal.microphone(index), "{index}");
+    }
+}
+
 #[test]
 fn mic1_muted_while_frames_are_held_hands_none_of_them_on() {
     warm_up();
@@ -826,6 +905,7 @@ fn a_mute_while_the_microphone_is_waited_for_opens_nothing() {
         "scripted gone then muted",
         (40, lamp_audio::device::errno::NODEV),
         ReferenceRecovery::Off,
+        false,
         false,
     );
     // Long enough for the first tries to fail: it is waiting.

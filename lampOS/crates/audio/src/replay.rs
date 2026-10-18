@@ -258,6 +258,9 @@ pub struct SegmentReport {
     /// Reference steps taken while their capture block was held back
     /// (`reference_step` records, the voice's `CaptureHold`).
     pub held_reference_steps: u64,
+    /// Whether those steps were worked out from the first block's count (a
+    /// recording without `reference_step` records), timed by its cursor.
+    pub held_steps_inferred: bool,
     pub render_blocks: u64,
     pub last_analysed_through: u64,
     pub delay_ms_min: u16,
@@ -906,6 +909,8 @@ fn render_epochs(bundle: &Bundle) -> Result<BTreeMap<u64, Epoch>> {
     Ok(epochs)
 }
 
+/// The longest capture hold the voice uses (`reference::hold::MAX_BLOCKS`).
+const MAX_HELD_BLOCKS: u64 = 8;
 struct Segment {
     reset: Reset,
     next_sequence: u64,
@@ -914,6 +919,9 @@ struct Segment {
     /// (the lamp's `CaptureHold`): the reference is that many steps ahead of
     /// the block it pairs with.
     held: u64,
+    /// The held steps were worked out from the first block's count, not
+    /// recorded.
+    held_inferred: bool,
     analysed: u64,
     packet_index: usize,
     closed: bool,
@@ -1055,6 +1063,7 @@ impl Segment {
             next_sequence,
             frames: 0,
             held: 0,
+            held_inferred: false,
             analysed: 0,
             packet_index: 0,
             closed: false,
@@ -1198,11 +1207,11 @@ fn apply_step(
             advance_reference(
                 segment,
                 &meta.reference,
-                (meta.dsp_epoch, meta.privacy_generation),
-                sequence,
+                (meta.dsp_epoch, meta.privacy_generation, sequence),
                 render,
                 epochs,
                 operations,
+                None,
             )?;
             segment.held += 1;
         }
@@ -1215,6 +1224,28 @@ fn apply_step(
                 .as_mut()
                 .ok_or_else(|| invalid("capture arrived without a recorded Start/prime"))?;
             let reference = &meta.reference;
+            // A recording made before held steps were kept (#828): the
+            // first block's count gives the hold, and the held steps are
+            // taken from its cursor, which their own times would refine.
+            // Only the step that hands the block on is checked against the
+            // lamp's cursor, as every step after it is.
+            let inferred = (segment.clock.is_some()
+                && segment.frames == 0
+                && segment.held == 0
+                && reference.capture_blocks_processed > 1)
+                .then(|| reference.capture_blocks_processed - 1);
+            if let Some(hold) = inferred {
+                if hold > MAX_HELD_BLOCKS {
+                    return Err(at(
+                        sequence,
+                        &format!(
+                            "the first block is {hold} reference steps behind, beyond the voice's hold of at most {MAX_HELD_BLOCKS}"
+                        ),
+                    ));
+                }
+                segment.held = hold;
+                segment.held_inferred = true;
+            }
             if meta.frame_sequence != segment.next_sequence
                 || !segment.continues(
                     (meta.epoch, meta.dsp_epoch, meta.privacy_generation),
@@ -1227,14 +1258,30 @@ fn apply_step(
                     "capture/analysis cursor, phase count or clock continuity is insufficient",
                 ));
             }
+            // Step 1 read this block; the step that hands it on is the
+            // cursor's. The held steps between are taken evenly spaced.
+            let read = meta.read_completed_at_us;
+            let span = reference.analysed_at_us.saturating_sub(read);
+            let hold = inferred.unwrap_or(0);
+            for step in 0..hold {
+                advance_reference(
+                    segment,
+                    reference,
+                    (meta.dsp_epoch, meta.privacy_generation, sequence),
+                    render,
+                    epochs,
+                    operations,
+                    Some(read + span * step / hold),
+                )?;
+            }
             advance_reference(
                 segment,
                 reference,
-                (meta.dsp_epoch, meta.privacy_generation),
-                sequence,
+                (meta.dsp_epoch, meta.privacy_generation, sequence),
                 render,
                 epochs,
                 operations,
+                None,
             )?;
             let pre = block(&capture.files["pre_aec.pcm16le"], offset)?;
             let post = block(&capture.files["post_aec.pcm16le"], offset)?;
@@ -1302,12 +1349,13 @@ fn apply_step(
 fn advance_reference(
     segment: &mut Segment,
     reference: &Reference,
-    (dsp_epoch, privacy_generation): (u64, u64),
-    sequence: u64,
+    (dsp_epoch, privacy_generation, sequence): (u64, u64, u64),
     render: &Bundle,
     epochs: &BTreeMap<u64, Epoch>,
     operations: &mut File,
+    inferred_at: Option<u64>,
 ) -> Result<()> {
+    let checked = inferred_at.is_none();
     let epoch = epochs
         .get(&reference.playback_epoch)
         .ok_or_else(|| at(sequence, "missing accepted render epoch"))?;
@@ -1323,12 +1371,33 @@ fn advance_reference(
         if reference.accepted_through < clock.pushed {
             return Err(at(sequence, "the accepted cursor went back"));
         }
+        // An inferred held step, at the time given for it, has what had
+        // been seen accepted by then, up to the cursor the block records.
+        let (through, accepted_at, analysed_at) = match inferred_at {
+            None => (
+                reference.accepted_through,
+                reference.accepted_at_us,
+                reference.analysed_at_us,
+            ),
+            Some(now) => epoch
+                .packets
+                .iter()
+                .filter(|packet| {
+                    packet.meta.queue_observed_at_us <= now
+                        && packet.meta.end_sample <= reference.accepted_through
+                })
+                .map(|packet| (packet.meta.end_sample, packet.meta.accepted_at_us))
+                .max()
+                .map_or((clock.pushed, 0, now), |(end, at)| {
+                    (end.max(clock.pushed), at, now)
+                }),
+        };
         let frames = accepted_frames(
             epoch,
             &render.files["render_accepted.pcm16le"],
-            clock.pushed..reference.accepted_through,
+            clock.pushed..through,
             &mut segment.packet_index,
-            reference.analysed_at_us,
+            analysed_at,
             privacy_generation,
         )
         .map_err(|reason| at(sequence, &reason.to_string()))?;
@@ -1338,7 +1407,7 @@ fn advance_reference(
                 "more reference would be waiting than the lamp's ring holds",
             ));
         }
-        clock.pushed = reference.accepted_through;
+        clock.pushed = through;
         let mut samples = [0; RENDER_SAMPLES];
         if clock.resampler.take(&mut samples).is_err() {
             return Err(at(
@@ -1352,10 +1421,7 @@ fn advance_reference(
         // The rate for the next block, from the fill and what the
         // speaker had accepted since its last packet, as the voice
         // sets it.
-        let since = reference
-            .analysed_at_us
-            .saturating_sub(reference.accepted_at_us)
-            .min(20_000);
+        let since = analysed_at.saturating_sub(accepted_at).min(20_000);
         let owed = since as f64 * f64::from(RENDER_RATE) / 1e6;
         let ppm = clock
             .controller
@@ -1365,7 +1431,7 @@ fn advance_reference(
             .resampler
             .consumed()
             .saturating_sub(LEAD_FRAMES as u64);
-        if analysed != reference.analysed_through {
+        if checked && analysed != reference.analysed_through {
             return Err(at(
                 sequence,
                 &format!(
@@ -1377,7 +1443,7 @@ fn advance_reference(
         segment.analysed = analysed;
         line(
             operations,
-            &json!({"kind":"render_for_capture","dsp_epoch":dsp_epoch,"playback_epoch":reference.playback_epoch,"accepted_through":reference.accepted_through,"analysed_through":analysed,"rate_ppm":ppm,"unread_frames":clock.resampler.unread(),"before_capture_record":sequence,"recorded_analysis_at_us":reference.analysed_at_us}),
+            &json!({"kind":if checked { "render_for_capture" } else { "render_for_held_capture_inferred" },"dsp_epoch":dsp_epoch,"playback_epoch":reference.playback_epoch,"accepted_through":reference.accepted_through,"analysed_through":analysed,"rate_ppm":ppm,"unread_frames":clock.resampler.unread(),"before_capture_record":sequence,"recorded_analysis_at_us":reference.analysed_at_us}),
         )?;
     }
     while segment.clock.is_none() && segment.analysed < reference.analysed_through {
@@ -1527,6 +1593,7 @@ fn finish_segment(segment: Segment, output: &Output, report: &mut ReplayReport) 
         last_processing_completed_at_us: segment.last_at,
         capture_blocks: segment.frames,
         held_reference_steps: segment.held,
+        held_steps_inferred: segment.held_inferred,
         render_blocks: segment.analysed / 240,
         last_analysed_through: segment.analysed,
         delay_ms_min: segment.delay_min,
